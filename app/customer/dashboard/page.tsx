@@ -246,7 +246,7 @@ export default function CustomerDashboard() {
   const getBookingsByStatus = (status: 'upcoming' | 'completed' | 'cancelled') => {
     // Map dashboard status to actual database status values
     const statusMapping: Record<'upcoming' | 'completed' | 'cancelled', string[]> = {
-      'upcoming': ['pending', 'confirmed', 'in_progress'], // pending, confirmed and in_progress bookings are upcoming
+      'upcoming': ['pending', 'confirmed', 'in_progress', 'pending_cod_collection'], // pending, confirmed, in_progress, and pending_cod_collection bookings are upcoming
       'completed': ['completed'], // completed bookings
       'cancelled': ['cancelled']  // cancelled bookings
     };
@@ -415,6 +415,8 @@ function BookingCard({ booking, formatDate, getDeviceImage }: BookingCardProps) 
         return "bg-blue-100 text-blue-800";
       case "in_progress":
         return "bg-orange-100 text-orange-800";
+      case "pending_cod_collection":
+        return "bg-purple-100 text-purple-800";
       case "completed":
         return "bg-green-100 text-green-800";
       case "cancelled":
@@ -469,7 +471,10 @@ function BookingCard({ booking, formatDate, getDeviceImage }: BookingCardProps) 
                     {booking.device?.brand} {booking.device?.model}
                   </h3>
                   <Badge className={getStatusColor(booking.status)}>
-                    {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                    {booking.status === "pending_cod_collection" 
+                      ? "Service Completed - Pay on Delivery" 
+                      : booking.status.charAt(0).toUpperCase() + booking.status.slice(1)
+                    }
                   </Badge>
                 </div>
 

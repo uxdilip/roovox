@@ -238,7 +238,7 @@ const createBookingsCollection = async () => {
     await databases.createStringAttribute(DATABASE_ID, COLLECTIONS.BOOKINGS, 'service_id', 255, true);
     await databases.createStringAttribute(DATABASE_ID, COLLECTIONS.BOOKINGS, 'issue_description', 2000, false);
     await databases.createEnumAttribute(DATABASE_ID, COLLECTIONS.BOOKINGS, 'part_quality', ['basic', 'standard', 'premium'], true);
-    await databases.createEnumAttribute(DATABASE_ID, COLLECTIONS.BOOKINGS, 'status', ['pending', 'confirmed', 'in_progress', 'completed', 'cancelled'], true);
+    await databases.createEnumAttribute(DATABASE_ID, COLLECTIONS.BOOKINGS, 'status', ['pending', 'confirmed', 'in_progress', 'pending_cod_collection', 'completed', 'cancelled'], true);
     await databases.createDatetimeAttribute(DATABASE_ID, COLLECTIONS.BOOKINGS, 'appointment_time', true);
     await databases.createFloatAttribute(DATABASE_ID, COLLECTIONS.BOOKINGS, 'total_amount', true);
     await databases.createEnumAttribute(DATABASE_ID, COLLECTIONS.BOOKINGS, 'payment_status', ['pending', 'completed', 'refunded', 'cancelled'], true);

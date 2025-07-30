@@ -233,7 +233,7 @@ export default function ProviderDashboardPage() {
   const bookingsByTab = useMemo(() => {
     let filtered = bookings;
     if (bookingsTab === "upcoming") {
-      filtered = filtered.filter(b => ["pending", "confirmed", "in_progress"].includes(b.status));
+      filtered = filtered.filter(b => ["pending", "confirmed", "in_progress", "pending_cod_collection"].includes(b.status));
     } else if (bookingsTab === "completed") {
       filtered = filtered.filter(b => b.status === "completed");
     } else if (bookingsTab === "cancelled") {
@@ -299,6 +299,8 @@ export default function ProviderDashboardPage() {
           return "bg-blue-100 text-blue-800";
         case "in_progress":
           return "bg-orange-100 text-orange-800";
+        case "pending_cod_collection":
+          return "bg-green-100 text-green-800"; // Show as green (completed) to provider
         case "completed":
           return "bg-green-100 text-green-800";
         case "cancelled":
@@ -308,9 +310,18 @@ export default function ProviderDashboardPage() {
       }
     };
 
+    const getStatusDisplay = (status: string) => {
+      switch (status) {
+        case "pending_cod_collection":
+          return "Completed"; // Provider sees "Completed" even though it's pending cash collection
+        default:
+          return status.charAt(0).toUpperCase() + status.slice(1);
+      }
+    };
+
     return (
       <Badge className={getStatusColor(status)}>
-        {status.charAt(0).toUpperCase() + status.slice(1)}
+        {getStatusDisplay(status)}
       </Badge>
     );
   };
@@ -349,8 +360,14 @@ export default function ProviderDashboardPage() {
         }
         console.log('Setting status to cancelled with reason:', declineReason);
       } else if (action === "complete") {
-        update.status = "completed";
-        console.log('Setting status to completed');
+        // Check if this is a COD + Doorstep booking
+        if (booking.payment_status === "pending" && booking.location_type === "doorstep") {
+          update.status = "pending_cod_collection";
+          console.log('Setting status to pending_cod_collection (COD + Doorstep)');
+        } else {
+          update.status = "completed";
+          console.log('Setting status to completed');
+        }
       }
       update.updated_at = new Date().toISOString();
       console.log('Updating booking with:', update);
@@ -562,9 +579,15 @@ export default function ProviderDashboardPage() {
                     </div>
                     <ShadTabs value={bookingsTab} onValueChange={setBookingsTab} className="w-full">
                       <ShadTabsList className="mb-4 w-full flex gap-2 bg-muted rounded-lg p-1">
-                        <ShadTabsTrigger value="upcoming" className="flex-1">Upcoming</ShadTabsTrigger>
-                        <ShadTabsTrigger value="completed" className="flex-1">Completed</ShadTabsTrigger>
-                        <ShadTabsTrigger value="cancelled" className="flex-1">Cancelled</ShadTabsTrigger>
+                        <ShadTabsTrigger value="upcoming" className="flex-1">
+                          Upcoming ({bookings.filter(b => ["pending", "confirmed", "in_progress", "pending_cod_collection"].includes(b.status)).length})
+                        </ShadTabsTrigger>
+                        <ShadTabsTrigger value="completed" className="flex-1">
+                          Completed ({bookings.filter(b => b.status === "completed").length})
+                        </ShadTabsTrigger>
+                        <ShadTabsTrigger value="cancelled" className="flex-1">
+                          Cancelled ({bookings.filter(b => b.status === "cancelled").length})
+                        </ShadTabsTrigger>
                       </ShadTabsList>
                       <ShadTabsContent value="upcoming">
                         {loadingBookings ? (
@@ -605,9 +628,6 @@ export default function ProviderDashboardPage() {
                                     <span className="text-gray-600">
                                       {booking.payment_status === "pending" ? "COD" : "Online"}
                                     </span>
-                                    <Badge className={booking.payment_status === "completed" ? "bg-green-100 text-green-800" : booking.payment_status === "cancelled" ? "bg-red-100 text-red-800" : "bg-yellow-100 text-yellow-800"}>
-                                      {booking.payment_status === "completed" ? "Completed" : booking.payment_status === "cancelled" ? "Cancelled" : "Pending"}
-                                    </Badge>
                                   </div>
                                   <div className="flex items-center justify-between pt-2 border-t">
                                     <div className="text-lg font-bold text-primary">
@@ -632,6 +652,10 @@ export default function ProviderDashboardPage() {
                                       {/* in_progress: Mark as Completed */}
                                       {booking.status === "in_progress" && (
                                         <Button size="sm" variant="default" onClick={() => handleBookingAction(booking, "complete")}>Mark as Completed</Button>
+                                      )}
+                                      {/* pending_cod_collection: Show as completed to provider */}
+                                      {booking.status === "pending_cod_collection" && (
+                                        <span className="text-xs text-muted-foreground">No actions</span>
                                       )}
                                       {/* completed/cancelled: No actions */}
                                       {(booking.status === "completed" || booking.status === "cancelled") && (
@@ -689,9 +713,6 @@ export default function ProviderDashboardPage() {
                                     <span className="text-gray-600">
                                       {booking.payment_status === "pending" ? "COD" : "Online"}
                                     </span>
-                                    <Badge className={booking.payment_status === "completed" ? "bg-green-100 text-green-800" : booking.payment_status === "cancelled" ? "bg-red-100 text-red-800" : "bg-yellow-100 text-yellow-800"}>
-                                      {booking.payment_status === "completed" ? "Completed" : booking.payment_status === "cancelled" ? "Cancelled" : "Pending"}
-                                    </Badge>
                                   </div>
                                   <div className="flex items-center justify-between pt-2 border-t">
                                     <div className="text-lg font-bold text-primary">

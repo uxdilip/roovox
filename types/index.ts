@@ -75,6 +75,7 @@ export type BookingStatus =
   | "pending"
   | "confirmed"
   | "in_progress"
+  | "pending_cod_collection"
   | "completed"
   | "cancelled"
   | "disputed";
