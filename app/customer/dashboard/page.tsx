@@ -48,6 +48,7 @@ interface Booking {
     payment_method: string;
     status: string;
   };
+  cancellation_reason?: string;
 }
 
 export default function CustomerDashboard() {
@@ -81,7 +82,16 @@ export default function CustomerDashboard() {
         );
 
         console.log("Found bookings:", bookingsResponse.documents.length);
-        console.log("Bookings:", bookingsResponse.documents);
+        console.log("Bookings:", bookingsResponse.documents.map(b => ({
+          id: b.$id,
+          status: b.status,
+          payment_status: b.payment_status,
+          created_at: b.created_at
+        })));
+        
+        // Log completed bookings specifically
+        const completedBookings = bookingsResponse.documents.filter(b => b.status === 'completed');
+        console.log("Completed bookings:", completedBookings.length, completedBookings.map(b => b.$id));
 
         // Fetch additional details for each booking
         const bookingsWithDetails = await Promise.all(
@@ -235,14 +245,21 @@ export default function CustomerDashboard() {
 
   const getBookingsByStatus = (status: 'upcoming' | 'completed' | 'cancelled') => {
     // Map dashboard status to actual database status values
-    const statusMapping: Record<'upcoming' | 'completed' | 'cancelled', string> = {
-      'upcoming': 'confirmed', // confirmed bookings are upcoming
-      'completed': 'completed', // completed bookings
-      'cancelled': 'cancelled'  // cancelled bookings
+    const statusMapping: Record<'upcoming' | 'completed' | 'cancelled', string[]> = {
+      'upcoming': ['pending', 'confirmed', 'in_progress'], // pending, confirmed and in_progress bookings are upcoming
+      'completed': ['completed'], // completed bookings
+      'cancelled': ['cancelled']  // cancelled bookings
     };
     
-    const actualStatus = statusMapping[status];
-    return bookings.filter(booking => booking.status === actualStatus);
+    const actualStatuses = statusMapping[status];
+    const filteredBookings = bookings.filter(booking => actualStatuses.includes(booking.status));
+    console.log(`getBookingsByStatus(${status}):`, {
+      totalBookings: bookings.length,
+      filteredCount: filteredBookings.length,
+      statuses: bookings.map(b => b.status),
+      filteredStatuses: filteredBookings.map(b => b.status)
+    });
+    return filteredBookings;
   };
 
   const getDeviceImage = (deviceType: string, deviceModel: string) => {
@@ -392,8 +409,12 @@ interface BookingCardProps {
 function BookingCard({ booking, formatDate, getDeviceImage }: BookingCardProps) {
   const getStatusColor = (status: string) => {
     switch (status) {
+      case "pending":
+        return "bg-yellow-100 text-yellow-800";
       case "confirmed":
         return "bg-blue-100 text-blue-800";
+      case "in_progress":
+        return "bg-orange-100 text-orange-800";
       case "completed":
         return "bg-green-100 text-green-800";
       case "cancelled":
@@ -409,6 +430,10 @@ function BookingCard({ booking, formatDate, getDeviceImage }: BookingCardProps) 
         return "bg-green-100 text-green-800";
       case "pending":
         return "bg-yellow-100 text-yellow-800";
+      case "cancelled":
+        return "bg-red-100 text-red-800";
+      case "refunded":
+        return "bg-red-100 text-red-800";
       case "failed":
         return "bg-red-100 text-red-800";
       default:
@@ -492,7 +517,6 @@ function BookingCard({ booking, formatDate, getDeviceImage }: BookingCardProps) 
                   <span className="text-sm font-medium text-gray-900">
                     {booking.provider?.name}
                   </span>
-                  {/* Provider Rating */}
                   {booking.provider?.rating !== undefined && booking.provider?.totalReviews !== undefined && (
                     <div className="flex items-center gap-1">
                       <Star className="h-3 w-3 text-yellow-400 fill-current" />
@@ -501,8 +525,14 @@ function BookingCard({ booking, formatDate, getDeviceImage }: BookingCardProps) 
                       </span>
             </div>
           )}
-        </div>
-
+                </div>
+                {booking.status === "cancelled" && booking.cancellation_reason && (
+                  <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-md">
+                    <p className="text-sm text-red-800">
+                      <strong>Cancellation Reason:</strong> {booking.cancellation_reason}
+                    </p>
+                  </div>
+                )}
                 {/* Payment Info */}
                 <div className="flex items-center gap-4 text-sm">
                   <div className="flex items-center gap-2">
@@ -514,14 +544,14 @@ function BookingCard({ booking, formatDate, getDeviceImage }: BookingCardProps) 
                       }
                     </span>
                   </div>
-                  <Badge className={getPaymentStatusColor(booking.payment?.status || "pending")}>
-                    {booking.payment?.status ? 
-                      booking.payment.status.charAt(0).toUpperCase() + booking.payment.status.slice(1) : 
+                  <Badge className={getPaymentStatusColor(booking.payment_status || "pending")}>
+                    {booking.payment_status ? 
+                      booking.payment_status.charAt(0).toUpperCase() + booking.payment_status.slice(1) : 
                       "Pending"
                     }
                   </Badge>
                 </div>
-              </div>
+        </div>
 
               {/* Action Button */}
               <div className="flex-shrink-0">

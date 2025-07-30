@@ -10,12 +10,14 @@ import { useRouter } from "next/navigation";
 import ProviderServicesPage from "../services/page";
 import { databases, DATABASE_ID } from "@/lib/appwrite";
 import { Query } from "appwrite";
-import { Star, CheckCircle, AlertCircle, MapPin, Calendar, DollarSign, Clock } from "lucide-react";
+import { Star, CheckCircle, AlertCircle, MapPin, Calendar, DollarSign, Clock, Smartphone, User, CreditCard } from "lucide-react";
 import { Tabs as ShadTabs, TabsList as ShadTabsList, TabsTrigger as ShadTabsTrigger, TabsContent as ShadTabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import dynamic from "next/dynamic";
+import { toast } from "sonner";
+import Link from "next/link";
 
 const ServiceSetupStep = dynamic(() => import("@/components/provider/onboarding/steps/ServiceSetupStep"), { ssr: false });
 
@@ -41,6 +43,9 @@ export default function ProviderDashboardPage() {
   // Edit Availability Modal State
   const [editAvailabilityOpen, setEditAvailabilityOpen] = useState(false);
   const [availabilityEditData, setAvailabilityEditData] = useState<any>(null);
+  const [declineModalOpen, setDeclineModalOpen] = useState(false);
+  const [declineReason, setDeclineReason] = useState("");
+  const [bookingToDecline, setBookingToDecline] = useState<any>(null);
 
   // Redirect to home if logged out
   useEffect(() => {
@@ -130,19 +135,94 @@ export default function ProviderDashboardPage() {
   useEffect(() => {
     if (tab !== "bookings" || !user) return;
     let isMounted = true;
-    setLoadingBookings(true);
     const fetchBookings = async () => {
+      if (!user) return;
+
       try {
-        const bookingsRes = await databases.listDocuments(
-          DATABASE_ID,
-          "bookings",
+        setLoadingBookings(true);
+        
+        // Fetch bookings for this provider
+        const bookingsResponse = await databases.listDocuments(
+          process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+          process.env.NEXT_PUBLIC_APPWRITE_BOOKINGS_COLLECTION_ID!,
           [Query.equal("provider_id", user.id)]
         );
-        if (isMounted) setBookings(bookingsRes.documents);
-      } catch {
-        if (isMounted) setBookings([]);
+
+        console.log("Found bookings:", bookingsResponse.documents.length);
+
+        // Fetch additional details for each booking
+        const bookingsWithDetails = await Promise.all(
+          bookingsResponse.documents.map(async (booking: any) => {
+            try {
+              // Fetch customer details from User collection
+              let customerName = "Unknown Customer";
+              try {
+                const customerResponse = await databases.getDocument(
+                  process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+                  'user',
+                  booking.customer_id
+                );
+                customerName = customerResponse.name || "Unknown Customer";
+              } catch (error) {
+                console.error("Error fetching customer details:", error);
+              }
+
+              // Fetch device details
+              let deviceBrand = "Unknown Device";
+              let deviceModel = "";
+              let deviceImage = "";
+              
+              try {
+                // Try to fetch from Phones collection first
+                let deviceResponse;
+                try {
+                  deviceResponse = await databases.getDocument(
+                    process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+                    'Phones',
+                    booking.device_id
+                  );
+                } catch (phoneError) {
+                  // If not found in Phones, try Laptops collection
+                  try {
+                    deviceResponse = await databases.getDocument(
+                      process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+                      'Laptops',
+                      booking.device_id
+                    );
+                  } catch (laptopError) {
+                    console.error("Device not found in either collection:", booking.device_id);
+                  }
+                }
+                
+                if (deviceResponse) {
+                  deviceBrand = deviceResponse.brand || "Unknown Brand";
+                  deviceModel = deviceResponse.model || "";
+                  deviceImage = deviceResponse.image_url || "";
+                }
+              } catch (error) {
+                console.error("Error fetching device details:", error);
+              }
+
+              return {
+                ...booking,
+                customer_name: customerName,
+                device_brand: deviceBrand,
+                device_model: deviceModel,
+                device_image: deviceImage,
+                device_display: `${deviceBrand} ${deviceModel}`.trim()
+              };
+            } catch (error) {
+              console.error("Error processing booking:", error);
+              return booking;
+            }
+          })
+        );
+
+        setBookings(bookingsWithDetails);
+      } catch (error) {
+        console.error("Error fetching bookings:", error);
       } finally {
-        if (isMounted) setLoadingBookings(false);
+        setLoadingBookings(false);
       }
     };
     fetchBookings();
@@ -153,7 +233,7 @@ export default function ProviderDashboardPage() {
   const bookingsByTab = useMemo(() => {
     let filtered = bookings;
     if (bookingsTab === "upcoming") {
-      filtered = filtered.filter(b => ["pending", "confirmed"].includes(b.status));
+      filtered = filtered.filter(b => ["pending", "confirmed", "in_progress"].includes(b.status));
     } else if (bookingsTab === "completed") {
       filtered = filtered.filter(b => b.status === "completed");
     } else if (bookingsTab === "cancelled") {
@@ -211,11 +291,28 @@ export default function ProviderDashboardPage() {
 
   // Helper: status badge
   const statusBadge = (status: string) => {
-    if (status === "pending") return <Badge variant="secondary">Pending</Badge>;
-    if (status === "confirmed") return <Badge variant="default">Confirmed</Badge>;
-    if (status === "completed") return <Badge variant="default">Completed</Badge>;
-    if (status === "cancelled") return <Badge variant="destructive">Cancelled</Badge>;
-    return <Badge>{status}</Badge>;
+    const getStatusColor = (status: string) => {
+      switch (status) {
+        case "pending":
+          return "bg-yellow-100 text-yellow-800";
+        case "confirmed":
+          return "bg-blue-100 text-blue-800";
+        case "in_progress":
+          return "bg-orange-100 text-orange-800";
+        case "completed":
+          return "bg-green-100 text-green-800";
+        case "cancelled":
+          return "bg-red-100 text-red-800";
+        default:
+          return "bg-gray-100 text-gray-800";
+      }
+    };
+
+    return (
+      <Badge className={getStatusColor(status)}>
+        {status.charAt(0).toUpperCase() + status.slice(1)}
+      </Badge>
+    );
   };
 
   // Helper: get issues as string
@@ -227,12 +324,75 @@ export default function ProviderDashboardPage() {
   };
 
   // Helper: get customer name (if available)
-  const customerName = (booking: any) => booking.customer_name || booking.customer || booking.customer_id || "-";
+  const customerName = (booking: any) => booking.customer_name || booking.customer || booking.customer_id || "Unknown Customer";
 
   // Add handler to open modal with current availability
   const handleEditAvailability = () => {
     setAvailabilityEditData(businessSetup?.serviceSetup || {});
     setEditAvailabilityOpen(true);
+  };
+
+  const handleBookingAction = async (booking: any, action: string) => {
+    console.log('handleBookingAction called with:', { action, bookingId: booking.$id });
+    try {
+      let update: any = {};
+      if (action === "accept") {
+        update.status = "in_progress"; // Directly to in_progress when accepted
+        console.log('Setting status to in_progress');
+      } else if (action === "decline") {
+        update.status = "cancelled";
+        update.cancellation_reason = declineReason;
+        // For COD bookings, set payment_status to 'cancelled' when cancelled
+        // For online bookings, keep payment_status as 'completed' since payment was already made
+        if (booking.payment_status === "pending") {
+          update.payment_status = "cancelled"; // COD booking cancelled
+        }
+        console.log('Setting status to cancelled with reason:', declineReason);
+      } else if (action === "complete") {
+        update.status = "completed";
+        console.log('Setting status to completed');
+      }
+      update.updated_at = new Date().toISOString();
+      console.log('Updating booking with:', update);
+      await databases.updateDocument(
+        DATABASE_ID,
+        "bookings",
+        booking.$id,
+        update
+      );
+      toast.success("Booking updated!");
+      // Refresh bookings
+      setBookings((prev) => prev.map(b => b.$id === booking.$id ? { ...b, ...update } : b));
+      // Close decline modal if it was open
+      if (action === "decline") {
+        setDeclineModalOpen(false);
+        setDeclineReason("");
+        setBookingToDecline(null);
+      }
+    } catch (error) {
+      console.error('Error in handleBookingAction:', error);
+      toast.error("Failed to update booking");
+    }
+  };
+
+  const handleDeclineClick = (booking: any) => {
+    console.log('Decline clicked for booking:', booking.$id);
+    setBookingToDecline(booking);
+    setDeclineModalOpen(true);
+  };
+
+  const handleDeclineSubmit = () => {
+    console.log('Decline submit clicked, reason:', declineReason);
+    if (!declineReason.trim()) {
+      toast.error("Please provide a reason for declining");
+      return;
+    }
+    if (!bookingToDecline) {
+      toast.error("No booking selected for decline");
+      return;
+    }
+    console.log('Calling handleBookingAction with decline');
+    handleBookingAction(bookingToDecline, "decline");
   };
 
   return (
@@ -255,6 +415,25 @@ export default function ProviderDashboardPage() {
               }}
               onPrev={() => setEditAvailabilityOpen(false)}
             />
+          </div>
+        </div>
+      )}
+      {/* Decline Reason Modal */}
+      {declineModalOpen && bookingToDecline && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+          <div className="bg-white rounded-lg shadow-lg max-w-md w-full p-6 relative">
+            <h3 className="text-lg font-semibold mb-4">Reason for Declining Booking</h3>
+            <textarea
+              className="w-full p-2 border rounded-md mb-4"
+              rows={4}
+              value={declineReason}
+              onChange={(e) => setDeclineReason(e.target.value)}
+              placeholder="Enter reason for declining the booking..."
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setDeclineModalOpen(false)}>Cancel</Button>
+              <Button variant="destructive" onClick={handleDeclineSubmit}>Decline</Button>
+            </div>
           </div>
         </div>
       )}
@@ -395,33 +574,75 @@ export default function ProviderDashboardPage() {
                         ) : (
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {bookingsByTab.map(booking => (
-                              <Card key={booking.$id} className="shadow-sm border">
-                                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                              <Card key={booking.$id} className="shadow-sm border hover:shadow-md transition-shadow">
+                                <CardHeader className="flex flex-row items-center justify-between pb-3">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
+                                      <Smartphone className="h-6 w-6 text-gray-600" />
+                                    </div>
                                   <div className="flex flex-col gap-1">
-                                    <div className="font-semibold text-base">{booking.device || booking.device_id || "Device"}</div>
+                                      <div className="font-semibold text-base">{booking.device_display || booking.device || booking.device_id || "Device"}</div>
                                     <div className="text-muted-foreground text-xs">{issuesString(booking)}</div>
+                                    </div>
                                   </div>
                                   {statusBadge(booking.status)}
                                 </CardHeader>
-                                <CardContent className="space-y-2">
-                                  <div className="flex items-center gap-2 text-sm">
-                                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                                <CardContent className="space-y-3">
+                                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                                    <Calendar className="h-4 w-4" />
                                     <span>{formatDateTime(booking.appointment_time)}</span>
                                   </div>
-                                  <div className="flex items-center gap-2 text-sm">
-                                    <MapPin className="h-4 w-4 text-muted-foreground" />
+                                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                                    <MapPin className="h-4 w-4" />
                                     <span>{booking.location_type === "doorstep" ? "Doorstep" : "Provider Location"}</span>
                                   </div>
                                   <div className="flex items-center gap-2 text-sm">
-                                    <span className="font-medium">Customer:</span>
-                                    <span>{customerName(booking)}</span>
+                                    <User className="h-4 w-4 text-gray-400" />
+                                    <span className="font-medium text-gray-900">{customerName(booking)}</span>
                                   </div>
                                   <div className="flex items-center gap-2 text-sm">
-                                    <span className="font-medium">Total:</span>
-                                    <span className="text-primary font-bold">₹{booking.total_amount?.toLocaleString() || "-"}</span>
+                                    <CreditCard className="h-4 w-4 text-gray-400" />
+                                    <span className="text-gray-600">
+                                      {booking.payment_status === "pending" ? "COD" : "Online"}
+                                    </span>
+                                    <Badge className={booking.payment_status === "completed" ? "bg-green-100 text-green-800" : booking.payment_status === "cancelled" ? "bg-red-100 text-red-800" : "bg-yellow-100 text-yellow-800"}>
+                                      {booking.payment_status === "completed" ? "Completed" : booking.payment_status === "cancelled" ? "Cancelled" : "Pending"}
+                                    </Badge>
                                   </div>
-                                  <div className="flex items-center gap-2 mt-2">
-                                    <Button size="sm" variant="outline">View Details</Button>
+                                  <div className="flex items-center justify-between pt-2 border-t">
+                                    <div className="text-lg font-bold text-primary">
+                                      ₹{booking.total_amount?.toLocaleString() || "0"}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      {/* COD, pending: Accept/Decline */}
+                                      {booking.payment_status === "pending" && booking.status === "pending" && (
+                                        <>
+                                          <Button size="sm" variant="default" onClick={() => handleBookingAction(booking, "accept")}>Accept</Button>
+                                          <Button size="sm" variant="destructive" onClick={() => handleDeclineClick(booking)}>Decline</Button>
+                                        </>
+                                      )}
+                                      {/* Online payment, confirmed: Start Service */}
+                                      {booking.payment_status === "completed" && booking.status === "confirmed" && (
+                                        <Button size="sm" variant="default" onClick={() => handleBookingAction(booking, "complete")}>Mark as Completed</Button>
+                                      )}
+                                      {/* COD, confirmed: Start Service */}
+                                      {booking.payment_status === "pending" && booking.status === "confirmed" && (
+                                        <Button size="sm" variant="default" onClick={() => handleBookingAction(booking, "complete")}>Mark as Completed</Button>
+                                      )}
+                                      {/* in_progress: Mark as Completed */}
+                                      {booking.status === "in_progress" && (
+                                        <Button size="sm" variant="default" onClick={() => handleBookingAction(booking, "complete")}>Mark as Completed</Button>
+                                      )}
+                                      {/* completed/cancelled: No actions */}
+                                      {(booking.status === "completed" || booking.status === "cancelled") && (
+                                        <span className="text-xs text-muted-foreground">No actions</span>
+                                      )}
+                                      <Button size="sm" variant="outline" asChild>
+                                        <Link href={`/provider/bookings/${booking.$id}`}>
+                                          View Details
+                                        </Link>
+                                      </Button>
+                                    </div>
                                   </div>
                                 </CardContent>
                               </Card>
@@ -437,33 +658,52 @@ export default function ProviderDashboardPage() {
                         ) : (
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {bookingsByTab.map(booking => (
-                              <Card key={booking.$id} className="shadow-sm border">
-                                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                              <Card key={booking.$id} className="shadow-sm border hover:shadow-md transition-shadow">
+                                <CardHeader className="flex flex-row items-center justify-between pb-3">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
+                                      <Smartphone className="h-6 w-6 text-gray-600" />
+                                    </div>
                                   <div className="flex flex-col gap-1">
-                                    <div className="font-semibold text-base">{booking.device || booking.device_id || "Device"}</div>
+                                      <div className="font-semibold text-base">{booking.device_display || booking.device || booking.device_id || "Device"}</div>
                                     <div className="text-muted-foreground text-xs">{issuesString(booking)}</div>
+                                    </div>
                                   </div>
                                   {statusBadge(booking.status)}
                                 </CardHeader>
-                                <CardContent className="space-y-2">
-                                  <div className="flex items-center gap-2 text-sm">
-                                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                                <CardContent className="space-y-3">
+                                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                                    <Calendar className="h-4 w-4" />
                                     <span>{formatDateTime(booking.appointment_time)}</span>
                                   </div>
-                                  <div className="flex items-center gap-2 text-sm">
-                                    <MapPin className="h-4 w-4 text-muted-foreground" />
+                                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                                    <MapPin className="h-4 w-4" />
                                     <span>{booking.location_type === "doorstep" ? "Doorstep" : "Provider Location"}</span>
                                   </div>
                                   <div className="flex items-center gap-2 text-sm">
-                                    <span className="font-medium">Customer:</span>
-                                    <span>{customerName(booking)}</span>
+                                    <User className="h-4 w-4 text-gray-400" />
+                                    <span className="font-medium text-gray-900">{customerName(booking)}</span>
                                   </div>
                                   <div className="flex items-center gap-2 text-sm">
-                                    <span className="font-medium">Total:</span>
-                                    <span className="text-primary font-bold">₹{booking.total_amount?.toLocaleString() || "-"}</span>
+                                    <CreditCard className="h-4 w-4 text-gray-400" />
+                                    <span className="text-gray-600">
+                                      {booking.payment_status === "pending" ? "COD" : "Online"}
+                                    </span>
+                                    <Badge className={booking.payment_status === "completed" ? "bg-green-100 text-green-800" : booking.payment_status === "cancelled" ? "bg-red-100 text-red-800" : "bg-yellow-100 text-yellow-800"}>
+                                      {booking.payment_status === "completed" ? "Completed" : booking.payment_status === "cancelled" ? "Cancelled" : "Pending"}
+                                    </Badge>
                                   </div>
-                                  <div className="flex items-center gap-2 mt-2">
-                                    <Button size="sm" variant="outline">View Details</Button>
+                                  <div className="flex items-center justify-between pt-2 border-t">
+                                    <div className="text-lg font-bold text-primary">
+                                      ₹{booking.total_amount?.toLocaleString() || "0"}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <Button size="sm" variant="outline" asChild>
+                                        <Link href={`/provider/bookings/${booking.$id}`}>
+                                          View Details
+                                        </Link>
+                                      </Button>
+                                    </div>
                                   </div>
                                 </CardContent>
                               </Card>
@@ -479,33 +719,59 @@ export default function ProviderDashboardPage() {
                         ) : (
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {bookingsByTab.map(booking => (
-                              <Card key={booking.$id} className="shadow-sm border">
-                                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                              <Card key={booking.$id} className="shadow-sm border hover:shadow-md transition-shadow">
+                                <CardHeader className="flex flex-row items-center justify-between pb-3">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
+                                      <Smartphone className="h-6 w-6 text-gray-600" />
+                                    </div>
                                   <div className="flex flex-col gap-1">
-                                    <div className="font-semibold text-base">{booking.device || booking.device_id || "Device"}</div>
+                                      <div className="font-semibold text-base">{booking.device_display || booking.device || booking.device_id || "Device"}</div>
                                     <div className="text-muted-foreground text-xs">{issuesString(booking)}</div>
+                                    </div>
                                   </div>
                                   {statusBadge(booking.status)}
                                 </CardHeader>
-                                <CardContent className="space-y-2">
-                                  <div className="flex items-center gap-2 text-sm">
-                                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                                <CardContent className="space-y-3">
+                                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                                    <Calendar className="h-4 w-4" />
                                     <span>{formatDateTime(booking.appointment_time)}</span>
                                   </div>
-                                  <div className="flex items-center gap-2 text-sm">
-                                    <MapPin className="h-4 w-4 text-muted-foreground" />
+                                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                                    <MapPin className="h-4 w-4" />
                                     <span>{booking.location_type === "doorstep" ? "Doorstep" : "Provider Location"}</span>
                                   </div>
                                   <div className="flex items-center gap-2 text-sm">
-                                    <span className="font-medium">Customer:</span>
-                                    <span>{customerName(booking)}</span>
+                                    <User className="h-4 w-4 text-gray-400" />
+                                    <span className="font-medium text-gray-900">{customerName(booking)}</span>
                                   </div>
                                   <div className="flex items-center gap-2 text-sm">
-                                    <span className="font-medium">Total:</span>
-                                    <span className="text-primary font-bold">₹{booking.total_amount?.toLocaleString() || "-"}</span>
+                                    <CreditCard className="h-4 w-4 text-gray-400" />
+                                    <span className="text-gray-600">
+                                      {booking.payment_status === "pending" ? "COD" : "Online"}
+                                    </span>
+                                    <Badge className={booking.payment_status === "completed" ? "bg-green-100 text-green-800" : booking.payment_status === "cancelled" ? "bg-red-100 text-red-800" : "bg-yellow-100 text-yellow-800"}>
+                                      {booking.payment_status === "completed" ? "Completed" : booking.payment_status === "cancelled" ? "Cancelled" : "Pending"}
+                                    </Badge>
                                   </div>
-                                  <div className="flex items-center gap-2 mt-2">
-                                    <Button size="sm" variant="outline">View Details</Button>
+                                  {booking.status === "cancelled" && booking.cancellation_reason && (
+                                    <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+                                      <p className="text-sm text-red-800">
+                                        <strong>Cancellation Reason:</strong> {booking.cancellation_reason}
+                                      </p>
+                                    </div>
+                                  )}
+                                  <div className="flex items-center justify-between pt-2 border-t">
+                                    <div className="text-lg font-bold text-primary">
+                                      ₹{booking.total_amount?.toLocaleString() || "0"}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <Button size="sm" variant="outline" asChild>
+                                        <Link href={`/provider/bookings/${booking.$id}`}>
+                                          View Details
+                                        </Link>
+                                      </Button>
+                                    </div>
                                   </div>
                                 </CardContent>
                               </Card>

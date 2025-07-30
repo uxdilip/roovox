@@ -71,24 +71,55 @@ export interface Service {
   part_qualities: PartQuality[];
 }
 
+export type BookingStatus =
+  | "pending"
+  | "confirmed"
+  | "in_progress"
+  | "completed"
+  | "cancelled"
+  | "disputed";
+
+export type PaymentMethod = "online" | "cod";
+
 export interface Booking {
   id: string;
   customer_id: string;
   provider_id: string;
   device_id: string;
   service_id: string;
-  issue_description: string;
-  part_quality: "oem" | "hq";
-  status: "pending" | "confirmed" | "in_progress" | "completed" | "cancelled";
+  status: BookingStatus;
+  payment_method: PaymentMethod;
+  payment_status: "pending" | "completed" | "refunded" | "cancelled";
   appointment_time: string;
   total_amount: number;
-  payment_status: "pending" | "completed" | "refunded";
-  location_type: "doorstep" | "provider_location";
-  customer_address: Address;
-  rating: number;
-  review: string;
   created_at: string;
   updated_at: string;
+  // ...other fields as needed (these were already there or added previously)
+  issue_description: string;
+  selected_issues: string; // Now explicitly a string to be parsed
+  part_quality: string | null; // Can be null
+  location_type: string;
+  customer_address: string; // Now explicitly a string to be parsed
+  rating: number | null; // Can be null
+  review: string | null; // Can be null
+  warranty: string;
+  serviceMode: string;
+  cancellation_reason?: string; // Added for decline reasons
+  provider?: {
+    name: string;
+    rating: number;
+    totalReviews: number; // Added for provider average rating
+    avatar?: string;
+  };
+  device?: {
+    brand: string;
+    model: string;
+    image_url?: string;
+  };
+  payment?: {
+    payment_method: string;
+    status: string;
+  };
 }
 
 export interface Message {

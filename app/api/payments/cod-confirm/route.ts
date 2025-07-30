@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
       booking_id,
       {
         payment_status: 'pending',
-        status: 'confirmed',
+        status: 'pending',
       }
     );
     // Create payment document
