@@ -16,7 +16,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Smartphone, User, LogOut, Settings, Calendar, MapPin, User as UserIcon, ChevronDown, Users } from 'lucide-react';
-import LoginPage from '@/app/login/page';
+import LoginModal from '@/components/auth/LoginModal';
 import { databases, DATABASE_ID, COLLECTIONS } from '@/lib/appwrite';
 import { Query } from 'appwrite';
 import { useLocation } from '@/contexts/LocationContext';
@@ -282,7 +282,7 @@ export function Header() {
                 Sign In
               </Button>
               {/* Removed Get Started button since signup is now part of login */}
-              <LoginPage open={loginOpen} onOpenChange={setLoginOpen} />
+              <LoginModal open={loginOpen} onOpenChange={setLoginOpen} />
             </div>
           )}
         </div>

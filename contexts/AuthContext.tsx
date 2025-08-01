@@ -9,6 +9,13 @@ import { useRouter } from 'next/navigation';
 import { useLocation } from './LocationContext';
 import { Query } from 'appwrite';
 
+// Rate limiting and security constants
+const RATE_LIMIT = {
+  OTP_REQUESTS: 3, // per phone per hour
+  OTP_ATTEMPTS: 5,  // per OTP
+  OTP_EXPIRY: 300  // 5 minutes in seconds
+};
+
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
@@ -21,6 +28,10 @@ interface AuthContextType {
   refreshSession: () => Promise<void>;
   showLocationPrompt: boolean;
   setShowLocationPrompt: React.Dispatch<React.SetStateAction<boolean>>;
+  // New rate limiting methods
+  canRequestOtp: (phone: string) => boolean;
+  getOtpAttempts: (userId: string) => number;
+  clearOtpAttempts: (userId: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -33,6 +44,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [showLocationPrompt, setShowLocationPrompt] = useState(false);
   const router = useRouter();
   const { setLocation, ...locationContext } = useLocation();
+
+  // Rate limiting storage
+  const [otpRequests, setOtpRequests] = useState<Record<string, { count: number; lastRequest: number }>>({});
+  const [otpAttempts, setOtpAttempts] = useState<Record<string, number>>({});
 
   useEffect(() => {
     checkAuth();
@@ -48,6 +63,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem('activeRole', activeRole);
     }
   }, [activeRole]);
+
+  // Rate limiting methods
+  const canRequestOtp = (phone: string): boolean => {
+    const now = Date.now();
+    const requestData = otpRequests[phone];
+    
+    if (!requestData) return true;
+    
+    const timeSinceLastRequest = now - requestData.lastRequest;
+    const hourInMs = 60 * 60 * 1000;
+    
+    // Reset count if more than an hour has passed
+    if (timeSinceLastRequest > hourInMs) {
+      setOtpRequests(prev => ({ ...prev, [phone]: { count: 0, lastRequest: now } }));
+      return true;
+    }
+    
+    return requestData.count < RATE_LIMIT.OTP_REQUESTS;
+  };
+
+  const getOtpAttempts = (userId: string): number => {
+    return otpAttempts[userId] || 0;
+  };
+
+  const clearOtpAttempts = (userId: string): void => {
+    setOtpAttempts(prev => ({ ...prev, [userId]: 0 }));
+  };
+
+  const recordOtpRequest = (phone: string): void => {
+    const now = Date.now();
+    setOtpRequests(prev => ({
+      ...prev,
+      [phone]: {
+        count: (prev[phone]?.count || 0) + 1,
+        lastRequest: now
+      }
+    }));
+  };
+
+  const recordOtpAttempt = (userId: string): void => {
+    setOtpAttempts(prev => ({
+      ...prev,
+      [userId]: (prev[userId] || 0) + 1
+    }));
+  };
 
   const setActiveRole = async (role: 'customer' | 'provider') => {
     if (!user) return;
@@ -89,161 +149,87 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const activeRole = mergedRoles.includes('provider') ? 'provider' : 'customer';
           const location = (locationContext.location || {}) as any;
           console.log('[DEBUG] LocationContext.location:', location);
-          const userData = {
-            userId: session.$id,
-            name: session.name,
-            email: session.email,
-            phone: session.phone || '',
-            roles: mergedRoles,
-            activeRole: activeRole as 'customer' | 'provider',
-            isVerified: false,
-            isActive: true,
-            addressCity: location.city || '',
-            addressState: location.state || '',
-            addressZip: location.zip || '',
-            addressLat: location.coordinates?.[0] || 0,
-            addressLng: location.coordinates?.[1] || 0,
-          };
-          console.log('[DEBUG] userData to be stored:', userData);
-          try {
-            const created = await createUserDocument(userData);
-            console.log('[DEBUG] createUserDocument result:', created);
-          } catch (e: any) {
-            if (e.code === 409) {
-              const res = await databases.listDocuments(
-                DATABASE_ID,
-                'User',
-                [Query.equal('user_id', session.$id), Query.limit(1)]
-              );
-              if (res.documents.length > 0) {
-                const updated = await databases.updateDocument(
-                  DATABASE_ID,
-                  'User',
-                  res.documents[0].$id,
-                  userData
-                );
-                console.log('[DEBUG] updateDocument result:', updated);
-              }
-            } else {
-              throw e;
-            }
-          }
-          if (typeof window !== 'undefined') localStorage.removeItem('loginAsProvider');
-        } catch (e) {
-          // Ignore if already exists or error
-          console.log('[DEBUG] Error in user doc creation/update in checkAuth:', e);
-        }
-        try {
-          const userDoc = await getUserByUserId(session.$id);
-          console.log('[DEBUG] Final userDoc in checkAuth:', userDoc);
-          if (userDoc) {
-            setRoles(userDoc.roles);
-            const savedActiveRole = localStorage.getItem('activeRole') as 'customer' | 'provider';
-            const userActiveRole = userDoc.activeRole || 'customer';
-            if (userDoc.roles.includes('customer') && userDoc.roles.includes('provider')) {
-              setActiveRoleState(savedActiveRole || userActiveRole);
-            } else if (userDoc.roles.includes('provider')) {
-              setActiveRoleState('provider');
-            } else {
-              setActiveRoleState('customer');
-            }
-            setUser({
-              id: userDoc.id,
-              name: userDoc.name,
-              email: userDoc.email,
-              phone: userDoc.phone,
-              role: userDoc.roles.includes('provider') ? 'provider' : 'customer',
-              address: {
-                street: '',
-                city: userDoc.address.city,
-                state: userDoc.address.state,
-                zip: userDoc.address.zip,
-                coordinates: [userDoc.address.lat, userDoc.address.lng]
-              },
-              created_at: userDoc.createdAt
-            });
-            if (userDoc.address && userDoc.address.city) {
-              setLocation({
-                address: `${userDoc.address.city}, ${userDoc.address.state}`,
-                city: userDoc.address.city,
-                state: userDoc.address.state,
-                zip: userDoc.address.zip,
-                coordinates: [userDoc.address.lat, userDoc.address.lng]
-              });
-            }
-            if (!userDoc.address.city) {
-              setShowLocationPrompt(true);
-            } else {
-              setShowLocationPrompt(false);
-            }
-            console.log('✅ User session validated successfully:', userDoc.id);
-          } else {
-            setRoles(['customer']);
-            setActiveRoleState('customer');
-            setUser({
-              id: session.$id,
-              name: session.name || 'User',
-              email: session.email || `user_${session.$id}@noemail.local`,
-              phone: session.phone || '',
-              role: 'customer',
-              address: {
-                street: '',
-                city: '',
-                state: '',
-                zip: '',
-                coordinates: [0, 0]
-              },
-              created_at: session.$createdAt
-            });
-            setShowLocationPrompt(true);
-            console.log('⚠️ User document not found, using session data');
-          }
-        } catch (error) {
-          console.error('❌ Error loading user document:', error);
-          setRoles(['customer']);
-          setActiveRoleState('customer');
-          setUser({
+          const userData: User = {
             id: session.$id,
             name: session.name || 'User',
             email: session.email || `user_${session.$id}@noemail.local`,
             phone: session.phone || '',
-            role: 'customer',
+            role: activeRole as 'customer' | 'provider',
             address: {
               street: '',
-              city: '',
-              state: '',
-              zip: '',
-              coordinates: [0, 0]
+              city: location?.city || '',
+              state: location?.state || '',
+              zip: location?.zip || '',
+              coordinates: location?.coordinates || [0, 0]
             },
             created_at: session.$createdAt
-          });
-          setShowLocationPrompt(true);
+          };
+          setUser(userData);
+          setRoles(mergedRoles);
+          setActiveRoleState(activeRole as 'customer' | 'provider');
+          if (location?.city) {
+            setLocation(location);
+            setShowLocationPrompt(false);
+          } else {
+            setShowLocationPrompt(true);
+          }
+        } catch (error) {
+          console.error('Error setting user data:', error);
+          setUser(null);
+          setRoles([]);
         }
+      } else {
+        setUser(null);
+        setRoles([]);
       }
     } catch (error) {
-      console.error('[DEBUG] No Appwrite session in checkAuth:', error);
+      console.error('Error checking auth:', error);
       setUser(null);
       setRoles([]);
-      setActiveRoleState('customer');
-      setShowLocationPrompt(false);
     } finally {
       setIsLoading(false);
     }
   };
 
   const loginWithPhoneOtp = async (phone: string, otp?: string, userId?: string) => {
+    // Rate limiting check
+    if (!otp && !canRequestOtp(phone)) {
+      throw new Error('Too many OTP requests. Please try again in an hour.');
+    }
+
+    // Check OTP attempts
+    if (otp && userId && getOtpAttempts(userId) >= RATE_LIMIT.OTP_ATTEMPTS) {
+      throw new Error('Too many OTP attempts. Please request a new OTP.');
+    }
+
     if (!otp) {
-      try { await account.deleteSession('current'); } catch (e) {}
+      try { 
+        await account.deleteSession('current'); 
+      } catch (e) {
+        console.log('No existing session to delete');
+      }
+      
+      recordOtpRequest(phone);
       const token = await account.createPhoneToken(ID.unique(), phone);
       return { userId: token.userId };
     } else {
-      try { await account.deleteSession('current'); } catch (e) {}
+      try { 
+        await account.deleteSession('current'); 
+      } catch (e) {
+        console.log('No existing session to delete');
+      }
+      
+      recordOtpAttempt(userId!);
       await account.createSession(userId!, otp);
+      
+      // Clear OTP attempts on successful login
+      clearOtpAttempts(userId!);
+      
       // Always fetch the current session after login
       const accountDetails = await account.get();
       try {
         await createUserDocument({
-          userId: accountDetails.$id, // <-- always use this!
+          userId: accountDetails.$id,
           name: 'Phone User',
           email: `phone_${accountDetails.$id}@noemail.local`,
           phone: phone,
@@ -252,13 +238,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch (error) {
         console.log('User document may already exist or error creating:', error);
       }
+      
       const userDoc = await getUserByUserId(accountDetails.$id);
-      setUser({
+      const userData: User = {
         id: accountDetails.$id,
-        name: accountDetails.name,
-        email: accountDetails.email,
+        name: accountDetails.name || 'Phone User',
+        email: accountDetails.email || `phone_${accountDetails.$id}@noemail.local`,
         phone: phone,
-        role: 'customer',
+        role: 'customer' as const,
         address: {
           street: '',
           city: userDoc?.address?.city || '',
@@ -267,7 +254,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           coordinates: [userDoc?.address?.lat || 0, userDoc?.address?.lng || 0]
         },
         created_at: accountDetails.$createdAt
-      });
+      };
+      
+      setUser(userData);
+      
+      // Persist session
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('user_session', JSON.stringify({
+          id: userData.id,
+          roles: userData.role,
+          lastLogin: Date.now()
+        }));
+      }
+      
       if (userDoc?.address?.city) {
         setLocation({
           address: `${userDoc.address.city}, ${userDoc.address.state}`,
@@ -277,11 +276,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           coordinates: [userDoc.address.lat, userDoc.address.lng]
         });
       }
+      
       if (!userDoc?.address?.city) {
         setShowLocationPrompt(true);
       } else {
         setShowLocationPrompt(false);
       }
+      
       console.log('User set in context:', accountDetails);
     }
   };
@@ -301,12 +302,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       const accountDetails = await account.get();
       const userDoc = await getUserByUserId(accountDetails.$id);
-      setUser({
+      const userData: User = {
         id: accountDetails.$id,
-        name: accountDetails.name,
-        email: accountDetails.email,
+        name: accountDetails.name || name,
+        email: accountDetails.email || email,
         phone: '',
-        role: 'customer',
+        role: 'customer' as const,
         address: {
           street: '',
           city: userDoc?.address?.city || '',
@@ -315,7 +316,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           coordinates: [userDoc?.address?.lat || 0, userDoc?.address?.lng || 0]
         },
         created_at: accountDetails.$createdAt
-      });
+      };
+      
+      setUser(userData);
+      
+      // Persist session
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('user_session', JSON.stringify({
+          id: userData.id,
+          roles: userData.role,
+          lastLogin: Date.now()
+        }));
+      }
+      
       if (userDoc?.address?.city) {
         setLocation({
           address: `${userDoc.address.city}, ${userDoc.address.state}`,
@@ -330,9 +343,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         setShowLocationPrompt(false);
       }
-      console.log('User set in context:', accountDetails);
     } catch (error) {
-      console.error('Registration error:', error);
+      console.error('Error in register:', error);
       throw error;
     }
   };
@@ -341,57 +353,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await account.deleteSession('current');
       setUser(null);
+      setRoles([]);
+      setActiveRoleState('customer');
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('user_session');
+        localStorage.removeItem('activeRole');
+        localStorage.removeItem('loginAsProvider');
+      }
+      router.push('/');
     } catch (error) {
-      throw error;
+      console.error('Error logging out:', error);
     }
   };
 
   const refreshSession = async () => {
     try {
-      const session = await account.get();
-      console.log('[DEBUG] Appwrite session in refreshSession:', session);
-      if (session) {
-        const userDoc = await getUserByUserId(session.$id);
-        console.log('[DEBUG] User doc in refreshSession:', userDoc);
-        if (userDoc) {
-          setUser({
-            id: userDoc.id,
-            name: userDoc.name,
-            email: userDoc.email,
-            phone: userDoc.phone,
-            role: userDoc.roles.includes('provider') ? 'provider' : 'customer',
-            address: {
-              street: '',
-              city: userDoc.address.city,
-              state: userDoc.address.state,
-              zip: userDoc.address.zip,
-              coordinates: [userDoc.address.lat, userDoc.address.lng]
-            },
-            created_at: userDoc.createdAt
-          });
-          if (userDoc.address && userDoc.address.city) {
-            setLocation({
-              address: `${userDoc.address.city}, ${userDoc.address.state}`,
-              city: userDoc.address.city,
-              state: userDoc.address.state,
-              zip: userDoc.address.zip,
-              coordinates: [userDoc.address.lat, userDoc.address.lng]
-            });
-          }
-          if (!userDoc.address.city) {
-            setShowLocationPrompt(true);
-          } else {
-            setShowLocationPrompt(false);
-          }
-        }
-      }
+      await account.updateSession('current');
+      await checkAuth();
     } catch (error) {
-      console.error('[DEBUG] Error refreshing session in refreshSession:', error);
+      console.error('Error refreshing session:', error);
+      await logout();
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, loginWithPhoneOtp, logout, setUser, roles, activeRole, setActiveRole, refreshSession, showLocationPrompt, setShowLocationPrompt }}>
+    <AuthContext.Provider value={{
+      user,
+      isLoading,
+      loginWithPhoneOtp,
+      logout,
+      setUser,
+      roles,
+      activeRole,
+      setActiveRole,
+      refreshSession,
+      showLocationPrompt,
+      setShowLocationPrompt,
+      canRequestOtp,
+      getOtpAttempts,
+      clearOtpAttempts
+    }}>
       {children}
     </AuthContext.Provider>
   );

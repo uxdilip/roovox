@@ -60,7 +60,7 @@ export default function ProviderDetailPage() {
   const { toast } = useToast();
   const [provider, setProvider] = useState<Provider | null>(null);
   const [businessSetup, setBusinessSetup] = useState<BusinessSetup | null>(null);
-  const [onboardingData, setOnboardingData] = useState<any>({});
+  const [onboardingData, setOnboardingData] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
   const [verifying, setVerifying] = useState(false);
 

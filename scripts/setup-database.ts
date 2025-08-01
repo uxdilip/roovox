@@ -58,6 +58,7 @@ export const setupDatabase = async () => {
     await createComplaintsCollection();
     await createBusinessSetupCollection();
     await createServicesOfferedCollection();
+    await createCustomersCollection();
 
     // Add creation of 'phones' collection
     try {
@@ -342,7 +343,7 @@ const createPaymentsCollection = async () => {
 
     // Add index on booking_id for fast lookup
     try {
-      await databases.createIndex(DATABASE_ID, COLLECTIONS.PAYMENTS, 'booking_id_index', 'key', ['booking_id']);
+      await databases.createIndex(DATABASE_ID, COLLECTIONS.PAYMENTS, 'booking_id_index', 'key' as any, ['booking_id']);
       console.log('✅ Index created: booking_id_index');
     } catch (e: any) {
       if (e.code === 409) {
@@ -396,7 +397,7 @@ const createCommissionsCollection = async () => {
     await ensure(() => databases.createDatetimeAttribute(DATABASE_ID, COLLECTION_ID, 'updated_at', true), 'updated_at');
     // Indexes
     try {
-      await databases.createIndex(DATABASE_ID, COLLECTION_ID, 'provider_id_index', 'key', ['provider_id']);
+      await databases.createIndex(DATABASE_ID, COLLECTION_ID, 'provider_id_index', 'key' as any, ['provider_id']);
       console.log('✅ Index created: provider_id_index');
     } catch (e: any) {
       if (e.code === 409) {
@@ -406,7 +407,7 @@ const createCommissionsCollection = async () => {
       }
     }
     try {
-      await databases.createIndex(DATABASE_ID, COLLECTION_ID, 'booking_id_index', 'key', ['booking_id']);
+      await databases.createIndex(DATABASE_ID, COLLECTION_ID, 'booking_id_index', 'key' as any, ['booking_id']);
       console.log('✅ Index created: booking_id_index');
     } catch (e: any) {
       if (e.code === 409) {
@@ -461,7 +462,7 @@ const createComplaintsCollection = async () => {
     await ensure(() => databases.createDatetimeAttribute(DATABASE_ID, COLLECTION_ID, 'updated_at', true), 'updated_at');
     // Indexes
     try {
-      await databases.createIndex(DATABASE_ID, COLLECTION_ID, 'booking_id_index', 'key', ['booking_id']);
+      await databases.createIndex(DATABASE_ID, COLLECTION_ID, 'booking_id_index', 'key' as any, ['booking_id']);
       console.log('✅ Index created: booking_id_index');
     } catch (e: any) {
       if (e.code === 409) {
@@ -471,7 +472,7 @@ const createComplaintsCollection = async () => {
       }
     }
     try {
-      await databases.createIndex(DATABASE_ID, COLLECTION_ID, 'customer_id_index', 'key', ['customer_id']);
+      await databases.createIndex(DATABASE_ID, COLLECTION_ID, 'customer_id_index', 'key' as any, ['customer_id']);
       console.log('✅ Index created: customer_id_index');
     } catch (e: any) {
       if (e.code === 409) {
@@ -527,6 +528,29 @@ const createServicesOfferedCollection = async () => {
       console.log('ℹ️ services_offered collection already exists');
     } else {
       console.error('❌ Error creating services_offered collection:', error);
+    }
+  }
+};
+
+const createCustomersCollection = async () => {
+  try {
+    await databases.createCollection(DATABASE_ID, COLLECTIONS.CUSTOMERS, 'Customers');
+    console.log('✅ Customers collection created');
+
+    // Create attributes matching database-schema.ts
+    await databases.createStringAttribute(DATABASE_ID, COLLECTIONS.CUSTOMERS, 'user_id', 255, true);
+    await databases.createStringAttribute(DATABASE_ID, COLLECTIONS.CUSTOMERS, 'full_name', 255, true);
+    await databases.createStringAttribute(DATABASE_ID, COLLECTIONS.CUSTOMERS, 'email', 255, true);
+    await databases.createStringAttribute(DATABASE_ID, COLLECTIONS.CUSTOMERS, 'phone', 20, false);
+    await databases.createStringAttribute(DATABASE_ID, COLLECTIONS.CUSTOMERS, 'address', 500, false);
+    await databases.createDatetimeAttribute(DATABASE_ID, COLLECTIONS.CUSTOMERS, 'created_at', true);
+
+    console.log('✅ Customers attributes created');
+  } catch (error: any) {
+    if (error.code === 409) {
+      console.log('ℹ️ Customers collection already exists');
+    } else {
+      console.error('❌ Error creating Customers collection:', error);
     }
   }
 };

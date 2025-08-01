@@ -12,9 +12,10 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { account } from '@/lib/appwrite';
+import { Clock, RefreshCw } from 'lucide-react';
 
 export default function ProviderLoginPage() {
-  const { user, roles, isLoading, loginWithPhoneOtp } = useAuth();
+  const { user, roles, isLoading, loginWithPhoneOtp, canRequestOtp } = useAuth();
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
@@ -22,6 +23,8 @@ export default function ProviderLoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [agreed, setAgreed] = useState(false);
+  const [otpTimer, setOtpTimer] = useState(0);
+  const [canResend, setCanResend] = useState(false);
   const router = useRouter();
 
   // Redirect if already logged in as provider
@@ -31,52 +34,73 @@ export default function ProviderLoginPage() {
     }
   }, [user, roles, isLoading, router]);
 
-  // Helper function to check if onboarding is completed
-  const checkOnboardingCompletion = async (userId: string) => {
+  // OTP Timer effect
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (otpTimer > 0) {
+      interval = setInterval(() => {
+        setOtpTimer((prev) => {
+          if (prev <= 1) {
+            setCanResend(true);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [otpTimer]);
+
+  // Format timer display
+  const formatTimer = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Get better error messages
+  const getErrorMessage = (error: any) => {
+    if (typeof error === 'string') {
+      if (error.includes('Too many OTP requests')) {
+        return 'Too many OTP requests. Please try again in an hour.';
+      }
+      if (error.includes('Too many OTP attempts')) {
+        return 'Too many OTP attempts. Please request a new OTP.';
+      }
+      if (error.includes('phone_invalid')) {
+        return 'Please enter a valid 10-digit Indian phone number.';
+      }
+      if (error.includes('otp_expired')) {
+        return 'OTP has expired. Please request a new one.';
+      }
+      if (error.includes('otp_invalid')) {
+        return 'Invalid OTP. Please try again.';
+      }
+      return error;
+    }
+    return 'Something went wrong. Please try again.';
+  };
+
+  // Simplified provider onboarding check
+  const isProviderOnboardingComplete = async (userId: string) => {
     try {
-      // First check if user exists in users collection
       const { databases } = await import('@/lib/appwrite');
       const { DATABASE_ID } = await import('@/lib/appwrite');
       const { Query } = await import('appwrite');
       
-      // Use 'user_id' for lookup, not '$id'
-      const userResponse = await databases.listDocuments(
-        DATABASE_ID,
-        'User',
-        [Query.equal('user_id', userId), Query.limit(1)]
-      );
-      
-      // If user doesn't exist in users collection, they're definitely new
-      if (userResponse.documents.length === 0) {
-        console.log('User not found in users collection, new user detected');
-        return false;
-      }
-      
-      // Now check business_setup document for onboarding completion
+      // Check business_setup document for onboarding completion
       const businessResponse = await databases.listDocuments(
         DATABASE_ID,
         'business_setup',
         [Query.equal('user_id', userId), Query.limit(1)]
       );
+      
       if (businessResponse.documents.length > 0) {
         const businessData = JSON.parse(businessResponse.documents[0].onboarding_data || '{}');
-        // Check for meaningful onboarding data (personalDetails, businessInfo, serviceSetup, serviceSelection, payment)
-        const hasPersonalDetails = !!businessData.personalDetails?.fullName;
-        const hasBusinessInfo = !!businessData.businessInfo?.businessName;
-        const hasServiceSetup = !!businessData.serviceSetup?.location;
-        const hasServiceSelection = !!(
-          (businessData.serviceSelection?.phone?.brands?.length > 0) ||
-          (businessData.serviceSelection?.laptop?.brands?.length > 0)
-        );
-        const hasPayment = !!businessData.upi;
-        const isOnboardingCompleted = Boolean(hasPersonalDetails && hasBusinessInfo && hasServiceSetup && hasServiceSelection && hasPayment);
-        if (isOnboardingCompleted) {
-          console.log('Business setup data found, onboarding completed');
-          return true;
-        }
+        // Check for onboarding completion flag
+        return businessData.onboardingCompleted === true;
       }
       
-      console.log('No completed onboarding data found for user:', userId);
       return false;
     } catch (error) {
       console.error('Error checking onboarding completion:', error);
@@ -87,22 +111,53 @@ export default function ProviderLoginPage() {
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    
     const phonePattern = /^[6-9]\d{9}$/;
     if (!phonePattern.test(phone)) {
       setError('Please enter a valid 10-digit Indian phone number');
       return;
     }
+
+    // Check rate limiting
+    if (!canRequestOtp(phone)) {
+      setError('Too many OTP requests. Please try again in an hour.');
+      return;
+    }
+
     setLoading(true);
     try {
       const result = await loginWithPhoneOtp('+91' + phone);
       if (result && result.userId) {
         setUserId(result.userId);
         setStep('otp');
+        setOtpTimer(300); // 5 minutes
+        setCanResend(false);
       } else {
         setError('Failed to send OTP');
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to send OTP');
+      setError(getErrorMessage(err.message || err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (!canResend) return;
+    
+    setLoading(true);
+    setError('');
+    try {
+      const result = await loginWithPhoneOtp('+91' + phone);
+      if (result && result.userId) {
+        setOtpTimer(300); // 5 minutes
+        setCanResend(false);
+        setOtp(''); // Clear previous OTP
+      } else {
+        setError('Failed to resend OTP');
+      }
+    } catch (err: any) {
+      setError(getErrorMessage(err.message || err));
     } finally {
       setLoading(false);
     }
@@ -129,7 +184,7 @@ export default function ProviderLoginPage() {
           }
           
           console.log('Checking onboarding status for user:', session.$id);
-          const isOnboardingCompleted = await checkOnboardingCompletion(session.$id);
+          const isOnboardingCompleted = await isProviderOnboardingComplete(session.$id);
           
           if (isOnboardingCompleted) {
             console.log('Onboarding completed, redirecting to dashboard');
@@ -149,7 +204,7 @@ export default function ProviderLoginPage() {
       setTimeout(checkOnboardingStatus, 1000);
       
     } catch (err: any) {
-      setError(err.message || 'Failed to verify OTP');
+      setError(getErrorMessage(err.message || err));
     } finally {
       setLoading(false);
     }
@@ -238,9 +293,36 @@ export default function ProviderLoginPage() {
                           ))}
                         </InputOTPGroup>
                       </InputOTP>
+                      {otpTimer > 0 && (
+                        <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
+                          <Clock className="h-4 w-4" />
+                          <span>OTP expires in {formatTimer(otpTimer)}</span>
+                        </div>
+                      )}
                     </div>
-                    <Button type="submit" className="w-full" disabled={loading || otp.length !== 6}>
-                      {loading ? 'Verifying...' : 'Verify OTP'}
+                    <div className="flex gap-2">
+                      <Button type="submit" className="flex-1" disabled={loading || otp.length !== 6}>
+                        {loading ? 'Verifying...' : 'Verify OTP'}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleResendOtp}
+                        disabled={!canResend || loading}
+                        className="flex items-center gap-2"
+                      >
+                        <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                        Resend
+                      </Button>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => setStep('phone')}
+                      className="w-full"
+                      disabled={loading}
+                    >
+                      Back to Phone Number
                     </Button>
                   </form>
                 )}

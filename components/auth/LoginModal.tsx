@@ -1,0 +1,357 @@
+"use client";
+
+import React, { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
+import { getProviderByUserId, getCustomerByUserId } from '@/lib/appwrite-services';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
+import { Clock, RefreshCw } from 'lucide-react';
+import { account } from '@/lib/appwrite';
+
+interface LoginModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+export default function LoginModal({ open, onOpenChange }: LoginModalProps) {
+  const [phone, setPhone] = useState('');
+  const [otp, setOtp] = useState('');
+  const [step, setStep] = useState<'phone' | 'otp'>('phone');
+  const [userId, setUserId] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [agreed, setAgreed] = useState(false);
+  const [otpTimer, setOtpTimer] = useState(0);
+  const [canResend, setCanResend] = useState(false);
+
+  const { user, loginWithPhoneOtp, canRequestOtp } = useAuth();
+  const router = useRouter();
+
+  // OTP Timer effect
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (otpTimer > 0) {
+      interval = setInterval(() => {
+        setOtpTimer((prev) => {
+          if (prev <= 1) {
+            setCanResend(true);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [otpTimer]);
+
+  // Format timer display
+  const formatTimer = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Get better error messages
+  const getErrorMessage = (error: any) => {
+    if (typeof error === 'string') {
+      if (error.includes('Too many OTP requests')) {
+        return 'Too many OTP requests. Please try again in an hour.';
+      }
+      if (error.includes('Too many OTP attempts')) {
+        return 'Too many OTP attempts. Please request a new OTP.';
+      }
+      if (error.includes('phone_invalid')) {
+        return 'Please enter a valid 10-digit Indian phone number.';
+      }
+      if (error.includes('otp_expired')) {
+        return 'OTP has expired. Please request a new one.';
+      }
+      if (error.includes('otp_invalid')) {
+        return 'Invalid OTP. Please try again.';
+      }
+      return error;
+    }
+    return 'Something went wrong. Please try again.';
+  };
+
+  const handleSendOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    
+    const phonePattern = /^[6-9]\d{9}$/;
+    if (!phonePattern.test(phone)) {
+      setError('Please enter a valid 10-digit Indian phone number');
+      return;
+    }
+
+    // Check rate limiting
+    if (!canRequestOtp(phone)) {
+      setError('Too many OTP requests. Please try again in an hour.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const result = await loginWithPhoneOtp('+91' + phone);
+      if (result && result.userId) {
+        setUserId(result.userId);
+        setStep('otp');
+        setOtpTimer(300); // 5 minutes
+        setCanResend(false);
+      } else {
+        setError('Failed to send OTP');
+      }
+    } catch (err: any) {
+      setError(getErrorMessage(err.message || err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (!canResend) return;
+    
+    setLoading(true);
+    setError('');
+    try {
+      const result = await loginWithPhoneOtp('+91' + phone);
+      if (result && result.userId) {
+        setOtpTimer(300); // 5 minutes
+        setCanResend(false);
+        setOtp(''); // Clear previous OTP
+      } else {
+        setError('Failed to resend OTP');
+      }
+    } catch (err: any) {
+      setError(getErrorMessage(err.message || err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      console.log('🔐 Starting OTP verification...');
+      await loginWithPhoneOtp('+91' + phone, otp, userId);
+      console.log('✅ OTP verification successful');
+      
+      // Check user type immediately after successful login
+      try {
+        console.log('🔄 Checking user type after login...');
+        // Get the current user from the session
+        const session = await account.get();
+        
+        if (!session) {
+          console.log('❌ No session found, redirecting to home');
+          onOpenChange(false);
+          router.push('/');
+          return;
+        }
+        
+        console.log('👤 Session found for user:', session.$id);
+        
+        // Check if user is a provider
+        console.log('🔍 Checking if user is a provider...');
+        const provider = await getProviderByUserId(session.$id);
+        if (provider) {
+          console.log('🏢 User is a provider:', provider);
+          // User is a provider, check onboarding status
+          if (provider.business_name && provider.business_name !== 'Your Business') {
+            console.log('✅ Provider onboarding completed, redirecting to dashboard');
+            router.push('/provider/dashboard');
+          } else {
+            console.log('⏳ Provider onboarding not completed, redirecting to onboarding');
+            router.push('/provider/onboarding');
+          }
+        } else {
+          console.log('👤 User is not a provider, checking customer profile...');
+          // User is not a provider, check if customer profile exists
+          const customerProfile = await getCustomerByUserId(session.$id);
+          console.log('📋 Customer profile check result:', customerProfile);
+          
+          if (customerProfile) {
+            // Customer profile exists, go to dashboard
+            console.log('✅ Customer profile exists, redirecting to dashboard');
+            onOpenChange(false);
+            router.push('/customer/dashboard');
+          } else {
+            // Customer profile doesn't exist, redirect to onboarding page
+            console.log('🆕 Customer profile not found, redirecting to onboarding');
+            onOpenChange(false);
+            router.push('/customer/onboarding');
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error checking user type:', error);
+        // Default to home page
+        onOpenChange(false);
+        router.push('/');
+      }
+      
+    } catch (err: any) {
+      console.error('❌ OTP verification failed:', err);
+      setError(getErrorMessage(err.message || err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = () => {
+    const successUrl = window.location.origin + '/';
+    const failureUrl = window.location.origin + '/login?error=oauth';
+    account.createOAuth2Session('google' as any, successUrl, failureUrl);
+  };
+
+  // Reset form when modal closes
+  useEffect(() => {
+    if (!open) {
+      setPhone('');
+      setOtp('');
+      setStep('phone');
+      setUserId('');
+      setError('');
+      setLoading(false);
+      setAgreed(false);
+      setOtpTimer(0);
+      setCanResend(false);
+    }
+  }, [open]);
+
+  return (
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-2xl p-0 overflow-hidden rounded-2xl shadow-2xl bg-white/80 backdrop-blur-lg">
+          <div className="flex flex-col md:flex-row">
+            <div className="hidden md:flex flex-col justify-center items-center bg-muted w-1/2 p-8">
+              <img src="/assets/undraw_access-account_aydp.svg" alt="Login Illustration" className="w-72 h-72 object-contain" />
+            </div>
+            <div className="w-full md:w-1/2 p-8 flex flex-col justify-center">
+              <Card className="shadow-none border-0 bg-transparent">
+                <CardHeader className="mb-4 p-0">
+                  <CardTitle className="text-2xl font-bold mb-2">Login/Signup</CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  {step === 'phone' ? (
+                    <form onSubmit={handleSendOtp} className="space-y-6">
+                      {error && (
+                        <Alert variant="destructive">
+                          <AlertDescription>{error}</AlertDescription>
+                        </Alert>
+                      )}
+                      <div>
+                        <Label htmlFor="phone" className="mb-1 block text-base font-medium">Mobile Number</Label>
+                        <div className="flex items-center border-b border-border focus-within:border-primary">
+                          <span className="text-lg font-semibold text-foreground mr-2 select-none">+91</span>
+                          <Input
+                            id="phone"
+                            type="tel"
+                            value={phone}
+                            onChange={e => {
+                              const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                              setPhone(val);
+                            }}
+                            placeholder="Enter your Mobile"
+                            required
+                            maxLength={10}
+                            pattern="[6-9]{1}[0-9]{9}"
+                            className="border-0 focus:ring-0 focus:outline-none shadow-none px-0 bg-transparent"
+                            style={{ boxShadow: 'none', border: 'none', outline: 'none' }}
+                          />
+                        </div>
+                      </div>
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id="agree"
+                          checked={agreed}
+                          onChange={e => setAgreed(e.target.checked)}
+                          className="mr-2 accent-primary"
+                          required
+                        />
+                        <label htmlFor="agree" className="text-sm text-muted-foreground">
+                          I agree to the{' '}
+                          <a href="/terms" target="_blank" className="text-primary underline">Terms and Conditions</a> &amp;{' '}
+                          <a href="/privacy" target="_blank" className="text-primary underline">Privacy Policy</a>
+                        </label>
+                      </div>
+                      <Button type="submit" className="w-full" disabled={loading || !agreed || phone.length !== 10}>
+                        {loading ? 'Sending OTP...' : 'Continue'}
+                      </Button>
+                    </form>
+                  ) : (
+                    <form onSubmit={handleVerifyOtp} className="space-y-6">
+                      {error && (
+                        <Alert variant="destructive">
+                          <AlertDescription>{error}</AlertDescription>
+                        </Alert>
+                      )}
+                      <div>
+                        <Label htmlFor="otp" className="mb-1 block text-base font-medium">OTP</Label>
+                        <InputOTP id="otp" maxLength={6} value={otp} onChange={setOtp} autoFocus required>
+                          <InputOTPGroup>
+                            {[...Array(6)].map((_, idx) => (
+                              <InputOTPSlot key={idx} index={idx} />
+                            ))}
+                          </InputOTPGroup>
+                        </InputOTP>
+                        {otpTimer > 0 && (
+                          <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
+                            <Clock className="h-4 w-4" />
+                            <span>OTP expires in {formatTimer(otpTimer)}</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <Button type="submit" className="flex-1" disabled={loading || otp.length !== 6}>
+                          {loading ? 'Verifying...' : 'Verify OTP'}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={handleResendOtp}
+                          disabled={!canResend || loading}
+                          className="flex items-center gap-2"
+                        >
+                          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                          Resend
+                        </Button>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => setStep('phone')}
+                        className="w-full"
+                        disabled={loading}
+                      >
+                        Back to Phone Number
+                      </Button>
+                    </form>
+                  )}
+                  <Button
+                    variant="outline"
+                    className="w-full flex items-center justify-center gap-2 mt-4"
+                    onClick={handleGoogleSignIn}
+                  >
+                    <img src="/assets/google-icon.svg" alt="Google" className="w-5 h-5" />
+                    Continue with Google
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Removed CustomerOnboarding component */}
+    </>
+  );
+} 

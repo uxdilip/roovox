@@ -408,7 +408,11 @@ export const createBooking = async (bookingData: Omit<Booking, 'id' | 'created_a
       rating: doc.rating,
       review: doc.review,
       created_at: doc.created_at,
-      updated_at: doc.updated_at
+      updated_at: doc.updated_at,
+      payment_method: doc.payment_method || 'online',
+      selected_issues: doc.selected_issues || doc.issue_description || '',
+      warranty: doc.warranty || '30 days',
+      serviceMode: doc.serviceMode || 'home_service'
     };
   } catch (error) {
     console.error('Error creating booking:', error);
@@ -440,7 +444,11 @@ export const getBookingsByCustomerId = async (customerId: string): Promise<Booki
       rating: doc.rating,
       review: doc.review,
       created_at: doc.created_at,
-      updated_at: doc.updated_at
+      updated_at: doc.updated_at,
+      payment_method: doc.payment_method || 'online',
+      selected_issues: doc.selected_issues || doc.issue_description || '',
+      warranty: doc.warranty || '30 days',
+      serviceMode: doc.serviceMode || 'home_service'
     }));
   } catch (error) {
     console.error('Error fetching bookings by customer ID:', error);
@@ -472,7 +480,11 @@ export const getBookingsByProviderId = async (providerId: string): Promise<Booki
       rating: doc.rating,
       review: doc.review,
       created_at: doc.created_at,
-      updated_at: doc.updated_at
+      updated_at: doc.updated_at,
+      payment_method: doc.payment_method || 'online',
+      selected_issues: doc.selected_issues || doc.issue_description || '',
+      warranty: doc.warranty || '30 days',
+      serviceMode: doc.serviceMode || 'home_service'
     }));
   } catch (error) {
     console.error('Error fetching bookings by provider ID:', error);
@@ -500,7 +512,11 @@ export const getBookingById = async (bookingId: string): Promise<Booking | null>
       rating: doc.rating,
       review: doc.review,
       created_at: doc.created_at,
-      updated_at: doc.updated_at
+      updated_at: doc.updated_at,
+      payment_method: doc.payment_method || 'online',
+      selected_issues: doc.selected_issues || doc.issue_description || '',
+      warranty: doc.warranty || '30 days',
+      serviceMode: doc.serviceMode || 'home_service'
     };
   } catch (error) {
     console.error('Error fetching booking by ID:', error);
@@ -1357,5 +1373,119 @@ export const getIssuesByCategory = async (categoryId: string, limit = 50, offset
   } catch (error) {
     console.error('Error fetching issues by category:', error);
     return [];
+  }
+}; 
+
+export const createCustomerProfile = async (customerData: {
+  user_id: string;
+  full_name: string;
+  email: string;
+  phone: string;
+  address?: string;
+}) => {
+  try {
+    console.log('🆕 Creating customer profile for user_id:', customerData.user_id);
+    console.log('📝 Customer data:', customerData);
+    
+    // Check if customer already exists
+    const response = await databases.listDocuments(
+      DATABASE_ID,
+      'customers',
+      [Query.equal('user_id', customerData.user_id), Query.limit(1)]
+    );
+    
+    console.log('🔍 Existing customer documents found:', response.documents.length);
+    
+    if (response.documents.length > 0) {
+      // Customer exists, update their profile
+      console.log('🔄 Updating existing customer profile...');
+      const existingDoc = response.documents[0];
+      const updateData: any = {
+        full_name: customerData.full_name,
+        email: customerData.email,
+        phone: customerData.phone
+      };
+      
+      if (customerData.address !== undefined) {
+        updateData.address = customerData.address;
+      }
+      
+      const updatedDoc = await databases.updateDocument(
+        DATABASE_ID,
+        'customers',
+        existingDoc.$id,
+        updateData
+      );
+      
+      console.log('✅ Customer profile updated:', updatedDoc.$id);
+      return updatedDoc;
+    } else {
+      // Create new customer profile
+      console.log('🆕 Creating new customer profile...');
+      const newCustomerData = {
+        user_id: customerData.user_id,
+        full_name: customerData.full_name,
+        email: customerData.email,
+        phone: customerData.phone,
+        address: customerData.address || '',
+        created_at: new Date().toISOString()
+      };
+      
+      console.log('📝 New customer data:', newCustomerData);
+      
+      const newDoc = await databases.createDocument(
+        DATABASE_ID,
+        'customers',
+        ID.unique(),
+        newCustomerData
+      );
+      
+      console.log('✅ New customer profile created:', newDoc.$id);
+      
+      // Also update the user's name in the User collection
+      try {
+        console.log('🔄 Updating user name in User collection...');
+        await databases.updateDocument(
+          DATABASE_ID,
+          'User',
+          customerData.user_id,
+          {
+            name: customerData.full_name
+          }
+        );
+        console.log('✅ User name updated in User collection');
+      } catch (userUpdateError) {
+        console.error('⚠️ Failed to update user name:', userUpdateError);
+        // Don't throw error here as customer profile was created successfully
+      }
+      
+      return newDoc;
+    }
+  } catch (error) {
+    console.error('❌ Error creating/updating customer profile:', error);
+    throw error;
+  }
+};
+
+export const getCustomerByUserId = async (userId: string) => {
+  try {
+    console.log('🔍 Searching for customer profile with user_id:', userId);
+    const response = await databases.listDocuments(
+      DATABASE_ID,
+      'customers',
+      [Query.equal('user_id', userId), Query.limit(1)]
+    );
+    
+    console.log('📊 Found customer documents:', response.documents.length);
+    if (response.documents.length > 0) {
+      console.log('✅ Customer profile found:', response.documents[0]);
+      return response.documents[0];
+    } else {
+      console.log('❌ No customer profile found for user_id:', userId);
+      return null;
+    }
+  } catch (error) {
+    console.error('❌ Error fetching customer profile:', error);
+    return null;
   }
 }; 

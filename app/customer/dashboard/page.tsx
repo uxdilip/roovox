@@ -62,173 +62,128 @@ export default function CustomerDashboard() {
       if (!user) return;
 
       try {
-        // Fetch customer name from User collection (lowercase)
-        const customerResponse = await databases.getDocument(
+        // Fetch customer name from customers collection
+        const customerResponse = await databases.listDocuments(
           process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
-          'user', // Use correct collection name (lowercase)
-          user.id
+          'customers',
+          [Query.equal('user_id', user.id), Query.limit(1)]
         );
-        setCustomerName(customerResponse.name || "Customer");
 
-        console.log("Current user ID:", user.id);
-        console.log("User document:", customerResponse);
+        if (customerResponse.documents.length > 0) {
+          setCustomerName(customerResponse.documents[0].full_name || "Customer");
+        } else {
+          // Fallback to user collection if customer profile doesn't exist
+          try {
+            const userResponse = await databases.getDocument(
+              process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+              'user',
+              user.id
+            );
+            setCustomerName(userResponse.name || "Customer");
+          } catch (error) {
+            console.error("Error fetching user data:", error);
+            setCustomerName("Customer");
+          }
+        }
 
         // Fetch bookings for this customer
         // Use the User document's $id as customer_id since that's how bookings are linked
         const bookingsResponse = await databases.listDocuments(
           process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
           process.env.NEXT_PUBLIC_APPWRITE_BOOKINGS_COLLECTION_ID!,
-          [Query.equal("customer_id", customerResponse.$id)]
+          [Query.equal("customer_id", user.id)]
         );
 
-        console.log("Found bookings:", bookingsResponse.documents.length);
-        console.log("Bookings:", bookingsResponse.documents.map(b => ({
-          id: b.$id,
-          status: b.status,
-          payment_status: b.payment_status,
-          created_at: b.created_at
-        })));
-        
-        // Log completed bookings specifically
-        const completedBookings = bookingsResponse.documents.filter(b => b.status === 'completed');
-        console.log("Completed bookings:", completedBookings.length, completedBookings.map(b => b.$id));
-
-        // Fetch additional details for each booking
         const bookingsWithDetails = await Promise.all(
           bookingsResponse.documents.map(async (booking: any) => {
+            // Fetch provider details from business_setup
+            let providerName = "Unknown Provider";
+            let providerRating = 0;
+
             try {
-              // Fetch provider details from business_setup
-              let providerName = "Unknown Provider";
-              let providerAverageRating = 0;
-              let providerTotalReviews = 0;
-              
-              try {
-                const businessSetupResponse = await databases.listDocuments(
-                  process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
-                  'business_setup',
-                  [Query.equal("user_id", booking.provider_id)]
-                );
-                
-                console.log(`Provider lookup for ${booking.provider_id}:`, businessSetupResponse.documents.length, 'results');
-                
-                if (businessSetupResponse.documents.length > 0) {
-                  const onboardingData = JSON.parse(businessSetupResponse.documents[0].onboarding_data || '{}');
-                  providerName = onboardingData.businessInfo?.businessName || "Unknown Provider";
-                  console.log('Provider name found:', providerName);
-                } else {
-                  console.log('No business setup found for provider_id:', booking.provider_id);
-                }
-              } catch (error) {
-                console.error("Error fetching provider business setup:", error);
-              }
+              const businessSetupResponse = await databases.listDocuments(
+                process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+                'business_setup',
+                [Query.equal("user_id", booking.provider_id)]
+              );
 
-              // Fetch provider average rating
-              try {
-                const providerRatingResponse = await databases.listDocuments(
-                  process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
-                  'provider_ratings',
-                  [Query.equal("provider_id", booking.provider_id)]
-                );
-                
-                if (providerRatingResponse.documents.length > 0) {
-                  providerAverageRating = providerRatingResponse.documents[0].average_rating || 0;
-                  providerTotalReviews = providerRatingResponse.documents[0].total_reviews || 0;
-                }
-              } catch (error) {
-                console.error("Error fetching provider rating:", error);
+              if (businessSetupResponse.documents.length > 0) {
+                const onboardingData = JSON.parse(businessSetupResponse.documents[0].onboarding_data || '{}');
+                providerName = onboardingData.business_name || "Unknown Provider";
               }
+            } catch (error) {
+              console.error("Error fetching provider business setup:", error);
+            }
 
-              // Fetch device details
-              let deviceBrand = "Unknown Device";
-              let deviceModel = "";
-              let deviceImage = "";
-              
+            // Fetch device details (from Phones or Laptops)
+            let deviceBrand = "Unknown Device";
+            let deviceModel = "";
+            let deviceImage = "";
+
+            try {
+              let deviceResponse;
               try {
-                // Try to fetch from Phones collection first
-                let deviceResponse;
+                deviceResponse = await databases.getDocument(
+                  process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+                  'Phones',
+                  booking.device_id
+                );
+              } catch (phoneError) {
                 try {
                   deviceResponse = await databases.getDocument(
                     process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
-                    'Phones',
+                    'Laptops',
                     booking.device_id
                   );
-                } catch (phoneError) {
-                  // If not found in Phones, try Laptops collection
-                  try {
-                    deviceResponse = await databases.getDocument(
-                      process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
-                      'Laptops',
-                      booking.device_id
-                    );
-                  } catch (laptopError) {
-                    console.error("Device not found in either Phones or Laptops collections");
-                    throw laptopError;
-                  }
+                } catch (laptopError) {
+                  console.error("Device not found in either Phones or Laptops collections");
+                  throw laptopError;
                 }
-                
-                deviceBrand = deviceResponse.brand || "Unknown Brand";
-                deviceModel = deviceResponse.model || "";
-                deviceImage = deviceResponse.image_url || "";
-              } catch (error) {
-                console.error("Error fetching device:", error);
               }
 
-              // Fetch payment details
-              let paymentMethod = "Unknown";
-              let paymentStatus = "pending";
-              
-              try {
-                const paymentResponse = await databases.listDocuments(
-                  process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
-                  process.env.NEXT_PUBLIC_APPWRITE_PAYMENTS_COLLECTION_ID!,
-                  [Query.equal("booking_id", booking.$id)]
-                );
-                
-                if (paymentResponse.documents.length > 0) {
-                  paymentMethod = paymentResponse.documents[0].payment_method || "Unknown";
-                  paymentStatus = paymentResponse.documents[0].status || "pending";
-                }
-              } catch (error) {
-                console.error("Error fetching payment:", error);
-              }
-              
-              return {
-                ...booking,
-                provider: {
-                  name: providerName,
-                  rating: providerAverageRating, // Use provider average rating
-                  totalReviews: providerTotalReviews,
-                  avatar: undefined
-                },
-                device: {
-                  brand: deviceBrand,
-                  model: deviceModel,
-                  image_url: deviceImage
-                },
-                payment: {
-                  payment_method: paymentMethod,
-                  status: paymentStatus
-                }
-              };
+              deviceBrand = deviceResponse.brand || "Unknown Brand";
+              deviceModel = deviceResponse.model || "";
+              deviceImage = deviceResponse.image_url || "";
             } catch (error) {
-              console.error("Error fetching booking details:", error);
-              return {
-                ...booking,
-                provider: {
-                  name: "Unknown Provider",
-                  rating: 0
-                },
-                device: {
-                  brand: "Unknown Device",
-                  model: "",
-                  image_url: ""
-                },
-                payment: {
-                  payment_method: "Unknown",
-                  status: "pending"
-                }
-              };
+              console.error("Error fetching device:", error);
             }
+
+            // Fetch payment details
+            let paymentMethod = "Unknown";
+            let paymentStatus = "pending";
+
+            try {
+              const paymentResponse = await databases.listDocuments(
+                process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+                process.env.NEXT_PUBLIC_APPWRITE_PAYMENTS_COLLECTION_ID!,
+                [Query.equal("booking_id", booking.$id)]
+              );
+
+              if (paymentResponse.documents.length > 0) {
+                paymentMethod = paymentResponse.documents[0].payment_method || "Unknown";
+                paymentStatus = paymentResponse.documents[0].status || "pending";
+              }
+            } catch (error) {
+              console.error("Error fetching payment:", error);
+            }
+
+            return {
+              ...booking,
+              provider: {
+                name: providerName,
+                rating: booking.rating || 0,
+                avatar: undefined
+              },
+              device: {
+                brand: deviceBrand,
+                model: deviceModel,
+                image_url: deviceImage
+              },
+              payment: {
+                payment_method: paymentMethod,
+                status: paymentStatus
+              }
+            };
           })
         );
 
