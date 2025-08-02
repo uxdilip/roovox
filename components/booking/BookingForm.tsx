@@ -24,12 +24,14 @@ import {
   updateUserPhone,
   createBooking
 } from '@/lib/appwrite-services';
-import { useLocation } from '@/contexts/LocationContext';
+import { useLocation, LocationData } from '@/contexts/LocationContext';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import LocationSelector from '@/components/LocationSelector';
 import { databases, DATABASE_ID } from '@/lib/appwrite';
 import { Query } from 'appwrite';
+import { StoreMap } from '@/components/ui/StoreMap';
+import { geocodeAddress, formatAddressForGeocoding } from '@/lib/geocoding';
 
 interface BookingFormProps {
   device: Device;
@@ -84,6 +86,8 @@ export function BookingForm({
   const [serviceMode, setServiceMode] = useState<'doorstep' | 'instore'>('doorstep');
   const [availableServiceModes, setAvailableServiceModes] = useState<Array<'doorstep' | 'instore'>>(['doorstep', 'instore']);
   const [storeAddress, setStoreAddress] = useState<any>(null);
+  const [storeLocation, setStoreLocation] = useState<{ lat: number; lng: number; address: string } | null>(null);
+  const [storeLocationLoading, setStoreLocationLoading] = useState(false);
 
   const { user, setUser } = useAuth();
   const [addresses, setAddresses] = useState<Array<any>>([]);
@@ -91,7 +95,7 @@ export function BookingForm({
   const [showAddressDialog, setShowAddressDialog] = useState(false);
   const [editingAddress, setEditingAddress] = useState<any | null>(null);
   const [locationModalOpen, setLocationModalOpen] = useState(false);
-  const { setLocation } = useLocation();
+  const { location: customerLocation, setLocation } = useLocation();
   const { toast } = useToast();
   const [savingAddress, setSavingAddress] = useState(false);
   const [addressSaved, setAddressSaved] = useState(false);
@@ -141,6 +145,27 @@ export function BookingForm({
         const mode = serviceSetup?.serviceMode || 'both';
         const location = serviceSetup?.location || null;
         setStoreAddress(location);
+        
+        // Geocode store address if available
+        if (location && location.address) {
+          setStoreLocationLoading(true);
+          try {
+            const formattedAddress = formatAddressForGeocoding(location.address);
+            const geocodedResult = await geocodeAddress(formattedAddress);
+            if (geocodedResult) {
+              setStoreLocation({
+                lat: geocodedResult.lat,
+                lng: geocodedResult.lng,
+                address: location.address
+              });
+            }
+          } catch (error) {
+            console.error('Error geocoding store address:', error);
+          } finally {
+            setStoreLocationLoading(false);
+          }
+        }
+        
         if (mode === 'doorstep') {
           setAvailableServiceModes(['doorstep']);
           setServiceMode('doorstep');
@@ -459,17 +484,52 @@ export function BookingForm({
             </Card>
             )}
             {serviceMode === 'instore' && storeAddress && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Store Address</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <div className="text-gray-700">
-                    <div>{storeAddress.flat || ''} {storeAddress.street || ''}</div>
-                    <div>{storeAddress.city || ''} {storeAddress.state || ''} {storeAddress.zip || ''}</div>
-                  </div>
-                </CardContent>
-              </Card>
+              storeLocationLoading ? (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Store Location</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center justify-center py-8">
+                      <div className="text-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+                        <p className="text-sm text-muted-foreground">Loading store location...</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : storeLocation ? (
+                <StoreMap
+                  storeLocation={{
+                    lat: storeLocation.lat,
+                    lng: storeLocation.lng,
+                    address: storeLocation.address,
+                    businessName: storeAddress.businessName || 'Store',
+                    phone: storeAddress.phone,
+                    hours: storeAddress.hours
+                  }}
+                  customerLocation={customerLocation?.coordinates ? {
+                    lat: customerLocation.coordinates[0],
+                    lng: customerLocation.coordinates[1]
+                  } : null}
+                  showDirections={true}
+                />
+              ) : (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Store Address</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div className="text-gray-700">
+                      <div>{storeAddress.flat || ''} {storeAddress.street || ''}</div>
+                      <div>{storeAddress.city || ''} {storeAddress.state || ''} {storeAddress.zip || ''}</div>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Unable to load map for this location
+                    </p>
+                  </CardContent>
+                </Card>
+              )
             )}
           <Card>
             <CardHeader>
