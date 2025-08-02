@@ -211,10 +211,12 @@ export default function ProviderLoginPage() {
   };
 
   const handleGoogleSignIn = () => {
-    localStorage.setItem('loginAsProvider', '1');
-    const successUrl = window.location.origin + '/provider/dashboard';
-    const failureUrl = window.location.origin + '/provider/login?error=oauth';
-    account.createOAuth2Session('google' as any, successUrl, failureUrl);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('loginAsProvider', '1');
+      const successUrl = window.location.origin + '/provider/dashboard';
+      const failureUrl = window.location.origin + '/provider/login?error=oauth';
+      account.createOAuth2Session('google' as any, successUrl, failureUrl);
+    }
   };
 
   return (

@@ -668,38 +668,59 @@ export const getBookingStats = async (userId: string, userType: 'customer' | 'pr
 
 // Address management (new collection: addresses)
 export const createAddress = async (address: Record<string, any>) => {
-  return await databases.createDocument(
-    DATABASE_ID,
-    COLLECTIONS.ADDRESSES,
-    'unique()',
-    address
-  );
+  try {
+    return await databases.createDocument(
+      DATABASE_ID,
+      COLLECTIONS.ADDRESSES,
+      'unique()',
+      address
+    );
+  } catch (error) {
+    console.log('Addresses collection not found, skipping address creation');
+    return null;
+  }
 };
 
 export const updateAddress = async (addressId: string, address: Record<string, any>) => {
-  return await databases.updateDocument(
-    DATABASE_ID,
-    COLLECTIONS.ADDRESSES,
-    addressId,
-    address
-  );
+  try {
+    return await databases.updateDocument(
+      DATABASE_ID,
+      COLLECTIONS.ADDRESSES,
+      addressId,
+      address
+    );
+  } catch (error) {
+    console.log('Addresses collection not found, skipping address update');
+    return null;
+  }
 };
 
 export const deleteAddress = async (addressId: string) => {
-  return await databases.deleteDocument(
-    DATABASE_ID,
-    COLLECTIONS.ADDRESSES,
-    addressId
-  );
+  try {
+    return await databases.deleteDocument(
+      DATABASE_ID,
+      COLLECTIONS.ADDRESSES,
+      addressId
+    );
+  } catch (error) {
+    console.log('Addresses collection not found, skipping address deletion');
+    return null;
+  }
 };
 
 export const getAddressesByUser = async (userId: string) => {
-  const res = await databases.listDocuments(
-    DATABASE_ID,
-    COLLECTIONS.ADDRESSES,
-    [Query.equal('user_id', userId)]
-  );
-  return res.documents;
+  try {
+    const res = await databases.listDocuments(
+      DATABASE_ID,
+      COLLECTIONS.ADDRESSES,
+      [Query.equal('user_id', userId)]
+    );
+    return res.documents;
+  } catch (error) {
+    // If addresses collection doesn't exist, return empty array
+    console.log('Addresses collection not found, returning empty array');
+    return [];
+  }
 };
 
 export const setDefaultAddress = async (addressId: string, userId: string) => {

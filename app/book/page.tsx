@@ -9,6 +9,9 @@ import { Device, Service, PartQuality } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLocation } from '@/contexts/LocationContext';
 
+// Force dynamic rendering to prevent SSR issues
+export const dynamic = 'force-dynamic';
+
 export default function BookPage() {
   const { user } = useAuth();
   const { location } = useLocation();

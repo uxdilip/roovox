@@ -5,54 +5,27 @@ import crypto from 'crypto';
 export async function POST(req: NextRequest) {
   try {
     const { 
-      booking_id, 
+      session_key, 
+      booking_data,
       razorpay_payment_id, 
       razorpay_order_id, 
       razorpay_signature 
     } = await req.json();
 
     console.log('Payment verification request:', {
-      booking_id,
+      session_key,
+      booking_data: booking_data ? 'present' : 'missing',
       razorpay_payment_id,
       razorpay_order_id,
       razorpay_signature: razorpay_signature ? 'present' : 'missing'
     });
 
-    if (!booking_id || !razorpay_payment_id || !razorpay_order_id || !razorpay_signature) {
+    if (!session_key || !booking_data || !razorpay_payment_id || !razorpay_order_id || !razorpay_signature) {
       return NextResponse.json({ 
         success: false, 
         error: 'Missing payment verification parameters' 
       }, { status: 400 });
     }
-
-    // First, let's try to list all bookings to see what's available
-    try {
-      const allBookings = await databases.listDocuments(DATABASE_ID, 'bookings');
-      console.log('Available bookings:', allBookings.documents.map(b => ({ id: b.$id, total_amount: b.total_amount })));
-    } catch (error: any) {
-      console.error('Error listing bookings:', error);
-    }
-
-    // Fetch booking
-    let booking;
-    try {
-      console.log('Attempting to fetch booking with ID:', booking_id);
-      booking = await databases.getDocument(
-        DATABASE_ID,
-        'bookings',
-        booking_id
-      );
-      console.log('Booking found successfully:', booking.$id);
-    } catch (error: any) {
-      console.error('Error fetching booking:', error);
-      return NextResponse.json({ success: false, error: 'Booking not found or access denied: ' + error.message }, { status: 404 });
-    }
-
-    if (!booking) {
-      return NextResponse.json({ success: false, error: 'Booking not found' }, { status: 404 });
-    }
-
-    console.log('Booking found:', booking.$id);
 
     // Verify payment signature
     const text = `${razorpay_order_id}|${razorpay_payment_id}`;
@@ -82,21 +55,27 @@ export async function POST(req: NextRequest) {
 
     console.log('Proceeding with payment confirmation...');
 
-    // Update booking payment status
+    // Create booking document after successful payment
+    let booking;
     try {
-      await databases.updateDocument(
+      console.log('Creating booking after successful payment...');
+      // Create the complete booking with all data from the client
+      booking = await databases.createDocument(
         DATABASE_ID,
         'bookings',
-        booking_id,
+        'unique()',
         {
+          ...booking_data,
           payment_status: 'completed',
           status: 'confirmed',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         }
       );
-      console.log('Booking updated successfully');
+      console.log('Booking created successfully:', booking.$id);
     } catch (error: any) {
-      console.error('Error updating booking:', error);
-      return NextResponse.json({ success: false, error: 'Failed to update booking: ' + error.message }, { status: 500 });
+      console.error('Error creating booking:', error);
+      return NextResponse.json({ success: false, error: 'Failed to create booking: ' + error.message }, { status: 500 });
     }
 
     // Create payment document
@@ -106,13 +85,13 @@ export async function POST(req: NextRequest) {
         'payments',
         'unique()',
         {
-          booking_id,
+          booking_id: booking.$id,
           amount: booking.total_amount,
           status: 'completed',
           payment_method: 'online',
           transaction_id: `TXN_${Date.now()}`,
           commission_amount: booking.total_amount * 0.10, // 10% commission
-          provider_payout: booking.total_amount * 0.90,   // 90% to provider       // Same as commission_amount
+          provider_payout: booking.total_amount * 0.90,   // 90% to provider
           is_commission_settled: false,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),

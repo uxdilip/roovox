@@ -67,34 +67,38 @@ export function StoreMap({
 
   const handleGetDirections = () => {
     const url = `https://www.openstreetmap.org/directions?from=&to=${storeLocation.lat},${storeLocation.lng}`;
-    window.open(url, '_blank');
+    if (typeof window !== 'undefined') {
+      window.open(url, '_blank');
+    }
   };
 
   const handleCopyAddress = async () => {
     try {
       // Try modern clipboard API first
-      if (navigator.clipboard && window.isSecureContext) {
+      if (typeof window !== 'undefined' && navigator.clipboard && window.isSecureContext) {
         await navigator.clipboard.writeText(storeLocation.address);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       } else {
         // Fallback for older browsers or non-secure contexts
-        const textArea = document.createElement('textarea');
-        textArea.value = storeLocation.address;
-        textArea.style.position = 'fixed';
-        textArea.style.left = '-999999px';
-        textArea.style.top = '-999999px';
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        try {
-          document.execCommand('copy');
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2000);
-        } catch (err) {
-          console.error('Failed to copy address:', err);
+        if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+          const textArea = document.createElement('textarea');
+          textArea.value = storeLocation.address;
+          textArea.style.position = 'fixed';
+          textArea.style.left = '-999999px';
+          textArea.style.top = '-999999px';
+          document.body.appendChild(textArea);
+          textArea.focus();
+          textArea.select();
+          try {
+            document.execCommand('copy');
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+          } catch (err) {
+            console.error('Failed to copy address:', err);
+          }
+          document.body.removeChild(textArea);
         }
-        document.body.removeChild(textArea);
       }
     } catch (err) {
       console.error('Failed to copy address:', err);
@@ -102,7 +106,7 @@ export function StoreMap({
   };
 
   const handleCallStore = () => {
-    if (storeLocation.phone) {
+    if (storeLocation.phone && typeof window !== 'undefined') {
       window.open(`tel:${storeLocation.phone}`, '_self');
     }
   };

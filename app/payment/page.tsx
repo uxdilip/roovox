@@ -37,28 +37,69 @@ function loadRazorpayScript() {
 export default function PaymentOptionsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const bookingId = searchParams.get("id");
+  const sessionKey = searchParams.get("session");
   const [selected, setSelected] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [amount, setAmount] = useState<number | null>(null);
-  const [booking, setBooking] = useState<any>(null);
+  const [bookingData, setBookingData] = useState<any>(null);
 
   useEffect(() => {
-    async function fetchBooking() {
-      if (!bookingId) return;
-      try {
-        const res = await fetch(`/api/bookings?id=${bookingId}`);
-        const data = await res.json();
-        if (data && data.booking && data.booking.total_amount) {
-          setAmount(data.booking.total_amount);
-          setBooking(data.booking);
+    // Clean up old session data (older than 1 hour)
+    const cleanupOldSessions = () => {
+      if (typeof window === 'undefined') return; // Check for window object
+      
+      const now = Date.now();
+      const oneHour = 60 * 60 * 1000; // 1 hour in milliseconds
+      
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key && key.startsWith('pending_booking_')) {
+          const timestamp = parseInt(key.replace('pending_booking_', ''));
+          if (now - timestamp > oneHour) {
+            sessionStorage.removeItem(key);
+            console.log('Cleaned up old session:', key);
+          }
         }
-      } catch (e) {
-        setAmount(null);
       }
+    };
+
+    cleanupOldSessions();
+
+    // Load booking data from sessionStorage
+    if (sessionKey) {
+      try {
+        if (typeof window === 'undefined') return; // Check for window object
+        
+        const storedData = sessionStorage.getItem(sessionKey);
+        if (storedData) {
+          const data = JSON.parse(storedData);
+          setBookingData(data);
+          setAmount(data.total_amount);
+          console.log('Loaded booking data from session:', data);
+        } else {
+          console.error('No booking data found in session');
+          toast.error("Booking data not found. Please try booking again.");
+          router.push('/book');
+        }
+      } catch (error) {
+        console.error('Error loading booking data:', error);
+        toast.error("Invalid booking data. Please try booking again.");
+        router.push('/book');
+      }
+    } else {
+      console.error('No session key provided');
+      toast.error("Invalid payment session. Please try booking again.");
+      router.push('/book');
     }
-    fetchBooking();
-  }, [bookingId]);
+
+    // Cleanup function to remove session data if user navigates away
+    return () => {
+      if (sessionKey) {
+        // Only remove if payment wasn't completed (this will be handled in success handlers)
+        console.log('Payment page unmounted, session cleanup handled in success handlers');
+      }
+    };
+  }, [sessionKey, router]);
 
   const getButtonText = () => {
     if (!selected) return "Continue";
@@ -68,8 +109,8 @@ export default function PaymentOptionsPage() {
   };
 
   const handleContinue = async () => {
-    if (!bookingId || !selected) {
-      toast.error("Booking not found");
+    if (!sessionKey || !selected || !bookingData) {
+      toast.error("Booking data not found");
       return;
     }
     setLoading(true);
@@ -81,8 +122,8 @@ export default function PaymentOptionsPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ 
-            booking_id: bookingId,
-            amount: booking?.total_amount || 0
+            session_key: sessionKey,
+            amount: bookingData.total_amount
           }),
         });
         const orderData = await orderRes.json();
@@ -95,11 +136,11 @@ export default function PaymentOptionsPage() {
           amount: orderData.order.amount,
           currency: orderData.order.currency,
           name: "Device Service Booking",
-          description: `Booking for ${booking?.device_brand || ''} ${booking?.device_model || ''}`,
+          description: `Booking for ${bookingData.device_brand || ''} ${bookingData.device_model || ''}`,
           order_id: orderData.order.id,
           handler: async function (response: any) {
             console.log('Payment success response:', response);
-            console.log('Using booking ID for verification:', bookingId);
+            console.log('Using session key for verification:', sessionKey);
             // 4. Verify payment
             try {
               console.log('Starting payment verification...');
@@ -107,7 +148,8 @@ export default function PaymentOptionsPage() {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                  booking_id: bookingId,
+                  session_key: sessionKey,
+                  booking_data: bookingData, // Send the complete booking data
                   razorpay_payment_id: response.razorpay_payment_id,
                   razorpay_order_id: response.razorpay_order_id,
                   razorpay_signature: response.razorpay_signature,
@@ -117,6 +159,10 @@ export default function PaymentOptionsPage() {
               const verifyData = await verifyRes.json();
               console.log('Payment verification response:', verifyData);
               if (verifyData.success) {
+                // Clean up session data
+                if (typeof window !== 'undefined') {
+                  sessionStorage.removeItem(sessionKey);
+                }
                 toast.success("Payment successful!");
                 router.push("/customer/dashboard");
               } else {
@@ -129,8 +175,8 @@ export default function PaymentOptionsPage() {
             }
           },
           prefill: {
-            email: booking?.customer_email || "",
-            contact: booking?.customer_phone || "",
+            email: bookingData.customer_email || "",
+            contact: bookingData.customer_phone || "",
           },
           theme: { color: "#6366f1" },
           modal: {
@@ -142,8 +188,11 @@ export default function PaymentOptionsPage() {
         };
         console.log('Razorpay options:', options);
         // @ts-ignore
-        const rzp = new window.Razorpay(options);
-        rzp.open();
+        if (typeof window !== 'undefined') {
+          // @ts-ignore
+          const rzp = new window.Razorpay(options);
+          rzp.open();
+        }
       } catch (e: any) {
         toast.error(e.message || "Failed to process payment");
       } finally {
@@ -155,10 +204,17 @@ export default function PaymentOptionsPage() {
         const res = await fetch("/api/payments/cod-confirm", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ booking_id: bookingId }),
+          body: JSON.stringify({ 
+            session_key: sessionKey,
+            booking_data: bookingData // Send the complete booking data
+          }),
         });
         const data = await res.json();
         if (data.success) {
+          // Clean up session data
+          if (typeof window !== 'undefined') {
+            sessionStorage.removeItem(sessionKey);
+          }
           toast.success("Booking confirmed for Pay After Service!");
           router.push("/customer/dashboard");
         } else {

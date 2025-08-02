@@ -110,8 +110,11 @@ export default function OnlinePaymentPage() {
         theme: { color: "#6366f1" },
       };
       // @ts-ignore
-      const rzp = new window.Razorpay(options);
-      rzp.open();
+      if (typeof window !== 'undefined') {
+        // @ts-ignore
+        const rzp = new window.Razorpay(options);
+        rzp.open();
+      }
     }
     if (order && booking) launchRazorpay();
     // eslint-disable-next-line

@@ -206,9 +206,11 @@ export default function LoginModal({ open, onOpenChange }: LoginModalProps) {
   };
 
   const handleGoogleSignIn = () => {
-    const successUrl = window.location.origin + '/';
-    const failureUrl = window.location.origin + '/login?error=oauth';
-    account.createOAuth2Session('google' as any, successUrl, failureUrl);
+    if (typeof window !== 'undefined') {
+      const successUrl = window.location.origin + '/';
+      const failureUrl = window.location.origin + '/login?error=oauth';
+      account.createOAuth2Session('google' as any, successUrl, failureUrl);
+    }
   };
 
   // Reset form when modal closes

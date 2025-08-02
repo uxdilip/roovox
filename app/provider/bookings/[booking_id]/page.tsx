@@ -20,6 +20,7 @@ interface Booking {
   appointment_time: string;
   total_amount: number;
   payment_status: string;
+  payment_method?: string;
   location_type: string;
   selected_issues: string;
   cancellation_reason?: string;
@@ -90,6 +91,28 @@ export default function ProviderBookingDetails() {
           console.error("Error fetching device details:", error);
         }
 
+        // Fetch payment details
+        let paymentMethod = "Online"; // Default to Online
+        try {
+          const paymentsResponse = await databases.listDocuments(
+            process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+            'payments',
+            [Query.equal("booking_id", bookingResponse.$id)]
+          );
+          
+          if (paymentsResponse.documents.length > 0) {
+            const payment = paymentsResponse.documents[0];
+            paymentMethod = payment.payment_method === "COD" ? "COD" : "Online";
+          } else {
+            // If no payment record found, determine based on payment_status
+            paymentMethod = bookingResponse.payment_status === "pending" ? "COD" : "Online";
+          }
+        } catch (error) {
+          console.error("Error fetching payment details:", error);
+          // Fallback logic
+          paymentMethod = bookingResponse.payment_status === "pending" ? "COD" : "Online";
+        }
+
         setBooking({
           $id: bookingResponse.$id,
           customer_id: bookingResponse.customer_id,
@@ -99,6 +122,7 @@ export default function ProviderBookingDetails() {
           appointment_time: bookingResponse.appointment_time,
           total_amount: bookingResponse.total_amount,
           payment_status: bookingResponse.payment_status,
+          payment_method: paymentMethod,
           location_type: bookingResponse.location_type,
           selected_issues: bookingResponse.selected_issues,
           cancellation_reason: bookingResponse.cancellation_reason,
@@ -217,7 +241,7 @@ export default function ProviderBookingDetails() {
             </div>
             <div className="flex items-center gap-2">
               <CreditCard className="h-4 w-4 text-gray-400" />
-              <span>{booking.payment_status === "pending" ? "COD" : "Online"}</span>
+              <span>{booking.payment_method || (booking.payment_status === "pending" ? "COD" : "Online")}</span>
               <Badge className={getPaymentStatusColor(booking.payment_status)}>
                 {booking.payment_status.charAt(0).toUpperCase() + booking.payment_status.slice(1)}
               </Badge>

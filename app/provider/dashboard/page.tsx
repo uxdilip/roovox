@@ -203,13 +203,37 @@ export default function ProviderDashboardPage() {
                 console.error("Error fetching device details:", error);
               }
 
+              // Fetch payment details
+              let paymentMethod = "Online"; // Default to Online
+              try {
+                const paymentsResponse = await databases.listDocuments(
+                  process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+                  'payments',
+                  [Query.equal("booking_id", booking.$id)]
+                );
+                
+                if (paymentsResponse.documents.length > 0) {
+                  const payment = paymentsResponse.documents[0];
+                  paymentMethod = payment.payment_method === "COD" ? "COD" : "Online";
+                } else {
+                  // If no payment record found, determine based on payment_status
+                  // COD bookings typically have payment_status "pending" initially
+                  paymentMethod = booking.payment_status === "pending" ? "COD" : "Online";
+                }
+              } catch (error) {
+                console.error("Error fetching payment details:", error);
+                // Fallback logic
+                paymentMethod = booking.payment_status === "pending" ? "COD" : "Online";
+              }
+
               return {
                 ...booking,
                 customer_name: customerName,
                 device_brand: deviceBrand,
                 device_model: deviceModel,
                 device_image: deviceImage,
-                device_display: `${deviceBrand} ${deviceModel}`.trim()
+                device_display: `${deviceBrand} ${deviceModel}`.trim(),
+                payment_method: paymentMethod
               };
             } catch (error) {
               console.error("Error processing booking:", error);
@@ -360,14 +384,28 @@ export default function ProviderDashboardPage() {
         }
         console.log('Setting status to cancelled with reason:', declineReason);
       } else if (action === "complete") {
-        // Check if this is a COD + Doorstep booking
-        if (booking.payment_status === "pending" && booking.location_type === "doorstep") {
-          update.status = "pending_cod_collection";
-          console.log('Setting status to pending_cod_collection (COD + Doorstep)');
+        // Check if this is a COD booking
+        if (booking.payment_status === "pending") {
+          if (booking.location_type === "doorstep") {
+            // COD + Doorstep: Set to pending_cod_collection for pickup
+            update.status = "pending_cod_collection";
+            console.log('Setting status to pending_cod_collection (COD + Doorstep)');
+          } else {
+            // COD + Instore: Mark as completed and update payment status
+            update.status = "completed";
+            update.payment_status = "completed";
+            console.log('Setting status to completed and payment_status to completed (COD + Instore)');
+          }
         } else {
+          // Online payment: Just mark as completed
           update.status = "completed";
-          console.log('Setting status to completed');
+          console.log('Setting status to completed (Online payment)');
         }
+      } else if (action === "confirm_cod") {
+        // Confirm COD collection for doorstep bookings
+        update.status = "completed";
+        update.payment_status = "completed";
+        console.log('Confirming COD collection and marking as completed');
       }
       update.updated_at = new Date().toISOString();
       console.log('Updating booking with:', update);
@@ -626,7 +664,7 @@ export default function ProviderDashboardPage() {
                                   <div className="flex items-center gap-2 text-sm">
                                     <CreditCard className="h-4 w-4 text-gray-400" />
                                     <span className="text-gray-600">
-                                      {booking.payment_status === "pending" ? "COD" : "Online"}
+                                      {booking.payment_method || (booking.payment_status === "pending" ? "COD" : "Online")}
                                     </span>
                                   </div>
                                   <div className="flex items-center justify-between pt-2 border-t">
@@ -653,9 +691,11 @@ export default function ProviderDashboardPage() {
                                       {booking.status === "in_progress" && (
                                         <Button size="sm" variant="default" onClick={() => handleBookingAction(booking, "complete")}>Mark as Completed</Button>
                                       )}
-                                      {/* pending_cod_collection: Show as completed to provider */}
+                                      {/* pending_cod_collection: Confirm COD collection */}
                                       {booking.status === "pending_cod_collection" && (
-                                        <span className="text-xs text-muted-foreground">No actions</span>
+                                        <Button size="sm" variant="default" onClick={() => handleBookingAction(booking, "confirm_cod")}>
+                                          Confirm COD Collection
+                                        </Button>
                                       )}
                                       {/* completed/cancelled: No actions */}
                                       {(booking.status === "completed" || booking.status === "cancelled") && (
@@ -711,7 +751,7 @@ export default function ProviderDashboardPage() {
                                   <div className="flex items-center gap-2 text-sm">
                                     <CreditCard className="h-4 w-4 text-gray-400" />
                                     <span className="text-gray-600">
-                                      {booking.payment_status === "pending" ? "COD" : "Online"}
+                                      {booking.payment_method || (booking.payment_status === "pending" ? "COD" : "Online")}
                                     </span>
                                   </div>
                                   <div className="flex items-center justify-between pt-2 border-t">
@@ -769,7 +809,7 @@ export default function ProviderDashboardPage() {
                                   <div className="flex items-center gap-2 text-sm">
                                     <CreditCard className="h-4 w-4 text-gray-400" />
                                     <span className="text-gray-600">
-                                      {booking.payment_status === "pending" ? "COD" : "Online"}
+                                      {booking.payment_method || (booking.payment_status === "pending" ? "COD" : "Online")}
                                     </span>
                                     <Badge className={booking.payment_status === "completed" ? "bg-green-100 text-green-800" : booking.payment_status === "cancelled" ? "bg-red-100 text-red-800" : "bg-yellow-100 text-yellow-800"}>
                                       {booking.payment_status === "completed" ? "Completed" : booking.payment_status === "cancelled" ? "Cancelled" : "Pending"}

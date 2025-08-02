@@ -254,9 +254,9 @@ export function BookingForm({
             return `${service.name}: ${Math.floor((q.warranty_days || 0) / 30)} months`;
           })(),
       serviceMode: serviceMode,
-      location_type: serviceMode,
+      location_type: serviceMode === 'instore' ? 'provider_location' : 'doorstep',
       customer_address: serviceMode === 'doorstep' ? JSON.stringify(address) : null,
-      appointment_time: date && timeSlot ? `${format(date, 'yyyy-MM-dd')} ${timeSlot}` : '',
+      appointment_time: date && timeSlot ? new Date(`${format(date, 'yyyy-MM-dd')} ${timeSlot}`).toISOString() : '',
       total_amount: issues && issues.length > 0
         ? issues.reduce((sum, s) => {
             let price = Math.round((s.base_price || 0) * (partQuality.price_multiplier || 1));
@@ -296,19 +296,19 @@ export function BookingForm({
     }
     setSubmitting(true);
     try {
-      const doc = await databases.createDocument(
-        DATABASE_ID,
-        'bookings',
-        'unique()',
-        bookingData
-      );
-      if (doc && doc.$id) {
-        router.push(`/payment?id=${doc.$id}&amount=${bookingData.total_amount}`);
-      } else {
-        toast({ title: 'Error', description: 'Failed to create booking.' });
+      console.log('Storing booking data in session:', JSON.stringify(bookingData, null, 2));
+      
+      // Store booking data in sessionStorage instead of creating document
+      const sessionKey = `pending_booking_${Date.now()}`;
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem(sessionKey, JSON.stringify(bookingData));
       }
-    } catch (e) {
-      toast({ title: 'Error', description: 'Failed to create booking.' });
+      
+      // Redirect to payment page with session key
+      router.push(`/payment?session=${sessionKey}&amount=${bookingData.total_amount}`);
+    } catch (e: any) {
+      console.error('Error storing booking data:', e);
+      toast({ title: 'Error', description: `Failed to store booking data: ${e.message || 'Unknown error'}` });
     } finally {
       setSubmitting(false);
     }
@@ -612,7 +612,7 @@ export function BookingForm({
                 </form>
               </DialogContent>
             </Dialog>
-            <Button className="w-full mt-6" type="submit" disabled={!date || !timeSlot || !phone || !address.street || submitting}>
+            <Button className="w-full mt-6" type="submit" disabled={!date || !timeSlot || !phone || (serviceMode === 'doorstep' && !address.street) || submitting}>
               {submitting ? 'Processing...' : 'Continue to Payment'}
             </Button>
           </form>

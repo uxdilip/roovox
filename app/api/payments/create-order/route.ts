@@ -4,12 +4,12 @@ import { serverDatabases, SERVER_DATABASE_ID } from '@/lib/appwrite-services';
 
 export async function POST(req: NextRequest) {
   try {
-    const { booking_id, amount } = await req.json();
-    console.log('Create order request:', { booking_id, amount });
+    const { session_key, amount } = await req.json();
+    console.log('Create order request:', { session_key, amount });
     
-    if (!booking_id || !amount) {
-      console.log('Missing parameters:', { booking_id: !!booking_id, amount: !!amount });
-      return NextResponse.json({ error: 'Missing booking_id or amount' }, { status: 400 });
+    if (!session_key || !amount) {
+      console.log('Missing parameters:', { session_key: !!session_key, amount: !!amount });
+      return NextResponse.json({ error: 'Missing session_key or amount' }, { status: 400 });
     }
 
     const key_id = process.env.RAZORPAY_KEY_ID;
@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
     const order = await razorpay.orders.create({
       amount: amountInPaisa,
       currency: 'INR',
-      receipt: booking_id,
+      receipt: session_key, // Use session_key as receipt
       payment_capture: true,
     });
 
