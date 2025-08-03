@@ -51,13 +51,17 @@ export const ProviderCard: React.FC<ProviderCardProps> = ({
   let totalEstimate = 0;
   const matchedServices: any[] = [];
 
+  // Debug logging
+  console.log('🔍 ProviderCard for provider:', provider.id, 'with', servicesOffered.length, 'services offered');
+
   // Build UI for each selected issue
   const issueRows = selectedIssues.map((issueObj) => {
-    // Try to match by issue id and partType (if present)
-    const match = servicesOffered.find(s =>
-      s.issue === issueObj.id &&
-      (!s.partType || normalizePartType(s.partType) === normalizePartType(issueObj.partType))
-    );
+    // Try to match by issue name (not ID)
+    const match = servicesOffered.find(s => {
+      const matchesIssue = s.issue === (issueObj.name || issueObj.id);
+      const matchesPartType = !s.partType || normalizePartType(s.partType) === normalizePartType(issueObj.partType);
+      return matchesIssue && matchesPartType;
+    });
     const displayName = issueObj.name || issueObj.id;
     if (match) {
       matchedServices.push(match);

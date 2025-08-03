@@ -1,4 +1,4 @@
-import { AppHeader } from '@/components/layout/AppHeader';
+import { Header } from '@/components/layout/Header';
 
 export default function CustomerLayout({
   children,
@@ -7,7 +7,7 @@ export default function CustomerLayout({
 }) {
   return (
     <div className="min-h-screen flex flex-col">
-      <AppHeader />
+      <Header />
       <main className="flex-1">
         {children}
       </main>

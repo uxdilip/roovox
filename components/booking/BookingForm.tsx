@@ -49,7 +49,7 @@ interface BookingFormProps {
   };
   providerId?: string;
   providerPrice?: number | string;
-  providerServices?: Array<{ issue: string; price: number; partType?: string }>;
+  providerServices?: Array<{ issue: string; price: number; partType?: string; warranty?: string }>;
 }
 
 export function BookingForm({
@@ -65,6 +65,21 @@ export function BookingForm({
   providerPrice,
   providerServices
 }: BookingFormProps) {
+  
+  // Debug logging for provider services
+  console.log('🔍 BookingForm Debug:', {
+    providerId,
+    providerPrice,
+    providerServices,
+    providerServicesWithWarranty: providerServices?.map(ps => ({ 
+      issue: ps.issue, 
+      price: ps.price, 
+      partType: ps.partType, 
+      warranty: ps.warranty 
+    })),
+    issues: issues?.map(i => ({ id: i.id, name: i.name })),
+    partQuality
+  });
   
   const [date, setDate] = useState<Date>();
   const [timeSlot, setTimeSlot] = useState<string>('');
@@ -261,52 +276,78 @@ export function BookingForm({
       total_amount: issues && issues.length > 0
         ? issues.reduce((sum, s) => {
             let price = Math.round((s.base_price || 0) * (partQuality.price_multiplier || 1));
+            console.log('🔍 Total amount calculation - Starting with base price:', price, 'for service:', s.name);
             
             if (typeof providerServices !== 'undefined' && Array.isArray(providerServices)) {
               
               // Normalize part quality tier to match database format
-              const normalizedPartType = partQuality.tier === 'oem' ? 'OEM' : 'HQ';
+              const normalizedPartType = partQuality.tier === 'oem' ? 'OEM' : 'High Quality';
               
-              // First try to find exact match with partType
+              // First try to find exact match with partType using issue name
               let match = providerServices.find(
-                so => so.issue === s.id && so.partType && so.partType === normalizedPartType
+                so => so.issue === s.name && so.partType && so.partType === normalizedPartType
               );
               
               // If no exact match, try to find any service for this issue (fallback)
               if (!match) {
-                match = providerServices.find(so => so.issue === s.id);
+                match = providerServices.find(so => so.issue === s.name);
+              }
+              
+              // If still no match, try to match by base issue name (for screen replacement)
+              if (!match && (s.name.includes(' - ') || s.name.includes(' – '))) {
+                const baseIssueName = s.name.includes(' - ') ? s.name.split(' - ')[0] : s.name.split(' – ')[0];
+                match = providerServices.find(
+                  so => so.issue === baseIssueName && so.partType && so.partType === normalizedPartType
+                );
+                if (!match) {
+                  match = providerServices.find(so => so.issue === baseIssueName);
+                }
               }
               
               if (match && match.price) {
                 price = match.price;
+                console.log('✅ Total amount calculation - Using provider price:', price, 'for service:', s.name);
               } else {
-                // Fallback to calculated price if no provider price found
+                console.log('❌ Total amount calculation - No provider match found, using fallback price:', price, 'for service:', s.name);
               }
             }
             return sum + price;
           }, 0)
         : (() => {
             let price = Math.round(service.base_price * partQuality.price_multiplier);
+            console.log('🔍 Total amount calculation - Starting with base price:', price, 'for service:', service.name);
             
             if (typeof providerServices !== 'undefined' && Array.isArray(providerServices)) {
               
               // Normalize part quality tier to match database format
-              const normalizedPartType = partQuality.tier === 'oem' ? 'OEM' : 'HQ';
+              const normalizedPartType = partQuality.tier === 'oem' ? 'OEM' : 'High Quality';
               
-              // First try to find exact match with partType
+              // First try to find exact match with partType using issue name
               let match = providerServices.find(
-                so => so.issue === service.id && so.partType && so.partType === normalizedPartType
+                so => so.issue === service.name && so.partType && so.partType === normalizedPartType
               );
               
               // If no exact match, try to find any service for this issue (fallback)
               if (!match) {
-                match = providerServices.find(so => so.issue === service.id);
+                match = providerServices.find(so => so.issue === service.name);
+              }
+              
+              // If still no match, try to match by base issue name (for screen replacement)
+              if (!match && (service.name.includes(' - ') || service.name.includes(' – '))) {
+                const baseIssueName = service.name.includes(' - ') ? service.name.split(' - ')[0] : service.name.split(' – ')[0];
+                match = providerServices.find(
+                  so => so.issue === baseIssueName && so.partType && so.partType === normalizedPartType
+                );
+                if (!match) {
+                  match = providerServices.find(so => so.issue === baseIssueName);
+                }
               }
               
               if (match && match.price) {
                 price = match.price;
+                console.log('✅ Total amount calculation (fallback) - Using provider price:', price, 'for service:', service.name);
               } else {
-                // Fallback to calculated price if no provider price found
+                console.log('❌ Total amount calculation (fallback) - No provider match found, using fallback price:', price, 'for service:', service.name);
               }
             }
             return price;
@@ -692,11 +733,55 @@ export function BookingForm({
                 <div className="flex items-center gap-2 text-gray-700">
                   <span className="font-medium w-32">Warranty (Provider)</span>
                   <span className="ml-auto font-semibold">
-                          {issues.filter(s => s.name.toLowerCase().includes('screen replacement')).map((s, idx) => (
-                          <span key={s.id} className="block">
-                            {s.name} – {Math.floor((s.part_qualities?.find(q => q.tier === partQuality.tier)?.warranty_days || partQuality.warranty_days) / 30)} months
-                          </span>
-                          ))}
+                          {issues.filter(s => s.name.toLowerCase().includes('screen replacement')).map((s, idx) => {
+                            // Find the matching provider service to get the actual warranty
+                            let warrantyText = `${Math.floor((s.part_qualities?.find(q => q.tier === partQuality.tier)?.warranty_days || partQuality.warranty_days) / 30)} months`;
+                            
+                            if (typeof providerServices !== 'undefined' && Array.isArray(providerServices)) {
+                              const normalizedPartType = partQuality.tier === 'oem' ? 'OEM' : 'High Quality';
+                              
+                              // Try to find exact match
+                              let match = providerServices.find(
+                                so => so.issue === s.name && so.partType && so.partType === normalizedPartType
+                              );
+                              
+                              // If no exact match, try base issue name
+                              if (!match && (s.name.includes(' - ') || s.name.includes(' – '))) {
+                                const baseIssueName = s.name.includes(' - ') ? s.name.split(' - ')[0] : s.name.split(' – ')[0];
+                                console.log('🔍 Trying base issue name for warranty:', baseIssueName, 'for service:', s.name);
+                                match = providerServices.find(
+                                  so => so.issue === baseIssueName && so.partType && so.partType === normalizedPartType
+                                );
+                                if (!match) {
+                                  match = providerServices.find(so => so.issue === baseIssueName);
+                                }
+                              }
+                              
+                              // Use provider's warranty if available
+                              if (match && match.warranty) {
+                                warrantyText = match.warranty;
+                                console.log('✅ Using provider warranty:', match.warranty, 'for service:', s.name, 'match details:', {
+                                  issue: match.issue,
+                                  price: match.price,
+                                  partType: match.partType,
+                                  warranty: match.warranty
+                                });
+                              } else {
+                                console.log('❌ No provider warranty found for service:', s.name, 'match:', match, 'available services:', providerServices.map(ps => ({
+                                  issue: ps.issue,
+                                  price: ps.price,
+                                  partType: ps.partType,
+                                  warranty: ps.warranty
+                                })), 'baseIssueName:', s.name.includes(' - ') ? s.name.split(' - ')[0] : (s.name.includes(' – ') ? s.name.split(' – ')[0] : null));
+                              }
+                            }
+                            
+                            return (
+                              <span key={s.id} className="block">
+                                {s.name} – {warrantyText}
+                              </span>
+                            );
+                          })}
                   </span>
                 </div>
                     </>
@@ -715,23 +800,51 @@ export function BookingForm({
                         if (typeof providerServices !== 'undefined' && Array.isArray(providerServices)) {
                           
                           // Normalize part quality tier to match database format
-                          const normalizedPartType = partQuality.tier === 'oem' ? 'OEM' : 'HQ';
+                          const normalizedPartType = partQuality.tier === 'oem' ? 'OEM' : 'High Quality';
                           
-                          // First try to find exact match with partType
+                          // First try to find exact match with partType using issue name
                           let match = providerServices.find(
-                            so => so.issue === s.id && so.partType && so.partType === normalizedPartType
+                            so => so.issue === s.name && so.partType && so.partType === normalizedPartType
                           );
                           
                           // If no exact match, try to find any service for this issue (fallback)
                           if (!match) {
-                            match = providerServices.find(so => so.issue === s.id);
+                            match = providerServices.find(so => so.issue === s.name);
                           }
+                          
+                          // If still no match, try to match by base issue name (for screen replacement)
+                          if (!match && (s.name.includes(' - ') || s.name.includes(' – '))) {
+                            const baseIssueName = s.name.includes(' - ') ? s.name.split(' - ')[0] : s.name.split(' – ')[0];
+                            match = providerServices.find(
+                              so => so.issue === baseIssueName && so.partType && so.partType === normalizedPartType
+                            );
+                            if (!match) {
+                              match = providerServices.find(so => so.issue === baseIssueName);
+                            }
+                          }
+                          
+                          console.log('🔍 BookingForm pricing match:', {
+                            serviceName: s.name,
+                            serviceId: s.id,
+                            providerServicesCount: providerServices.length,
+                            providerServices: providerServices.map(ps => ({ issue: ps.issue, price: ps.price, partType: ps.partType, warranty: ps.warranty })),
+                            match: match,
+                            finalPrice: match ? match.price : price,
+                            basePrice: s.base_price,
+                            partQualityMultiplier: partQuality.price_multiplier,
+                            normalizedPartType: normalizedPartType,
+                            partQualityTier: partQuality.tier,
+                            baseIssueName: s.name.includes(' - ') ? s.name.split(' - ')[0] : (s.name.includes(' – ') ? s.name.split(' – ')[0] : null)
+                          });
                           
                           if (match && match.price) {
                             price = match.price;
+                            console.log('✅ Using provider price:', price);
                           } else {
-                            // Fallback to calculated price if no provider price found
+                            console.log('❌ No provider match found, using fallback price:', price);
                           }
+                        } else {
+                          console.log('❌ ProviderServices is undefined or not an array:', providerServices);
                         }
                         
                         return (
@@ -757,16 +870,27 @@ export function BookingForm({
                         let price = Math.round((s.base_price || 0) * (partQuality.price_multiplier || 1));
                         if (typeof providerServices !== 'undefined' && Array.isArray(providerServices)) {
                           // Normalize part quality tier to match database format
-                          const normalizedPartType = partQuality.tier === 'oem' ? 'OEM' : 'HQ';
+                          const normalizedPartType = partQuality.tier === 'oem' ? 'OEM' : 'High Quality';
                           
-                          // First try to find exact match with partType
+                          // First try to find exact match with partType using issue name
                           let match = providerServices.find(
-                            so => so.issue === s.id && so.partType && so.partType === normalizedPartType
+                            so => so.issue === s.name && so.partType && so.partType === normalizedPartType
                           );
                           
                           // If no exact match, try to find any service for this issue (fallback)
                           if (!match) {
-                            match = providerServices.find(so => so.issue === s.id);
+                            match = providerServices.find(so => so.issue === s.name);
+                          }
+                          
+                          // If still no match, try to match by base issue name (for screen replacement)
+                          if (!match && (s.name.includes(' - ') || s.name.includes(' – '))) {
+                            const baseIssueName = s.name.includes(' - ') ? s.name.split(' - ')[0] : s.name.split(' – ')[0];
+                            match = providerServices.find(
+                              so => so.issue === baseIssueName && so.partType && so.partType === normalizedPartType
+                            );
+                            if (!match) {
+                              match = providerServices.find(so => so.issue === baseIssueName);
+                            }
                           }
                           
                           if (match && match.price) price = match.price;

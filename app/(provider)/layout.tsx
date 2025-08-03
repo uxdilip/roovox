@@ -3,7 +3,7 @@
 import React, { useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
-import { ProviderHeader } from '@/components/layout/ProviderHeader';
+import { Header } from '@/components/layout/Header';
 
 export default function ProviderLayout({
   children,
@@ -22,9 +22,11 @@ export default function ProviderLayout({
   }, [user, roles, activeRole, setActiveRole]);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <ProviderHeader />
-      {children}
+    <div className="min-h-screen flex flex-col bg-gray-50">
+      <Header />
+      <main className="flex-1">
+        {children}
+      </main>
     </div>
   );
 } 

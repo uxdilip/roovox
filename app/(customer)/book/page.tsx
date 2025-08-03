@@ -44,6 +44,13 @@ export default function BookPage() {
 
   // Accepts provider and optional partQuality
   const handleProviderSelect = async (provider: any, partQuality?: PartQuality) => {
+    console.log('🔍 Selected Provider:', {
+      id: provider.id,
+      name: provider.name,
+      matchingServices: provider.matchingServices,
+      matchingServicesCount: provider.matchingServices?.length
+    });
+    
     setSelectedProvider(provider);
     if (partQuality) {
       setSelectedPartQuality(partQuality);
@@ -130,6 +137,21 @@ export default function BookPage() {
                   providerPrice={selectedProvider.pricing?.base_rate || selectedProvider.price}
                   providerServices={selectedProvider.matchingServices || []}
                   />
+                  
+                  {/* Debug info */}
+                  <div style={{ display: 'none' }}>
+                    <pre>
+                      {JSON.stringify({
+                        selectedProvider: {
+                          id: selectedProvider.id,
+                          matchingServices: selectedProvider.matchingServices,
+                          matchingServicesCount: selectedProvider.matchingServices?.length
+                        },
+                        selectedServices: selectedServices.map(s => ({ id: s.id, name: s.name })),
+                        partQuality: selectedPartQuality
+                      }, null, 2)}
+                    </pre>
+                  </div>
               </div>
         </div>
       </div>

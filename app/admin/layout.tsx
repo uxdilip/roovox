@@ -1,7 +1,6 @@
 import React from "react";
 import AdminNavigation from "@/components/admin/AdminNavigation";
 import AdminBreadcrumbs from "@/components/admin/AdminBreadcrumbs";
-import { AdminHeader } from "@/components/layout/AdminHeader";
 
 export default function AdminLayout({
   children,
@@ -15,7 +14,6 @@ export default function AdminLayout({
       
       {/* Main Content */}
       <div className="flex-1 overflow-auto">
-        <AdminHeader />
         <div className="p-6">
           <AdminBreadcrumbs />
           {children}

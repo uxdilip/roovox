@@ -144,58 +144,60 @@ export default function LoginModal({ open, onOpenChange }: LoginModalProps) {
       await loginWithPhoneOtp('+91' + phone, otp, userId);
       console.log('✅ OTP verification successful');
       
-      // Check user type immediately after successful login
-      try {
-        console.log('🔄 Checking user type after login...');
-        // Get the current user from the session
-        const session = await account.get();
-        
-        if (!session) {
-          console.log('❌ No session found, redirecting to home');
+      // Wait a bit for AuthContext to update, then check user type
+      setTimeout(async () => {
+        try {
+          console.log('🔄 Checking user type after login...');
+          // Get the current user from the session
+          const session = await account.get();
+          
+          if (!session) {
+            console.log('❌ No session found, redirecting to home');
+            onOpenChange(false);
+            router.push('/');
+            return;
+          }
+          
+          console.log('👤 Session found for user:', session.$id);
+          
+          // Check if user is a provider
+          console.log('🔍 Checking if user is a provider...');
+          const provider = await getProviderByUserId(session.$id);
+          if (provider) {
+            console.log('🏢 User is a provider:', provider);
+            // User is a provider, check onboarding status
+            if (provider.business_name && provider.business_name !== 'Your Business') {
+              console.log('✅ Provider onboarding completed, redirecting to dashboard');
+              router.push('/provider/dashboard');
+            } else {
+              console.log('⏳ Provider onboarding not completed, redirecting to onboarding');
+              router.push('/provider/onboarding');
+            }
+          } else {
+            console.log('👤 User is not a provider, checking customer profile...');
+            // User is not a provider, check if customer profile exists
+            const customerProfile = await getCustomerByUserId(session.$id);
+            console.log('📋 Customer profile check result:', customerProfile);
+            
+            if (customerProfile) {
+              // Customer profile exists, go to dashboard
+              console.log('✅ Customer profile exists, redirecting to dashboard');
+              onOpenChange(false);
+              router.push('/customer/dashboard');
+            } else {
+              // Customer profile doesn't exist, redirect to onboarding page
+              console.log('🆕 Customer profile not found, redirecting to onboarding');
+              onOpenChange(false);
+              router.push('/customer/onboarding');
+            }
+          }
+        } catch (error) {
+          console.error('❌ Error checking user type:', error);
+          // Default to home page
           onOpenChange(false);
           router.push('/');
-          return;
         }
-        
-        console.log('👤 Session found for user:', session.$id);
-        
-        // Check if user is a provider
-        console.log('🔍 Checking if user is a provider...');
-        const provider = await getProviderByUserId(session.$id);
-        if (provider) {
-          console.log('🏢 User is a provider:', provider);
-          // User is a provider, check onboarding status
-          if (provider.business_name && provider.business_name !== 'Your Business') {
-            console.log('✅ Provider onboarding completed, redirecting to dashboard');
-            router.push('/provider/dashboard');
-          } else {
-            console.log('⏳ Provider onboarding not completed, redirecting to onboarding');
-            router.push('/provider/onboarding');
-          }
-        } else {
-          console.log('👤 User is not a provider, checking customer profile...');
-          // User is not a provider, check if customer profile exists
-          const customerProfile = await getCustomerByUserId(session.$id);
-          console.log('📋 Customer profile check result:', customerProfile);
-          
-          if (customerProfile) {
-            // Customer profile exists, go to dashboard
-            console.log('✅ Customer profile exists, redirecting to dashboard');
-            onOpenChange(false);
-            router.push('/customer/dashboard');
-          } else {
-            // Customer profile doesn't exist, redirect to onboarding page
-            console.log('🆕 Customer profile not found, redirecting to onboarding');
-            onOpenChange(false);
-            router.push('/customer/onboarding');
-          }
-        }
-      } catch (error) {
-        console.error('❌ Error checking user type:', error);
-        // Default to home page
-        onOpenChange(false);
-        router.push('/');
-      }
+      }, 1000); // Wait 1 second for AuthContext to update
       
     } catch (err: any) {
       console.error('❌ OTP verification failed:', err);

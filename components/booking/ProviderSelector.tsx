@@ -82,25 +82,49 @@ export function ProviderSelector({ device, services, partQuality, onProviderSele
       setLoading(true);
       setError(null);
       try {
-        // Use issue IDs for the query
-        const queryIssues = services.map((s: any) => s.id);
+        // Get issue names from issue IDs
+        const issueIds = services.map((s: any) => s.id);
+        
+        // First, get the issue names from the issues collection
+        const issuesRes = await databases.listDocuments(
+          DATABASE_ID,
+          'issues',
+          [Query.contains('$id', issueIds)]
+        );
+        
+        const issueNames = issuesRes.documents.map((doc: any) => doc.name);
+        console.log('🔍 Looking for providers with issues:', issueNames);
+
+        // Query services_offered using issue names
         const soRes = await databases.listDocuments(
           DATABASE_ID,
           'services_offered',
           [
             Query.equal('deviceType', device.category),
             Query.equal('brand', device.brand),
-            Query.equal('model', device.model),
-            Query.contains('issue', queryIssues)
+            Query.equal('model', device.model)
           ]
         );
-        const serviceDocs = soRes.documents;
+        console.log('🔍 Found', soRes.documents.length, 'services for this device');
+
+        // Filter services that match our selected issues
+        const serviceDocs = soRes.documents.filter((doc: any) => {
+          const matchesIssue = issueNames.includes(doc.issue);
+          return matchesIssue;
+        });
+        
+        console.log('🔍 Filtered to', serviceDocs.length, 'services matching selected issues');
+
         const providerIds = Array.from(new Set(serviceDocs.map((s: any) => s.providerId)));
+        console.log('🔍 Found', providerIds.length, 'unique providers');
+
         if (providerIds.length === 0) {
+          console.log('❌ No providers found for this device/service combination');
           setProviders([]);
           setLoading(false);
           return;
         }
+        
         const providersRes = await databases.listDocuments(
           DATABASE_ID,
           'providers',
@@ -111,9 +135,13 @@ export function ProviderSelector({ device, services, partQuality, onProviderSele
             Query.equal('onboardingCompleted', true)
           ]
         );
+        console.log('🔍 Found', providersRes.documents.length, 'approved providers');
+
         const providerDocs = providersRes.documents;
         const validProviderIds = providerDocs.map((p: any) => p.providerId);
+
         if (validProviderIds.length === 0) {
+          console.log('❌ No valid providers found after filtering');
           setProviders([]);
           setLoading(false);
           return;
@@ -158,7 +186,14 @@ export function ProviderSelector({ device, services, partQuality, onProviderSele
               [location[0], location[1]]
             );
           }
+          console.log('🔍 Provider distance calculation:', {
+            providerId: pid,
+            distance,
+            customerLocation,
+            providerLocation: location
+          });
           if (distance > 10) {
+            console.log('❌ Provider filtered out due to distance > 10km:', pid);
             return null;
           }
           // Experience
@@ -178,9 +213,21 @@ export function ProviderSelector({ device, services, partQuality, onProviderSele
           const ratings = providerBookings.map((b: any) => b.rating).filter((r: any) => typeof r === 'number' && r > 0);
           const avgRating = ratings.length > 0 ? (ratings.reduce((sum: number, r: number) => sum + r, 0) / ratings.length) : null;
           // Matching services
-          const matchingServices = serviceDocs.filter((s: any) => s.providerId === pid && services.some((iss: any) => iss.id === s.issue));
+          const matchingServices = serviceDocs.filter((s: any) => s.providerId === pid && issueNames.includes(s.issue));
+          
+          console.log('🔍 Matching services for provider:', {
+            providerId: pid,
+            matchingServicesCount: matchingServices.length,
+            matchingServices: matchingServices.map(ms => ({
+              issue: ms.issue,
+              price: ms.price,
+              partType: ms.partType,
+              warranty: ms.warranty
+            }))
+          });
           
           if (matchingServices.length === 0) {
+            console.log('❌ Provider filtered out due to no matching services:', pid);
             return null;
           }
           return {
@@ -205,6 +252,8 @@ export function ProviderSelector({ device, services, partQuality, onProviderSele
             storeAddress: serviceSetup?.location || null,
           };
         }).filter((p): p is any => !!p);
+        console.log('🔍 Final provider cards:', providerCards.length);
+        console.log('🔍 Final provider cards data:', providerCards);
         setProviders(providerCards);
       } catch (err) {
         setError('Failed to load providers. Please check your filters and try again.');
