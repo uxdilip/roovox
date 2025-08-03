@@ -4,13 +4,10 @@ import { databases, DATABASE_ID } from '@/lib/appwrite';
 export async function POST(req: NextRequest) {
   try {
     const { session_key, booking_data } = await req.json();
-    console.log('[COD-CONFIRM] session_key:', session_key);
     if (!session_key || !booking_data) {
       return NextResponse.json({ success: false, error: 'Missing session_key or booking_data' }, { status: 400 });
     }
 
-    console.log('[COD-CONFIRM] Creating booking for COD...');
-    
     // Create booking document for COD
     let booking;
     try {
@@ -26,7 +23,6 @@ export async function POST(req: NextRequest) {
           updated_at: new Date().toISOString(),
         }
       );
-      console.log('[COD-CONFIRM] Booking created successfully:', booking.$id);
     } catch (error: any) {
       console.error('[COD-CONFIRM] Error creating booking:', error);
       return NextResponse.json({ success: false, error: 'Failed to create booking: ' + error.message }, { status: 500 });
@@ -51,7 +47,6 @@ export async function POST(req: NextRequest) {
           updated_at: new Date().toISOString(),
         }
       );
-      console.log('[COD-CONFIRM] Payment document created successfully');
     } catch (error: any) {
       console.error('[COD-CONFIRM] Error creating payment document:', error);
       return NextResponse.json({ success: false, error: 'Failed to create payment record: ' + error.message }, { status: 500 });

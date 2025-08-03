@@ -65,6 +65,7 @@ export function BookingForm({
   providerPrice,
   providerServices
 }: BookingFormProps) {
+  
   const [date, setDate] = useState<Date>();
   const [timeSlot, setTimeSlot] = useState<string>('');
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
@@ -260,21 +261,53 @@ export function BookingForm({
       total_amount: issues && issues.length > 0
         ? issues.reduce((sum, s) => {
             let price = Math.round((s.base_price || 0) * (partQuality.price_multiplier || 1));
+            
             if (typeof providerServices !== 'undefined' && Array.isArray(providerServices)) {
-              const match = providerServices.find(
-                so => so.issue === s.id && (!so.partType || so.partType.toLowerCase() === partQuality.tier.toLowerCase())
+              
+              // Normalize part quality tier to match database format
+              const normalizedPartType = partQuality.tier === 'oem' ? 'OEM' : 'HQ';
+              
+              // First try to find exact match with partType
+              let match = providerServices.find(
+                so => so.issue === s.id && so.partType && so.partType === normalizedPartType
               );
-              if (match && match.price) price = match.price;
+              
+              // If no exact match, try to find any service for this issue (fallback)
+              if (!match) {
+                match = providerServices.find(so => so.issue === s.id);
+              }
+              
+              if (match && match.price) {
+                price = match.price;
+              } else {
+                // Fallback to calculated price if no provider price found
+              }
             }
             return sum + price;
           }, 0)
         : (() => {
             let price = Math.round(service.base_price * partQuality.price_multiplier);
+            
             if (typeof providerServices !== 'undefined' && Array.isArray(providerServices)) {
-              const match = providerServices.find(
-                so => so.issue === service.id && (!so.partType || so.partType.toLowerCase() === partQuality.tier.toLowerCase())
+              
+              // Normalize part quality tier to match database format
+              const normalizedPartType = partQuality.tier === 'oem' ? 'OEM' : 'HQ';
+              
+              // First try to find exact match with partType
+              let match = providerServices.find(
+                so => so.issue === service.id && so.partType && so.partType === normalizedPartType
               );
-              if (match && match.price) price = match.price;
+              
+              // If no exact match, try to find any service for this issue (fallback)
+              if (!match) {
+                match = providerServices.find(so => so.issue === service.id);
+              }
+              
+              if (match && match.price) {
+                price = match.price;
+              } else {
+                // Fallback to calculated price if no provider price found
+              }
             }
             return price;
           })(),
@@ -296,11 +329,11 @@ export function BookingForm({
     }
     setSubmitting(true);
     try {
-      console.log('Storing booking data in session:', JSON.stringify(bookingData, null, 2));
-      
       // Store booking data in sessionStorage instead of creating document
       const sessionKey = `pending_booking_${Date.now()}`;
-      if (typeof window !== 'undefined') {
+      
+      // Ensure we're on the client side before accessing sessionStorage
+      if (typeof window !== 'undefined' && window.sessionStorage) {
         sessionStorage.setItem(sessionKey, JSON.stringify(bookingData));
       }
       
@@ -678,12 +711,29 @@ export function BookingForm({
                     ? issues.map((s, idx) => {
                         // Use providerServices price if available, else fallback
                         let price = Math.round((s.base_price || 0) * (partQuality.price_multiplier || 1));
+                        
                         if (typeof providerServices !== 'undefined' && Array.isArray(providerServices)) {
-                          const match = providerServices.find(
-                            so => so.issue === s.id && (!so.partType || so.partType.toLowerCase() === partQuality.tier.toLowerCase())
+                          
+                          // Normalize part quality tier to match database format
+                          const normalizedPartType = partQuality.tier === 'oem' ? 'OEM' : 'HQ';
+                          
+                          // First try to find exact match with partType
+                          let match = providerServices.find(
+                            so => so.issue === s.id && so.partType && so.partType === normalizedPartType
                           );
-                          if (match && match.price) price = match.price;
+                          
+                          // If no exact match, try to find any service for this issue (fallback)
+                          if (!match) {
+                            match = providerServices.find(so => so.issue === s.id);
+                          }
+                          
+                          if (match && match.price) {
+                            price = match.price;
+                          } else {
+                            // Fallback to calculated price if no provider price found
+                          }
                         }
+                        
                         return (
                           <div key={s.id} className="flex justify-between text-sm">
                               <span>{s.name}</span>
@@ -706,9 +756,19 @@ export function BookingForm({
                     ? issues.reduce((sum, s) => {
                         let price = Math.round((s.base_price || 0) * (partQuality.price_multiplier || 1));
                         if (typeof providerServices !== 'undefined' && Array.isArray(providerServices)) {
-                          const match = providerServices.find(
-                            so => so.issue === s.id && (!so.partType || so.partType.toLowerCase() === partQuality.tier.toLowerCase())
+                          // Normalize part quality tier to match database format
+                          const normalizedPartType = partQuality.tier === 'oem' ? 'OEM' : 'HQ';
+                          
+                          // First try to find exact match with partType
+                          let match = providerServices.find(
+                            so => so.issue === s.id && so.partType && so.partType === normalizedPartType
                           );
+                          
+                          // If no exact match, try to find any service for this issue (fallback)
+                          if (!match) {
+                            match = providerServices.find(so => so.issue === s.id);
+                          }
+                          
                           if (match && match.price) price = match.price;
                         }
                         return sum + price;

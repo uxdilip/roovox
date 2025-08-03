@@ -50,7 +50,7 @@ export default function OnlinePaymentPage() {
         const res = await fetch("/api/payments/create-order", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ booking_id: booking.$id }),
+          body: JSON.stringify({ amount: booking.total_amount, booking_id: booking.$id }),
         });
         const data = await res.json();
         if (data && data.order) setOrder(data.order);

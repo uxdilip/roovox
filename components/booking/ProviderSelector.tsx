@@ -82,18 +82,6 @@ export function ProviderSelector({ device, services, partQuality, onProviderSele
       setLoading(true);
       setError(null);
       try {
-        // Print all available models and issues for this brand/type at the very start
-        const allDocsRes = await databases.listDocuments(
-          DATABASE_ID,
-          'services_offered',
-          [
-            Query.equal('deviceType', device.category),
-            Query.equal('brand', device.brand),
-          ]
-        );
-      } catch (e) {
-      }
-      try {
         // Use issue IDs for the query
         const queryIssues = services.map((s: any) => s.id);
         const soRes = await databases.listDocuments(
@@ -191,6 +179,7 @@ export function ProviderSelector({ device, services, partQuality, onProviderSele
           const avgRating = ratings.length > 0 ? (ratings.reduce((sum: number, r: number) => sum + r, 0) / ratings.length) : null;
           // Matching services
           const matchingServices = serviceDocs.filter((s: any) => s.providerId === pid && services.some((iss: any) => iss.id === s.issue));
+          
           if (matchingServices.length === 0) {
             return null;
           }
@@ -217,16 +206,6 @@ export function ProviderSelector({ device, services, partQuality, onProviderSele
           };
         }).filter((p): p is any => !!p);
         setProviders(providerCards);
-        // Print all issues for this device/brand/model
-        const allIssuesRes = await databases.listDocuments(
-          DATABASE_ID,
-          'services_offered',
-          [
-            Query.equal('deviceType', device.category),
-            Query.equal('brand', device.brand),
-            Query.equal('model', device.model),
-          ]
-        );
       } catch (err) {
         setError('Failed to load providers. Please check your filters and try again.');
         setProviders([]);

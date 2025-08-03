@@ -188,14 +188,18 @@ const FinishStep: React.FC<FinishStepProps> = ({ data, onPrev }) => {
           const modelData = brandData[model];
           if (modelData?.selected) {
             const issues = modelData.issues || {};
-            for (const issueKey of Object.keys(issues)) {
-              const issueData = issues[issueKey];
+            for (const issueId of Object.keys(issues)) {
+              const issueData = issues[issueId];
               if (issueData?.selected) {
+                // Find the issue type by looking up the issue document
+                const issueType = issueMap[issueId] || 'unknown';
+                console.log(`🔍 Debug: Issue ID ${issueId} maps to type: ${issueType}`);
+                
                 services.push({
                   deviceType: 'phone',
                   brand,
                   model,
-                  issue: issueKey,
+                  issue: issueType, // Use the mapped issue type instead of the ID
                   pricing: issueData.pricing
                 });
               }
@@ -220,14 +224,18 @@ const FinishStep: React.FC<FinishStepProps> = ({ data, onPrev }) => {
           const modelData = brandData[model];
           if (modelData?.selected) {
             const issues = modelData.issues || {};
-            for (const issueKey of Object.keys(issues)) {
-              const issueData = issues[issueKey];
+            for (const issueId of Object.keys(issues)) {
+              const issueData = issues[issueId];
               if (issueData?.selected) {
+                // Find the issue type by looking up the issue document
+                const issueType = issueMap[issueId] || 'unknown';
+                console.log(`🔍 Debug: Issue ID ${issueId} maps to type: ${issueType}`);
+                
                 services.push({
                   deviceType: 'laptop',
                   brand,
                   model,
-                  issue: issueKey,
+                  issue: issueType, // Use the mapped issue type instead of the ID
                   pricing: issueData.pricing
                 });
               }
@@ -369,69 +377,79 @@ const FinishStep: React.FC<FinishStepProps> = ({ data, onPrev }) => {
       }
       // Create service offerings
       const services = extractServicesData();
+      console.log('🔍 Debug: Issue map contents:', issueMap);
+      console.log('🔍 Debug: Extracted services before processing:', services);
+      
       const providerId = user.id;
       const now = new Date().toISOString();
       let servicesCreated = 0;
       for (const service of services) {
         const { deviceType, brand, model, issue, pricing } = service;
+        // Robust screen replacement matching
+        const isScreenReplacement = (
+          issueKey => issueKey.toLowerCase() === 'screen' || issueKey.toLowerCase() === 'screen replacement'
+        )(issue);
         
-        if (issue === 'screen') {
-                      // Screen Replacement: OEM and HQ
+        // Debug log
+        console.log('[DEBUG] Service to be created:', { deviceType, brand, model, issue, pricing });
+        
+        if (isScreenReplacement) {
+          // Screen Replacement: OEM and HQ
           if (pricing?.oem && Number(pricing.oem) > 0) {
-                          try {
-                            await createServiceOffered({
-                              providerId,
+            try {
+              await createServiceOffered({
+                providerId,
                 deviceType,
-                              brand,
-                              model,
-                              issue: 'Screen Replacement',
-                              partType: 'OEM',
+                brand,
+                model,
+                issue: 'Screen Replacement',
+                partType: 'OEM',
                 price: Number(pricing.oem),
                 warranty: pricing.oemWarranty ? `${pricing.oemWarranty} months` : null,
-                              created_at: now,
-                            });
-                            servicesCreated++;
-                          } catch (error) {
-                            console.error(`❌ Failed to create OEM screen service for ${brand} ${model}:`, error);
-                          }
-                        }
+                created_at: now,
+              });
+              servicesCreated++;
+            } catch (error) {
+              console.error(`❌ Failed to create OEM screen service for ${brand} ${model}:`, error);
+            }
+          }
           if (pricing?.hq && Number(pricing.hq) > 0) {
-                          try {
-                            await createServiceOffered({
-                              providerId,
+            try {
+              await createServiceOffered({
+                providerId,
                 deviceType,
-                              brand,
-                              model,
-                              issue: 'Screen Replacement',
-                              partType: 'High Quality',
+                brand,
+                model,
+                issue: 'Screen Replacement',
+                partType: 'High Quality',
                 price: Number(pricing.hq),
                 warranty: pricing.hqWarranty ? `${pricing.hqWarranty} months` : null,
-                              created_at: now,
-                            });
-                            servicesCreated++;
-                          } catch (error) {
-                            console.error(`❌ Failed to create High Quality screen service for ${brand} ${model}:`, error);
-                          }
-                        }
-                      } else {
-                        // Other issues: single price
+                created_at: now,
+              });
+              servicesCreated++;
+            } catch (error) {
+              console.error(`❌ Failed to create High Quality screen service for ${brand} ${model}:`, error);
+            }
+          }
+        } else {
+          // Other issues: single price
           if (pricing?.single && Number(pricing.single) > 0) {
             const issueLabel = ISSUES[deviceType.toLowerCase()]?.find(i => i.key === issue)?.label || issue;
-                          try {
-                            await createServiceOffered({
-                              providerId,
+            try {
+              await createServiceOffered({
+                providerId,
                 deviceType,
-                              brand,
-                              model,
-                              issue: issueLabel,
-                              partType: null,
+                brand,
+                model,
+                issue: issueLabel,
+                partType: null,
                 price: Number(pricing.single),
-                              warranty: null,
-                              created_at: now,
-                            });
-                            servicesCreated++;
-                          } catch (error) {
-                            console.error(`❌ Failed to create ${issueLabel} service for ${brand} ${model}:`, error);
+                warranty: null,
+                created_at: now,
+              });
+              servicesCreated++;
+            } catch (error) {
+              console.error(`❌ Failed to create ${issueLabel} service for ${brand} ${model}:`, error);
             }
           }
         }

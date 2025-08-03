@@ -51,9 +51,6 @@ export const ProviderCard: React.FC<ProviderCardProps> = ({
   let totalEstimate = 0;
   const matchedServices: any[] = [];
 
-  // For debugging: log selected issues, model, and servicesOffered
-  console.warn('[DEBUG] ProviderCard selectedIssues:', selectedIssues, 'selectedModel:', selectedModel, 'servicesOffered:', servicesOffered);
-
   // Build UI for each selected issue
   const issueRows = selectedIssues.map((issueObj) => {
     // Try to match by issue id and partType (if present)
@@ -61,7 +58,6 @@ export const ProviderCard: React.FC<ProviderCardProps> = ({
       s.issue === issueObj.id &&
       (!s.partType || normalizePartType(s.partType) === normalizePartType(issueObj.partType))
     );
-    console.warn('[DEBUG] ProviderCard matching:', { issueObj, selectedModel, match });
     const displayName = issueObj.name || issueObj.id;
     if (match) {
       matchedServices.push(match);

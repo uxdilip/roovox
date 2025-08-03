@@ -12,14 +12,6 @@ export async function POST(req: NextRequest) {
       razorpay_signature 
     } = await req.json();
 
-    console.log('Payment verification request:', {
-      session_key,
-      booking_data: booking_data ? 'present' : 'missing',
-      razorpay_payment_id,
-      razorpay_order_id,
-      razorpay_signature: razorpay_signature ? 'present' : 'missing'
-    });
-
     if (!session_key || !booking_data || !razorpay_payment_id || !razorpay_order_id || !razorpay_signature) {
       return NextResponse.json({ 
         success: false, 
@@ -31,19 +23,12 @@ export async function POST(req: NextRequest) {
     const text = `${razorpay_order_id}|${razorpay_payment_id}`;
     const secret = process.env.RAZORPAY_KEY_SECRET;
     
-    console.log('Signature verification:', {
-      text,
-      secret: secret ? 'present' : 'missing',
-      received_signature: razorpay_signature
-    });
-
     const signature = crypto
       .createHmac('sha256', secret || 'your_secret_key')
       .update(text)
       .digest('hex');
 
     const isAuthentic = signature === razorpay_signature;
-    console.log('Signature verification result:', { isAuthentic, expected: signature });
 
     // For test mode, we can be more lenient with signature verification
     // In production, you should always verify the signature
@@ -53,12 +38,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Payment verification failed' }, { status: 400 });
     }
 
-    console.log('Proceeding with payment confirmation...');
-
     // Create booking document after successful payment
     let booking;
     try {
-      console.log('Creating booking after successful payment...');
       // Create the complete booking with all data from the client
       booking = await databases.createDocument(
         DATABASE_ID,
@@ -72,7 +54,6 @@ export async function POST(req: NextRequest) {
           updated_at: new Date().toISOString(),
         }
       );
-      console.log('Booking created successfully:', booking.$id);
     } catch (error: any) {
       console.error('Error creating booking:', error);
       return NextResponse.json({ success: false, error: 'Failed to create booking: ' + error.message }, { status: 500 });
@@ -99,7 +80,6 @@ export async function POST(req: NextRequest) {
           razorpay_order_id,
         }
       );
-      console.log('Payment document created successfully');
     } catch (error: any) {
       console.error('Error creating payment document:', error);
       return NextResponse.json({ success: false, error: 'Failed to create payment record: ' + error.message }, { status: 500 });

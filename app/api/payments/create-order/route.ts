@@ -4,12 +4,10 @@ import { serverDatabases, SERVER_DATABASE_ID } from '@/lib/appwrite-services';
 
 export async function POST(req: NextRequest) {
   try {
-    const { session_key, amount } = await req.json();
-    console.log('Create order request:', { session_key, amount });
+    const { amount, session_key } = await req.json();
     
-    if (!session_key || !amount) {
-      console.log('Missing parameters:', { session_key: !!session_key, amount: !!amount });
-      return NextResponse.json({ error: 'Missing session_key or amount' }, { status: 400 });
+    if (!amount || !session_key) {
+      return NextResponse.json({ success: false, error: 'Missing amount or session_key' }, { status: 400 });
     }
 
     const key_id = process.env.RAZORPAY_KEY_ID;
@@ -19,23 +17,16 @@ export async function POST(req: NextRequest) {
     }
 
     const razorpay = new Razorpay({ key_id, key_secret });
-    const amountInPaisa = Math.round(Number(amount) * 100);
-    const order = await razorpay.orders.create({
-      amount: amountInPaisa,
-      currency: 'INR',
-      receipt: session_key, // Use session_key as receipt
-      payment_capture: true,
-    });
+    const options = {
+      amount: amount * 100, // Razorpay expects amount in paise
+      currency: "INR",
+      receipt: session_key,
+    };
 
-    return NextResponse.json({ 
-      order: {
-        id: order.id,
-        amount: order.amount,
-        currency: order.currency,
-        key_id: key_id
-      }
-    });
+    const order = await razorpay.orders.create(options);
+    return NextResponse.json({ success: true, order });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Failed to create Razorpay order' }, { status: 500 });
+    console.error('Error creating order:', error);
+    return NextResponse.json({ success: false, error: error.message || 'Failed to create order' }, { status: 500 });
   }
 } 

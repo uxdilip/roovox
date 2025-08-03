@@ -57,7 +57,6 @@ export default function PaymentOptionsPage() {
           const timestamp = parseInt(key.replace('pending_booking_', ''));
           if (now - timestamp > oneHour) {
             sessionStorage.removeItem(key);
-            console.log('Cleaned up old session:', key);
           }
         }
       }
@@ -75,7 +74,6 @@ export default function PaymentOptionsPage() {
           const data = JSON.parse(storedData);
           setBookingData(data);
           setAmount(data.total_amount);
-          console.log('Loaded booking data from session:', data);
         } else {
           console.error('No booking data found in session');
           toast.error("Booking data not found. Please try booking again.");
@@ -96,7 +94,6 @@ export default function PaymentOptionsPage() {
     return () => {
       if (sessionKey) {
         // Only remove if payment wasn't completed (this will be handled in success handlers)
-        console.log('Payment page unmounted, session cleanup handled in success handlers');
       }
     };
   }, [sessionKey, router]);
@@ -139,11 +136,9 @@ export default function PaymentOptionsPage() {
           description: `Booking for ${bookingData.device_brand || ''} ${bookingData.device_model || ''}`,
           order_id: orderData.order.id,
           handler: async function (response: any) {
-            console.log('Payment success response:', response);
-            console.log('Using session key for verification:', sessionKey);
+            setLoading(true);
             // 4. Verify payment
             try {
-              console.log('Starting payment verification...');
               const verifyRes = await fetch("/api/payments/verify-payment", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -155,9 +150,7 @@ export default function PaymentOptionsPage() {
                   razorpay_signature: response.razorpay_signature,
                 }),
               });
-              console.log('Verification response status:', verifyRes.status);
               const verifyData = await verifyRes.json();
-              console.log('Payment verification response:', verifyData);
               if (verifyData.success) {
                 // Clean up session data
                 if (typeof window !== 'undefined') {
@@ -181,12 +174,10 @@ export default function PaymentOptionsPage() {
           theme: { color: "#6366f1" },
           modal: {
             ondismiss: function() {
-              console.log('Payment modal dismissed');
               setLoading(false);
             }
           }
         };
-        console.log('Razorpay options:', options);
         // @ts-ignore
         if (typeof window !== 'undefined') {
           // @ts-ignore
