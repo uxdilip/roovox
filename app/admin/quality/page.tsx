@@ -112,8 +112,7 @@ export default function QualityAssurancePage() {
         const bookingsData = await databases.listDocuments(DATABASE_ID, COLLECTIONS.BOOKINGS);
         bookingsResponse = bookingsData;
       } catch (error) {
-        console.log("Bookings collection not accessible, using mock data");
-        // Use mock data if bookings collection is not accessible
+            // Using fallback data when bookings collection is not accessible
         bookingsResponse = {
           documents: [
             {
@@ -162,7 +161,7 @@ export default function QualityAssurancePage() {
           };
         });
 
-      // Mock disputes data (since we don't have a disputes collection yet)
+      // Disputes data (placeholder until disputes collection is created)
       const disputesData: Dispute[] = [
         {
           $id: "dispute1",

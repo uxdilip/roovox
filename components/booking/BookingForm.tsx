@@ -66,20 +66,7 @@ export function BookingForm({
   providerServices
 }: BookingFormProps) {
   
-  // Debug logging for provider services
-  console.log('🔍 BookingForm Debug:', {
-    providerId,
-    providerPrice,
-    providerServices,
-    providerServicesWithWarranty: providerServices?.map(ps => ({ 
-      issue: ps.issue, 
-      price: ps.price, 
-      partType: ps.partType, 
-      warranty: ps.warranty 
-    })),
-    issues: issues?.map(i => ({ id: i.id, name: i.name })),
-    partQuality
-  });
+  // Provider services loaded
   
   const [date, setDate] = useState<Date>();
   const [timeSlot, setTimeSlot] = useState<string>('');

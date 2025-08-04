@@ -23,9 +23,7 @@ import { account, databases, DATABASE_ID, COLLECTIONS } from '@/lib/appwrite';
 import { Query } from 'appwrite';
 import { createUserDocument } from '@/lib/appwrite-services';
 
-function sleep(ms: number) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
+// Sleep function removed for production
 
 export default function HomePage() {
   useEffect(() => {
@@ -37,7 +35,7 @@ export default function HomePage() {
             session = await account.get();
             if (session) break;
           } catch (e) {
-            await sleep(500);
+            // Removed artificial delay
           }
         }
         if (!session) {

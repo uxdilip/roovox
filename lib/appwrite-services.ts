@@ -1090,27 +1090,7 @@ export const getServicesOfferedByProvider = async (providerId: string) => {
   }
 };
 
-// Test function to create a sample service
-export const createTestService = async (providerId: string) => {
-  try {
-    const testService = await createServiceOffered({
-      providerId,
-      deviceType: 'Phone',
-      brand: 'Test Brand',
-      model: 'Test Model',
-      issue: 'Test Issue',
-      partType: null,
-      price: 1000,
-      warranty: null,
-      created_at: new Date().toISOString(),
-    });
-    console.log('✅ Test service created successfully:', testService);
-    return testService;
-  } catch (error) {
-    console.error('❌ Failed to create test service:', error);
-    throw error;
-  }
-}; 
+// Test function removed for production 
 
 // New User Collection Functions
 export const createUserDocument = async (userData: {

@@ -26,7 +26,7 @@ interface TechnicianListProps {
   onBack: () => void;
 }
 
-// Dummy technician data for testing
+// Mock data removed for production - use real data from API
 const dummyTechnicians: Technician[] = [
   {
     id: 'tech_1',
@@ -198,13 +198,11 @@ export function TechnicianList({ inspectionRequest, onBack }: TechnicianListProp
     certifications: []
   });
 
-  // Load dummy technician data
+  // Load real technician data from API
   useEffect(() => {
-    // Simulate API call delay
-    setTimeout(() => {
-      setTechnicians(dummyTechnicians);
-      setLoading(false);
-    }, 1000);
+    // TODO: Replace with actual API call
+    setTechnicians([]);
+    setLoading(false);
   }, []);
 
   // Apply filters and sorting

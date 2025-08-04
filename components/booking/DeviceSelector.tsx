@@ -97,8 +97,7 @@ export function DeviceSelector({ onDeviceSelect }: DeviceSelectorProps) {
       }
         setDevices(fetchedDevices);
       setLoading(false);
-      // Debug log to verify fetched brands
-      console.log('Fetched brands:', Array.from(new Set(fetchedDevices.map(d => d.brand))));
+      // Brands fetched successfully
     };
     if (selectedCategory) {
       fetchDevices();
@@ -108,18 +107,7 @@ export function DeviceSelector({ onDeviceSelect }: DeviceSelectorProps) {
     }
   }, [selectedCategory]);
 
-  // Debug log to help diagnose model filtering issues
-  useEffect(() => {
-    if (!loading) {
-      console.log('All devices:', devices);
-      console.log('Selected category:', selectedCategory);
-      console.log('Selected brand:', selectedBrand);
-      const filteredModels = selectedCategory && selectedBrand
-        ? devices.filter(d => d.brand === selectedBrand)
-        : [];
-      console.log('Filtered models:', filteredModels);
-    }
-  }, [devices, selectedCategory, selectedBrand, loading]);
+  // Model filtering logic handled in component
 
   const categories = [
     { id: 'phone', name: 'Mobile Phones', icon: Smartphone },

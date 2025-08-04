@@ -53,10 +53,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     checkAuth();
   }, []);
 
-  // Debug: log user and isLoading on every render
-  useEffect(() => {
-    console.log('AuthContext: user', user, 'isLoading', isLoading);
-  }, [user, isLoading]);
+  // Removed debug logging for production
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -128,19 +125,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const checkAuth = async () => {
     try {
       const session = await account.get();
-      console.log('[DEBUG] Appwrite session in checkAuth:', session);
+      // Session found
       if (session) {
         try {
           // Always merge roles from existing user document and context
           let mergedRoles: string[] = [];
           try {
             const existingUserDoc = await getUserByUserId(session.$id);
-            console.log('[DEBUG] User doc in checkAuth:', existingUserDoc);
+            // User document found
             if (existingUserDoc && Array.isArray(existingUserDoc.roles)) {
               mergedRoles = [...existingUserDoc.roles];
             }
           } catch (e) {
-            console.log('[DEBUG] Error fetching user doc in checkAuth:', e);
+            // Error fetching user document
           }
           if (!mergedRoles.includes('customer')) mergedRoles.push('customer');
           if (typeof window !== 'undefined' && localStorage.getItem('loginAsProvider') === '1' && !mergedRoles.includes('provider')) {
@@ -148,7 +145,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
           const activeRole = mergedRoles.includes('provider') ? 'provider' : 'customer';
           const location = (locationContext.location || {}) as any;
-          console.log('[DEBUG] LocationContext.location:', location);
+          // Location context loaded
           const userData: User = {
             id: session.$id,
             name: session.name || 'User',

@@ -144,8 +144,7 @@ export default function ProviderOnboardingWizard() {
     }
   }, [formData]);
 
-  // Debug log
-  console.log("Current step:", currentStep, "formData:", formData);
+  // Onboarding step tracking
 
   // Navigation handlers
   const goNext = () => setCurrentStep((s) => Math.min(s + 1, TOTAL_STEPS));
@@ -167,7 +166,7 @@ export default function ProviderOnboardingWizard() {
       case 6:
         return <PaymentInfoStep data={formData.payment ?? {}} setData={d => setFormData((f: any) => ({ ...f, payment: d }))} onNext={goNext} onPrev={goPrev} />;
       case 7:
-        console.log('🔍 Debug: Passing data to FinishStep:', formData);
+        // Passing data to finish step
         return <FinishStep data={formData ?? {}} onPrev={goPrev} />;
       default:
         return <div>Unknown step. Please restart onboarding.</div>;
