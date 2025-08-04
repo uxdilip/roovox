@@ -372,7 +372,7 @@ export function ProviderSelector({ device, services, partQuality, onProviderSele
                 <SelectContent>
                   <SelectItem value="all">All Qualities</SelectItem>
                   <SelectItem value="OEM">OEM</SelectItem>
-                  <SelectItem value="HQ">High Quality</SelectItem>
+                                          <SelectItem value="HQ">HQ</SelectItem>
                 </SelectContent>
               </Select>
               {/* Verified Only Toggle */}

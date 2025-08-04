@@ -421,14 +421,14 @@ const FinishStep: React.FC<FinishStepProps> = ({ data, onPrev }) => {
                 brand,
                 model,
                 issue: 'Screen Replacement',
-                partType: 'High Quality',
+                partType: 'HQ',
                 price: Number(pricing.hq),
                 warranty: pricing.hqWarranty ? `${pricing.hqWarranty} months` : null,
                 created_at: now,
               });
               servicesCreated++;
             } catch (error) {
-              console.error(`❌ Failed to create High Quality screen service for ${brand} ${model}:`, error);
+                              console.error(`❌ Failed to create HQ screen service for ${brand} ${model}:`, error);
             }
           }
         } else {

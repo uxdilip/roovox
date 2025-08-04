@@ -445,7 +445,7 @@ const ServiceSelectionStep: React.FC<ServiceSelectionStepProps> = ({ data, setDa
                                             <Info className="h-4 w-4 text-blue-500 cursor-pointer" />
                                           </TooltipTrigger>
                                           <TooltipContent>
-                                            Only screen replacement allows OEM/High Quality part selection and warranty.
+                                            Only screen replacement allows OEM/HQ part selection and warranty.
                                           </TooltipContent>
                                         </Tooltip>
                                       </TooltipProvider>
@@ -478,7 +478,7 @@ const ServiceSelectionStep: React.FC<ServiceSelectionStepProps> = ({ data, setDa
                                             </div>
                                           </div>
                                           <div className="flex flex-wrap items-center gap-2 w-full">
-                                            <span className="font-medium text-sm min-w-[110px]">High Quality Part</span>
+                                            <span className="font-medium text-sm min-w-[110px]">HQ Part</span>
                                             <input
                                               type="number"
                                               min={0}

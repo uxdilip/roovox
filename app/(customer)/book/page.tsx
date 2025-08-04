@@ -136,6 +136,7 @@ export default function BookPage() {
                     providerId={selectedProvider.id}
                   providerPrice={selectedProvider.pricing?.base_rate || selectedProvider.price}
                   providerServices={selectedProvider.matchingServices || []}
+                  selectedIssues={selectedIssuesWithPartType}
                   />
                   
                   {/* Debug info */}

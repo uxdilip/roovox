@@ -21,7 +21,7 @@ interface ProviderCardProps {
   };
   servicesOffered: Array<{
     issue: string;
-    partType?: 'OEM' | 'High Quality';
+    partType?: 'OEM' | 'HQ';
     price: number;
     warranty?: string;
   }>;

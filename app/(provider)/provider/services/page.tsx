@@ -731,7 +731,7 @@ export default function ProviderServicesPage() {
                       <SelectTrigger><SelectValue placeholder="Select part type" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="OEM">OEM</SelectItem>
-                        <SelectItem value="HQ">High Quality</SelectItem>
+                        <SelectItem value="HQ">HQ</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -811,7 +811,7 @@ export default function ProviderServicesPage() {
                   <SelectTrigger><SelectValue placeholder="Select part type" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="OEM">OEM</SelectItem>
-                    <SelectItem value="HQ">High Quality</SelectItem>
+                    <SelectItem value="HQ">HQ</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

@@ -53,7 +53,7 @@ export function ServiceSelector({ device, onServiceSelect, onBack }: ServiceSele
     return {
     id: issue.id,
     device_id: device.id,
-      name: issue.name + (quality && issue.name.toLowerCase().includes('screen replacement') ? ` – ${quality === 'oem' ? 'OEM' : 'High Quality'}` : ''),
+      name: issue.name + (quality && issue.name.toLowerCase().includes('screen replacement') ? ` – ${quality === 'oem' ? 'OEM' : 'HQ'}` : ''),
     description: issue.description,
       base_price: 200, // You may want to fetch/set this dynamically
     part_qualities: [
@@ -98,7 +98,7 @@ export function ServiceSelector({ device, onServiceSelect, onBack }: ServiceSele
       const selectedIssuesWithPartType = selectedIssues.map(issueId => {
         const issue = issues.find((i: any) => i.id === issueId);
         if (issue && issue.name.toLowerCase().includes('screen replacement')) {
-          return { id: issueId, name: issue.name, partType: issueQualities[issueId] === 'oem' ? 'OEM' : 'High Quality' };
+          return { id: issueId, name: issue.name, partType: issueQualities[issueId] === 'oem' ? 'OEM' : 'HQ' };
         }
         return { id: issueId, name: issue ? issue.name : '' };
       });
@@ -165,7 +165,7 @@ export function ServiceSelector({ device, onServiceSelect, onBack }: ServiceSele
           </DialogHeader>
           <div className="flex flex-col gap-4 mt-4">
             <Button className="w-full" type="button" onClick={() => handlePartQualitySelect('oem')}>OEM</Button>
-            <Button className="w-full" type="button" onClick={() => handlePartQualitySelect('hq')}>High Quality</Button>
+            <Button className="w-full" type="button" onClick={() => handlePartQualitySelect('hq')}>HQ</Button>
           </div>
         </DialogContent>
       </Dialog>
