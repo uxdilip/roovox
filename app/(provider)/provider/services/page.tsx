@@ -14,6 +14,76 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useCallback } from "react";
 import { ChevronUp, ChevronDown, Filter } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+
+// Add grouping logic
+interface GroupedServiceRow {
+  deviceType: string;
+  brand: string;
+  model: string;
+  services: any[];
+  serviceCount: number;
+}
+
+const groupServicesByModel = (services: any[]): GroupedServiceRow[] => {
+  const groups: Record<string, GroupedServiceRow> = {};
+  
+  services.forEach(service => {
+    const key = `${service.deviceType}|${service.brand}|${service.model}`;
+    
+    if (!groups[key]) {
+      groups[key] = {
+        deviceType: service.deviceType,
+        brand: service.brand,
+        model: service.model,
+        services: [],
+        serviceCount: 0
+      };
+    }
+    
+    groups[key].services.push(service);
+    groups[key].serviceCount = groups[key].services.length;
+  });
+  
+  return Object.values(groups);
+};
+
+// Combined Service Item Component
+interface ServiceItemProps {
+  service: any;
+  issueMap: Record<string, string>;
+  onEditService: (service: any) => void;
+  onDeleteService: (service: any) => void;
+}
+
+const ServiceItem: React.FC<ServiceItemProps> = ({ service, issueMap, onEditService, onDeleteService }) => {
+  return (
+    <div className="flex items-center justify-between text-sm py-1 min-h-[32px]">
+      <div className="flex items-center gap-2 flex-1">
+        <span className="text-blue-600 font-bold">•</span>
+        <span className="font-medium text-gray-800">
+          {issueMap[service.issue] || service.issue}
+        </span>
+        <span className="text-gray-500">:</span>
+        <span className="font-semibold text-green-600">₹{service.price?.toLocaleString()}</span>
+      </div>
+      <div className="flex items-center gap-1 ml-2">
+        {service.partType && (
+          <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+            {service.partType}
+          </Badge>
+        )}
+        {service.warranty && (
+          <Badge variant="secondary" className="text-xs bg-green-50 text-green-700">
+            {service.warranty}
+          </Badge>
+        )}
+      </div>
+    </div>
+  );
+};
+
+
 
 export default function ProviderServicesPage() {
   // Enable both 'Mobile' and 'Laptop' as device type options
@@ -54,6 +124,10 @@ export default function ProviderServicesPage() {
 
   // Device types should be 'phone' and 'laptop' (lowercase)
   const [allIssues, setAllIssues] = useState<any[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
+  const [modalIssues, setModalIssues] = useState<any[]>([]);
+  const [editCategoryId, setEditCategoryId] = useState<string>("");
+  const [editModalIssues, setEditModalIssues] = useState<any[]>([]);
   useEffect(() => {
     let all: any[] = [];
     let offset = 0;
@@ -487,15 +561,13 @@ export default function ProviderServicesPage() {
     }
   });
 
+  // Group services by model
+  const groupedServices = groupServicesByModel(sortedServices);
+  
   // Unique values for filters
   const deviceTypes = Array.from(new Set(services.map(s => s.deviceType)));
   const brandsList = Array.from(new Set(services.map(s => s.brand)));
   const issuesList = Array.from(new Set(services.map(s => s.issue)));
-
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
-  const [modalIssues, setModalIssues] = useState<any[]>([]);
-  const [editCategoryId, setEditCategoryId] = useState<string>("");
-  const [editModalIssues, setEditModalIssues] = useState<any[]>([]);
 
   // Fetch category and issues for Add Service modal
   useEffect(() => {
@@ -571,38 +643,44 @@ export default function ProviderServicesPage() {
 
   return (
     <div className="max-w-5xl mx-auto py-10 px-4">
-      <Card className="mb-6">
-        <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <Card className="mb-6 shadow-lg border-0 bg-gradient-to-r from-white to-blue-50/30">
+        <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-6">
           <div className="flex flex-col gap-1">
-            <CardTitle className="text-2xl font-bold">My Services</CardTitle>
-            <div className="flex flex-wrap gap-2 mt-2">
+            <CardTitle className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">My Services</CardTitle>
+            <div className="flex flex-wrap gap-3 mt-3">
               <Select value={filterDevice} onValueChange={setFilterDevice}>
-                <SelectTrigger className="w-32"><SelectValue placeholder="Device Type" /></SelectTrigger>
+                <SelectTrigger className="w-36 bg-white border-blue-200 hover:border-blue-300">
+                  <SelectValue placeholder="Device Type" />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Devices</SelectItem>
                   {deviceTypes.filter(dt => dt).map(dt => <SelectItem key={dt} value={dt}>{dt}</SelectItem>)}
                 </SelectContent>
               </Select>
               <Select value={filterBrand} onValueChange={setFilterBrand}>
-                <SelectTrigger className="w-32"><SelectValue placeholder="Brand" /></SelectTrigger>
+                <SelectTrigger className="w-36 bg-white border-blue-200 hover:border-blue-300">
+                  <SelectValue placeholder="Brand" />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Brands</SelectItem>
                   {brands.filter(b => b).map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
                 </SelectContent>
               </Select>
               <Select value={filterIssue} onValueChange={setFilterIssue}>
-                <SelectTrigger className="w-40"><SelectValue placeholder="Issue" /></SelectTrigger>
+                <SelectTrigger className="w-44 bg-white border-blue-200 hover:border-blue-300">
+                  <SelectValue placeholder="Issue" />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Issues</SelectItem>
                   {issuesList.filter(i => i).map(i => <SelectItem key={i} value={i}>{i}</SelectItem>)}
                 </SelectContent>
               </Select>
               {(filterDevice !== "all" || filterBrand !== "all" || filterIssue !== "all") && (
-                <Button variant="outline" size="sm" onClick={() => { setFilterDevice("all"); setFilterBrand("all"); setFilterIssue("all"); }}>Reset Filters</Button>
+                <Button variant="outline" size="sm" onClick={() => { setFilterDevice("all"); setFilterBrand("all"); setFilterIssue("all"); }} className="bg-white border-blue-200 hover:border-blue-300">Reset Filters</Button>
               )}
             </div>
           </div>
-          <Button onClick={() => setShowAddModal(true)}>Add New Service</Button>
+          <Button onClick={() => setShowAddModal(true)} className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg">Add New Service</Button>
         </CardHeader>
         <CardContent>
           {loading || authLoading ? (
@@ -615,55 +693,73 @@ export default function ProviderServicesPage() {
               <div className="text-muted-foreground">No services found. Click "Add New Service" to get started.</div>
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-lg border">
+            <div className="overflow-x-auto rounded-lg border shadow-sm">
               <Table className="min-w-full">
-                <TableHeader className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b">
-                  <TableRow>
-                    <TableHead className="cursor-pointer select-none" onClick={() => {
+                <TableHeader className="sticky top-0 z-10 bg-gradient-to-r from-blue-50 to-indigo-50 border-b">
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="cursor-pointer select-none font-semibold text-gray-700" onClick={() => {
                       setSortBy("deviceType");
                       setSortDir(sortBy === "deviceType" && sortDir === "asc" ? "desc" : "asc");
                     }}>
                       Device Type {sortBy === "deviceType" && (sortDir === "asc" ? <ChevronUp className="inline w-4 h-4" /> : <ChevronDown className="inline w-4 h-4" />)}
                     </TableHead>
-                    <TableHead className="cursor-pointer select-none" onClick={() => {
+                    <TableHead className="cursor-pointer select-none font-semibold text-gray-700" onClick={() => {
                       setSortBy("brand");
                       setSortDir(sortBy === "brand" && sortDir === "asc" ? "desc" : "asc");
                     }}>
                       Brand {sortBy === "brand" && (sortDir === "asc" ? <ChevronUp className="inline w-4 h-4" /> : <ChevronDown className="inline w-4 h-4" />)}
                     </TableHead>
-                    <TableHead className="cursor-pointer select-none" onClick={() => {
+                    <TableHead className="cursor-pointer select-none font-semibold text-gray-700" onClick={() => {
                       setSortBy("model");
                       setSortDir(sortBy === "model" && sortDir === "asc" ? "desc" : "asc");
                     }}>
                       Model {sortBy === "model" && (sortDir === "asc" ? <ChevronUp className="inline w-4 h-4" /> : <ChevronDown className="inline w-4 h-4" />)}
                     </TableHead>
-                    <TableHead>Issue</TableHead>
-                    <TableHead>Part Type</TableHead>
-                    <TableHead className="cursor-pointer select-none" onClick={() => {
-                      setSortBy("price");
-                      setSortDir(sortBy === "price" && sortDir === "asc" ? "desc" : "asc");
-                    }}>
-                      Price (₹) {sortBy === "price" && (sortDir === "asc" ? <ChevronUp className="inline w-4 h-4" /> : <ChevronDown className="inline w-4 h-4" />)}
-                    </TableHead>
-                    <TableHead>Warranty</TableHead>
-                    <TableHead>Actions</TableHead>
+                    <TableHead className="font-semibold text-gray-700">Issues & Pricing</TableHead>
+                    <TableHead className="font-semibold text-gray-700">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sortedServices.map((service) => (
-                    <TableRow key={service.$id} className="hover:bg-accent/40 transition-colors">
-                      <TableCell>{service.deviceType}</TableCell>
-                      <TableCell>{service.brand}</TableCell>
-                      <TableCell>{service.model}</TableCell>
-                      <TableCell>{issueIdToName[service.issue] || service.issue}</TableCell>
-                      <TableCell>{service.partType}</TableCell>
-                      <TableCell>₹{service.price?.toLocaleString()}</TableCell>
-                      <TableCell>{service.warranty}</TableCell>
-                      <TableCell>
-                        <Button size="sm" variant="outline" onClick={() => setEditService(service)}>Edit</Button>{" "}
-                        <Button size="sm" variant="destructive" onClick={() => setDeleteService(service)}>Delete</Button>
-                      </TableCell>
-                    </TableRow>
+                  {groupedServices.map((group) => (
+                    group.services.map((service, index) => (
+                      <TableRow key={`${service.$id}-${index}`} className="hover:bg-blue-50/50 transition-colors border-b">
+                        {index === 0 ? (
+                          <>
+                            <TableCell className="font-medium text-gray-800 align-top pt-3" rowSpan={group.services.length}>{group.deviceType}</TableCell>
+                            <TableCell className="font-medium text-gray-800 align-top pt-3" rowSpan={group.services.length}>{group.brand}</TableCell>
+                            <TableCell className="font-medium text-gray-800 align-top pt-3" rowSpan={group.services.length}>{group.model}</TableCell>
+                          </>
+                        ) : null}
+                        <TableCell className="py-3 align-top">
+                          <ServiceItem 
+                            service={service}
+                            issueMap={issueIdToName}
+                            onEditService={setEditService}
+                            onDeleteService={setDeleteService}
+                          />
+                        </TableCell>
+                        <TableCell className="py-3 align-top">
+                          <div className="flex gap-1 items-center">
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              onClick={() => setEditService(service)}
+                              className="h-7 px-2 text-xs bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-700"
+                            >
+                              Edit
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="destructive" 
+                              onClick={() => setDeleteService(service)}
+                              className="h-7 px-2 text-xs bg-red-50 hover:bg-red-100 border-red-200 text-red-700"
+                            >
+                              Delete
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
                   ))}
                 </TableBody>
               </Table>
