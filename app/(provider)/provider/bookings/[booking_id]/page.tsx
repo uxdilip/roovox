@@ -49,17 +49,41 @@ export default function ProviderBookingDetails() {
           booking_id as string
         );
 
-        // Fetch customer details
+        // Fetch customer details - following the same pattern as customer dashboard
         let customerName = "Unknown Customer";
         try {
-          const customerResponse = await databases.getDocument(
-            process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
-            'user',
-            bookingResponse.customer_id
-          );
-          customerName = customerResponse.name || "Unknown Customer";
+          // 1. Fetch customer details from customers collection first
+          let customerResponse;
+          try {
+            customerResponse = await databases.listDocuments(
+              process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+              'customers',
+              [Query.equal("user_id", bookingResponse.customer_id), Query.limit(1)]
+            );
+          } catch (customerError) {
+            console.error("Error fetching customer data:", customerError);
+          }
+
+          // 2. Fetch customer details from User collection as fallback
+          let userResponse;
+          try {
+            userResponse = await databases.listDocuments(
+              process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+              'User',
+              [Query.equal("user_id", bookingResponse.customer_id), Query.limit(1)]
+            );
+          } catch (userError) {
+            console.error("Error fetching customer user data:", userError);
+          }
+
+          // 3. Set customer name with proper fallback logic
+          const customerFullName = customerResponse?.documents[0]?.full_name || "";
+          const userName = userResponse?.documents[0]?.name || "";
+          customerName = customerFullName || userName || "Unknown Customer";
+
         } catch (error) {
           console.error("Error fetching customer details:", error);
+          customerName = "Unknown Customer";
         }
 
         // Fetch device details
@@ -170,14 +194,33 @@ export default function ProviderBookingDetails() {
   };
 
   const formatDateTime = (dateString: string) => {
-    return new Date(dateString).toLocaleString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+    const d = new Date(dateString);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const bookingDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    
+    let datePrefix = "";
+    if (bookingDate.getTime() === today.getTime()) {
+      datePrefix = "Today";
+    } else if (bookingDate.getTime() === tomorrow.getTime()) {
+      datePrefix = "Tomorrow";
+    } else {
+      datePrefix = d.toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "short",
+        day: "numeric"
+      });
+    }
+    
+    const timeString = d.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true
     });
+    
+    return `${datePrefix}, ${timeString}`;
   };
 
   if (loading) {

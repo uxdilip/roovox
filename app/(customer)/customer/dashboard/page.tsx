@@ -96,23 +96,80 @@ export default function CustomerDashboard() {
 
         const bookingsWithDetails = await Promise.all(
           bookingsResponse.documents.map(async (booking: any) => {
-            // Fetch provider details from business_setup
+            // Fetch provider details - following the same pattern as ProviderSelector
             let providerName = "Unknown Provider";
             let providerRating = 0;
+            let providerTotalReviews = 0;
 
             try {
-              const businessSetupResponse = await databases.listDocuments(
-                process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
-                'business_setup',
-                [Query.equal("user_id", booking.provider_id)]
-              );
-
-              if (businessSetupResponse.documents.length > 0) {
-                const onboardingData = JSON.parse(businessSetupResponse.documents[0].onboarding_data || '{}');
-                providerName = onboardingData.business_name || "Unknown Provider";
+              // 1. Fetch provider's user details from User collection
+              let userResponse;
+              try {
+                userResponse = await databases.listDocuments(
+                  process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+                  'User',
+                  [Query.equal("user_id", booking.provider_id), Query.limit(1)]
+                );
+              } catch (userError) {
+                console.error("Error fetching provider user data:", userError);
               }
+
+              // 2. Fetch business setup data
+              let businessSetupResponse;
+              try {
+                businessSetupResponse = await databases.listDocuments(
+                  process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+                  'business_setup',
+                  [Query.equal("user_id", booking.provider_id), Query.limit(1)]
+                );
+              } catch (businessError) {
+                console.error("Error fetching provider business setup:", businessError);
+              }
+
+              // 3. Fetch provider's bookings to calculate rating
+              let providerBookingsResponse;
+              try {
+                providerBookingsResponse = await databases.listDocuments(
+                  process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+                  process.env.NEXT_PUBLIC_APPWRITE_BOOKINGS_COLLECTION_ID!,
+                  [Query.equal("provider_id", booking.provider_id)]
+                );
+              } catch (bookingsError) {
+                console.error("Error fetching provider bookings:", bookingsError);
+              }
+
+              // 4. Calculate provider rating from completed bookings
+              if (providerBookingsResponse?.documents) {
+                const providerBookings = providerBookingsResponse.documents;
+                const ratings = providerBookings
+                  .map((b: any) => b.rating)
+                  .filter((r: any) => typeof r === 'number' && r > 0);
+                
+                providerTotalReviews = ratings.length;
+                providerRating = ratings.length > 0 
+                  ? (ratings.reduce((sum: number, r: number) => sum + r, 0) / ratings.length)
+                  : 0;
+              }
+
+              // 5. Parse business setup data and get business name
+              let businessName = "";
+              if (businessSetupResponse && businessSetupResponse.documents && businessSetupResponse.documents.length > 0) {
+                try {
+                  const firstDocument = businessSetupResponse.documents[0];
+                  const onboardingData = JSON.parse(firstDocument.onboarding_data || '{}');
+                  businessName = onboardingData?.businessInfo?.businessName || "";
+                } catch (parseError) {
+                  console.error("Error parsing business setup onboarding data:", parseError);
+                }
+              }
+
+              // 6. Set provider name with proper fallback logic
+              const userName = userResponse?.documents[0]?.name || "";
+              providerName = businessName || userName || "Unknown Provider";
+
             } catch (error) {
-              console.error("Error fetching provider business setup:", error);
+              console.error("Error fetching provider details:", error);
+              providerName = "Unknown Provider";
             }
 
             // Fetch device details (from Phones or Laptops)
@@ -171,7 +228,8 @@ export default function CustomerDashboard() {
               ...booking,
               provider: {
                 name: providerName,
-                rating: booking.rating || 0,
+                rating: providerRating,
+                totalReviews: providerTotalReviews,
                 avatar: undefined
               },
               device: {
@@ -224,14 +282,33 @@ export default function CustomerDashboard() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit"
+    const d = new Date(dateString);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const bookingDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    
+    let datePrefix = "";
+    if (bookingDate.getTime() === today.getTime()) {
+      datePrefix = "Today";
+    } else if (bookingDate.getTime() === tomorrow.getTime()) {
+      datePrefix = "Tomorrow";
+    } else {
+      datePrefix = d.toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "short",
+        day: "numeric"
+      });
+    }
+    
+    const timeString = d.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true
     });
+    
+    return `${datePrefix}, ${timeString}`;
   };
 
   if (loading) {
@@ -477,14 +554,12 @@ function BookingCard({ booking, formatDate, getDeviceImage }: BookingCardProps) 
                   <span className="text-sm font-medium text-gray-900">
                     {booking.provider?.name}
                   </span>
-                  {booking.provider?.rating !== undefined && booking.provider?.totalReviews !== undefined && (
-                    <div className="flex items-center gap-1">
-                      <Star className="h-3 w-3 text-yellow-400 fill-current" />
-                      <span className="text-xs text-gray-600">
-                        {booking.provider.rating.toFixed(1)} ({booking.provider.totalReviews} reviews)
-                      </span>
-            </div>
-          )}
+                  <div className="flex items-center gap-1">
+                    <Star className="h-3 w-3 text-yellow-400 fill-current" />
+                    <span className="text-xs text-gray-600">
+                      {booking.provider?.rating ? booking.provider.rating.toFixed(1) : "0.0"} ({booking.provider?.totalReviews || 0} reviews)
+                    </span>
+                  </div>
                 </div>
                 {booking.status === "cancelled" && booking.cancellation_reason && (
                   <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-md">

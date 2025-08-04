@@ -129,17 +129,41 @@ export default function PaymentManagementPage() {
                 payment.booking_id
               );
 
-              // Fetch customer details
+              // Fetch customer details - following the same pattern as customer dashboard
               let customerName = "Unknown Customer";
               try {
-                const customerResponse = await databases.getDocument(
-                  DATABASE_ID,
-                  'customers',
-                  bookingResponse.customer_id
-                );
-                customerName = customerResponse.full_name || "Unknown Customer";
+                // 1. Fetch customer details from customers collection first
+                let customerResponse;
+                try {
+                  customerResponse = await databases.listDocuments(
+                    DATABASE_ID,
+                    'customers',
+                    [Query.equal("user_id", bookingResponse.customer_id), Query.limit(1)]
+                  );
+                } catch (customerError) {
+                  console.error("Error fetching customer data:", customerError);
+                }
+
+                // 2. Fetch customer details from User collection as fallback
+                let userResponse;
+                try {
+                  userResponse = await databases.listDocuments(
+                    DATABASE_ID,
+                    'User',
+                    [Query.equal("user_id", bookingResponse.customer_id), Query.limit(1)]
+                  );
+                } catch (userError) {
+                  console.error("Error fetching customer user data:", userError);
+                }
+
+                // 3. Set customer name with proper fallback logic
+                const customerFullName = customerResponse?.documents[0]?.full_name || "";
+                const userName = userResponse?.documents[0]?.name || "";
+                customerName = customerFullName || userName || "Unknown Customer";
+
               } catch (error) {
                 console.error("Error fetching customer details:", error);
+                customerName = "Unknown Customer";
               }
 
               // Fetch provider details

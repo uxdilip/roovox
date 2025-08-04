@@ -2,6 +2,8 @@ import { Client, Account, Databases, Storage, Functions } from 'appwrite';
 
 const client = new Client();
 
+
+
 client
   .setEndpoint(process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT || 'https://fra.cloud.appwrite.io/v1')
   .setProject(process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID || '687398a90012d5a8d92f');
@@ -15,7 +17,7 @@ export { client };
 
 export const DATABASE_ID = process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID || '687399d400185ad33867';
 export const COLLECTIONS = {
-  USERS: process.env.NEXT_PUBLIC_APPWRITE_USERS_COLLECTION_ID || 'User',
+  USERS: process.env.NEXT_PUBLIC_APPWRITE_USERS_COLLECTION_ID || 'user',
   PROVIDERS: process.env.NEXT_PUBLIC_APPWRITE_PROVIDERS_COLLECTION_ID || 'providers',
   DEVICES: process.env.NEXT_PUBLIC_APPWRITE_DEVICES_COLLECTION_ID || 'devices',
   PHONES: process.env.NEXT_PUBLIC_APPWRITE_PHONES_COLLECTION_ID || 'phones',

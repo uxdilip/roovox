@@ -53,17 +53,41 @@ export default function CashCollectionPage() {
       const bookingsWithDetails = await Promise.all(
         response.documents.map(async (booking: any) => {
           try {
-            // Fetch customer details
+            // Fetch customer details - following the same pattern as customer dashboard
             let customerName = "Unknown Customer";
             try {
-              const customerResponse = await databases.getDocument(
-                process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
-                'User',
-                booking.customer_id
-              );
-              customerName = customerResponse.name || "Unknown Customer";
+              // 1. Fetch customer details from customers collection first
+              let customerResponse;
+              try {
+                customerResponse = await databases.listDocuments(
+                  process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+                  'customers',
+                  [Query.equal("user_id", booking.customer_id), Query.limit(1)]
+                );
+              } catch (customerError) {
+                console.error("Error fetching customer data:", customerError);
+              }
+
+              // 2. Fetch customer details from User collection as fallback
+              let userResponse;
+              try {
+                userResponse = await databases.listDocuments(
+                  process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+                  'User',
+                  [Query.equal("user_id", booking.customer_id), Query.limit(1)]
+                );
+              } catch (userError) {
+                console.error("Error fetching customer user data:", userError);
+              }
+
+              // 3. Set customer name with proper fallback logic
+              const customerFullName = customerResponse?.documents[0]?.full_name || "";
+              const userName = userResponse?.documents[0]?.name || "";
+              customerName = customerFullName || userName || "Unknown Customer";
+
             } catch (error) {
               console.error("Error fetching customer details:", error);
+              customerName = "Unknown Customer";
             }
 
             // Fetch provider details
@@ -178,7 +202,32 @@ export default function CashCollectionPage() {
   const formatDateTime = (dt: string) => {
     if (!dt) return "-";
     const d = new Date(dt);
-    return d.toLocaleString();
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const bookingDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    
+    let datePrefix = "";
+    if (bookingDate.getTime() === today.getTime()) {
+      datePrefix = "Today";
+    } else if (bookingDate.getTime() === tomorrow.getTime()) {
+      datePrefix = "Tomorrow";
+    } else {
+      datePrefix = d.toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "short",
+        day: "numeric"
+      });
+    }
+    
+    const timeString = d.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true
+    });
+    
+    return `${datePrefix}, ${timeString}`;
   };
 
   const getIssuesString = (booking: Booking) => {

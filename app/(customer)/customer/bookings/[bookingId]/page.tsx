@@ -204,14 +204,33 @@ export default function BookingDetailsPage() {
   }, [user, bookingId]);
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit"
+    const d = new Date(dateString);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const bookingDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    
+    let datePrefix = "";
+    if (bookingDate.getTime() === today.getTime()) {
+      datePrefix = "Today";
+    } else if (bookingDate.getTime() === tomorrow.getTime()) {
+      datePrefix = "Tomorrow";
+    } else {
+      datePrefix = d.toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "short",
+        day: "numeric"
+      });
+    }
+    
+    const timeString = d.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true
     });
+    
+    return `${datePrefix}, ${timeString}`;
   };
 
   const getStatusColor = (status: string) => {
