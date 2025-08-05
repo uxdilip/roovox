@@ -1490,3 +1490,26 @@ export const getCustomerByUserId = async (userId: string) => {
     return null;
   }
 }; 
+
+export const getBusinessSetupByUserId = async (userId: string) => {
+  try {
+    console.log('🔍 Searching for business setup with user_id:', userId);
+    const response = await databases.listDocuments(
+      DATABASE_ID,
+      'business_setup',
+      [Query.equal('user_id', userId), Query.limit(1)]
+    );
+    
+    console.log('📊 Found business setup documents:', response.documents.length);
+    if (response.documents.length > 0) {
+      console.log('✅ Business setup found:', response.documents[0]);
+      return response.documents[0];
+    } else {
+      console.log('❌ No business setup found for user_id:', userId);
+      return null;
+    }
+  } catch (error) {
+    console.error('❌ Error fetching business setup:', error);
+    return null;
+  }
+}; 

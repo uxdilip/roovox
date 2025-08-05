@@ -12,8 +12,15 @@ export async function POST(req: NextRequest) {
 
     const key_id = process.env.RAZORPAY_KEY_ID;
     const key_secret = process.env.RAZORPAY_KEY_SECRET;
+    console.log('Razorpay Key ID:', key_id ? 'Set' : 'Missing');
+    console.log('Razorpay Key Secret:', key_secret ? 'Set' : 'Missing');
+    
     if (!key_id || !key_secret) {
-      return NextResponse.json({ error: 'Razorpay keys not set in env' }, { status: 500 });
+      console.error('Razorpay configuration error: Keys not found in environment variables');
+      return NextResponse.json({ 
+        success: false,
+        error: 'Payment configuration error - authentication keys missing' 
+      }, { status: 500 });
     }
 
     const razorpay = new Razorpay({ key_id, key_secret });
@@ -24,7 +31,13 @@ export async function POST(req: NextRequest) {
     };
 
     const order = await razorpay.orders.create(options);
-    return NextResponse.json({ success: true, order });
+    return NextResponse.json({ 
+      success: true, 
+      order: {
+        ...order,
+        key_id: key_id // Include the key_id in the response
+      }
+    });
   } catch (error: any) {
     console.error('Error creating order:', error);
     return NextResponse.json({ success: false, error: error.message || 'Failed to create order' }, { status: 500 });

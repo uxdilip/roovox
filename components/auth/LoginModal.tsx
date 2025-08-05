@@ -17,9 +17,10 @@ import { account } from '@/lib/appwrite';
 interface LoginModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  returnUrl?: string;
 }
 
-export default function LoginModal({ open, onOpenChange }: LoginModalProps) {
+export default function LoginModal({ open, onOpenChange, returnUrl }: LoginModalProps) {
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
@@ -168,10 +169,20 @@ export default function LoginModal({ open, onOpenChange }: LoginModalProps) {
             // User is a provider, check onboarding status
             if (provider.business_name && provider.business_name !== 'Your Business') {
               console.log('✅ Provider onboarding completed, redirecting to dashboard');
-              router.push('/provider/dashboard');
+              onOpenChange(false);
+              if (returnUrl) {
+                router.push(decodeURIComponent(returnUrl));
+              } else {
+                router.push('/provider/dashboard');
+              }
             } else {
               console.log('⏳ Provider onboarding not completed, redirecting to onboarding');
-              router.push('/provider/onboarding');
+              onOpenChange(false);
+              if (returnUrl) {
+                router.push(decodeURIComponent(returnUrl));
+              } else {
+                router.push('/provider/onboarding');
+              }
             }
           } else {
             console.log('👤 User is not a provider, checking customer profile...');
@@ -183,19 +194,31 @@ export default function LoginModal({ open, onOpenChange }: LoginModalProps) {
               // Customer profile exists, go to dashboard
               console.log('✅ Customer profile exists, redirecting to dashboard');
               onOpenChange(false);
-              router.push('/customer/dashboard');
+              if (returnUrl) {
+                router.push(decodeURIComponent(returnUrl));
+              } else {
+                router.push('/customer/dashboard');
+              }
             } else {
               // Customer profile doesn't exist, redirect to onboarding page
               console.log('🆕 Customer profile not found, redirecting to onboarding');
               onOpenChange(false);
-              router.push('/customer/onboarding');
+              if (returnUrl) {
+                router.push(decodeURIComponent(returnUrl));
+              } else {
+                router.push('/customer/onboarding');
+              }
             }
           }
         } catch (error) {
           console.error('❌ Error checking user type:', error);
           // Default to home page
           onOpenChange(false);
-          router.push('/');
+          if (returnUrl) {
+            router.push(decodeURIComponent(returnUrl));
+          } else {
+            router.push('/');
+          }
         }
       }, 1000); // Wait 1 second for AuthContext to update
       

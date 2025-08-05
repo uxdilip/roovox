@@ -124,7 +124,16 @@ export default function PaymentOptionsPage() {
           }),
         });
         const orderData = await orderRes.json();
-        if (!orderData.order) throw new Error("Failed to create payment order");
+        console.log('Order data received:', orderData);
+        if (!orderData.success) {
+          throw new Error(orderData.error || "Failed to create payment order");
+        }
+        if (!orderData.order) {
+          throw new Error("Failed to create payment order - no order data received");
+        }
+        if (!orderData.order.key_id) {
+          throw new Error("Payment configuration error - missing authentication key");
+        }
         // 2. Load Razorpay script
         await loadRazorpayScript();
         // 3. Launch Razorpay checkout

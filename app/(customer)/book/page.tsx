@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { DeviceSelector } from '@/components/booking/DeviceSelector';
 import { ServiceSelector } from '@/components/booking/ServiceSelector';
 import { BookingForm } from '@/components/booking/BookingForm';
@@ -10,13 +11,15 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLocation } from '@/contexts/LocationContext';
 import { NoSSR } from '@/components/ui/NoSSR';
 
+
 // Force dynamic rendering to prevent SSR issues
 export const dynamic = 'force-dynamic';
 export const runtime = 'edge';
 
 export default function BookPage() {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   const { location } = useLocation();
+  const router = useRouter();
   const [step, setStep] = useState(1);
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
   const [selectedServices, setSelectedServices] = useState<Service[] | null>(null);
@@ -25,11 +28,20 @@ export default function BookPage() {
   const [selectedIssuesWithPartType, setSelectedIssuesWithPartType] = useState<{ id: string; partType?: string }[]>([]);
   const [isClient, setIsClient] = useState(false);
 
+
   useEffect(() => {
     setIsClient(true);
   }, []);
 
   const handleDeviceSelect = (device: Device) => {
+    // Check if user is authenticated before proceeding
+    if (!user) {
+      const currentPath = window.location.pathname + window.location.search;
+      const returnUrl = encodeURIComponent(currentPath);
+      router.push(`/login?returnUrl=${returnUrl}`);
+      return;
+    }
+    
     setSelectedDevice(device);
     setStep(2);
   };
@@ -64,7 +76,10 @@ export default function BookPage() {
     // Here you would submit to your backend
   };
 
-  if (!isClient) {
+
+
+  // Show loading while checking authentication
+  if (isLoading || !isClient) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
@@ -75,6 +90,8 @@ export default function BookPage() {
       </div>
     );
   }
+
+
 
   return (
     <NoSSR fallback={
