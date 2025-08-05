@@ -50,6 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [otpAttempts, setOtpAttempts] = useState<Record<string, number>>({});
 
   useEffect(() => {
+    console.log('🔍 AuthContext useEffect triggered - calling checkAuth');
     checkAuth();
   }, []);
 
@@ -123,6 +124,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const checkAuth = async () => {
+    console.log('🔍 checkAuth called');
     try {
       const session = await account.get();
       // Session found
@@ -184,6 +186,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
       setRoles([]);
     } finally {
+      console.log('🔍 checkAuth completed, setting isLoading to false');
       setIsLoading(false);
     }
   };
@@ -281,6 +284,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       
       console.log('User set in context:', accountDetails);
+      
+      // Call checkAuth to ensure all user data is properly set
+      await checkAuth();
     }
   };
 

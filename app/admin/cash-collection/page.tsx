@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { databases } from "@/lib/appwrite";
+import { databases, COLLECTIONS } from "@/lib/appwrite";
 import { Query } from "appwrite";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -61,7 +61,7 @@ export default function CashCollectionPage() {
               try {
                 customerResponse = await databases.listDocuments(
                   process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
-                  'customers',
+                  COLLECTIONS.CUSTOMERS,
                   [Query.equal("user_id", booking.customer_id), Query.limit(1)]
                 );
               } catch (customerError) {

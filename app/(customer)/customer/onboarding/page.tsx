@@ -16,15 +16,19 @@ export default function CustomerOnboardingPage() {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   const router = useRouter();
+
+  console.log('🎭 CustomerOnboardingPage render - user:', user, 'isLoading:', isLoading, 'user?.id:', user?.id);
 
   // Redirect if user is not logged in
   useEffect(() => {
-    if (!user) {
+    console.log('🔍 useEffect triggered - user:', user, 'isLoading:', isLoading);
+    if (!isLoading && !user) {
+      console.log('❌ No user found, redirecting to home');
       router.push('/');
     }
-  }, [user, router]);
+  }, [user, isLoading, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,7 +81,8 @@ export default function CustomerOnboardingPage() {
     }
   };
 
-  if (!user) {
+  if (isLoading) {
+    console.log('⏳ Still loading, showing loading screen');
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -87,6 +92,18 @@ export default function CustomerOnboardingPage() {
     );
   }
 
+  if (!user) {
+    console.log('❌ No user found, showing loading screen (will redirect)');
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  console.log('🎨 Rendering onboarding form for user:', user.id);
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-blue-50 p-4">
       <div className="w-full max-w-md">

@@ -106,7 +106,7 @@ export default function AnalyticsPage() {
           databases.listDocuments(DATABASE_ID, COLLECTIONS.PAYMENTS),
           databases.listDocuments(DATABASE_ID, COLLECTIONS.USERS),
           databases.listDocuments(DATABASE_ID, COLLECTIONS.PROVIDERS),
-          databases.listDocuments(DATABASE_ID, 'customers')
+          databases.listDocuments(DATABASE_ID, COLLECTIONS.CUSTOMERS)
         ]);
         
         bookingsResponse = bookingsData;

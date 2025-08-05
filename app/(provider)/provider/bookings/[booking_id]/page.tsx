@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { databases } from "@/lib/appwrite";
+import { databases, COLLECTIONS } from "@/lib/appwrite";
 import { Query } from "appwrite";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -57,7 +57,7 @@ export default function ProviderBookingDetails() {
           try {
             customerResponse = await databases.listDocuments(
               process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
-              'customers',
+              COLLECTIONS.CUSTOMERS,
               [Query.equal("user_id", bookingResponse.customer_id), Query.limit(1)]
             );
           } catch (customerError) {

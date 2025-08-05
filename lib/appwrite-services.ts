@@ -1391,7 +1391,7 @@ export const createCustomerProfile = async (customerData: {
     // Check if customer already exists
     const response = await databases.listDocuments(
       DATABASE_ID,
-      'customers',
+      COLLECTIONS.CUSTOMERS,
       [Query.equal('user_id', customerData.user_id), Query.limit(1)]
     );
     
@@ -1413,7 +1413,7 @@ export const createCustomerProfile = async (customerData: {
       
       const updatedDoc = await databases.updateDocument(
         DATABASE_ID,
-        'customers',
+        COLLECTIONS.CUSTOMERS,
         existingDoc.$id,
         updateData
       );
@@ -1436,7 +1436,7 @@ export const createCustomerProfile = async (customerData: {
       
       const newDoc = await databases.createDocument(
         DATABASE_ID,
-        'customers',
+        COLLECTIONS.CUSTOMERS,
         ID.unique(),
         newCustomerData
       );
@@ -1473,7 +1473,7 @@ export const getCustomerByUserId = async (userId: string) => {
     console.log('🔍 Searching for customer profile with user_id:', userId);
     const response = await databases.listDocuments(
       DATABASE_ID,
-      'customers',
+      COLLECTIONS.CUSTOMERS,
       [Query.equal('user_id', userId), Query.limit(1)]
     );
     

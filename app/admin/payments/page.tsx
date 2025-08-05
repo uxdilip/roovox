@@ -26,7 +26,7 @@ import {
   BarChart3,
   PieChart
 } from "lucide-react";
-import { databases, DATABASE_ID } from "@/lib/appwrite";
+import { databases, DATABASE_ID, COLLECTIONS } from "@/lib/appwrite";
 import { Query } from "appwrite";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
@@ -137,7 +137,7 @@ export default function PaymentManagementPage() {
                 try {
                   customerResponse = await databases.listDocuments(
                     DATABASE_ID,
-                    'customers',
+                    COLLECTIONS.CUSTOMERS,
                     [Query.equal("user_id", bookingResponse.customer_id), Query.limit(1)]
                   );
                 } catch (customerError) {

@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import ProviderServicesPage from "../services/page";
-import { databases, DATABASE_ID } from "@/lib/appwrite";
+import { databases, DATABASE_ID, COLLECTIONS } from "@/lib/appwrite";
 import { Query } from "appwrite";
 import { Star, CheckCircle, AlertCircle, MapPin, Calendar, DollarSign, Clock, Smartphone, User, CreditCard } from "lucide-react";
 import { Tabs as ShadTabs, TabsList as ShadTabsList, TabsTrigger as ShadTabsTrigger, TabsContent as ShadTabsContent } from "@/components/ui/tabs";
@@ -163,7 +163,7 @@ export default function ProviderDashboardPage() {
                 try {
                   customerResponse = await databases.listDocuments(
                     process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
-                    'customers',
+                    COLLECTIONS.CUSTOMERS,
                     [Query.equal("user_id", booking.customer_id), Query.limit(1)]
                   );
                 } catch (customerError) {

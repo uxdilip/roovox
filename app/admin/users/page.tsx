@@ -108,7 +108,7 @@ export default function UserManagementPage() {
       try {
         const [usersData, customersData, providersData, bookingsData, customerDevicesData] = await Promise.all([
           databases.listDocuments(DATABASE_ID, COLLECTIONS.USERS),
-          databases.listDocuments(DATABASE_ID, 'customers'),
+          databases.listDocuments(DATABASE_ID, COLLECTIONS.CUSTOMERS),
           databases.listDocuments(DATABASE_ID, COLLECTIONS.PROVIDERS),
           databases.listDocuments(DATABASE_ID, COLLECTIONS.BOOKINGS),
           databases.listDocuments(DATABASE_ID, 'customer_devices')
@@ -131,7 +131,7 @@ export default function UserManagementPage() {
         }
         
         try {
-          const customersData = await databases.listDocuments(DATABASE_ID, 'customers');
+          const customersData = await databases.listDocuments(DATABASE_ID, COLLECTIONS.CUSTOMERS);
           customersResponse = customersData;
         } catch (e) {
           console.log("Customers collection not accessible");
