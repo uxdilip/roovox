@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { databases, DATABASE_ID, COLLECTIONS } from '@/lib/appwrite';
 import { ID, Query } from 'appwrite';
+import { NotificationService } from '@/lib/notification-service';
+import { buildNotificationData } from '@/lib/notification-helpers';
 
 export async function POST(request: NextRequest) {
   try {
@@ -52,6 +54,24 @@ export async function POST(request: NextRequest) {
         updated_at: new Date().toISOString()
       }
     );
+
+    // Send notifications asynchronously (don't block the response)
+    try {
+      const notificationData = await buildNotificationData(booking);
+      
+      // Send new booking notification to provider
+      NotificationService.sendNewBookingNotificationToProvider(notificationData)
+        .catch(error => console.error('Failed to send provider notification:', error));
+      
+      // If booking is confirmed, send confirmation to customer
+      if (bookingData.status === 'confirmed') {
+        NotificationService.sendBookingConfirmationToCustomer(notificationData)
+          .catch(error => console.error('Failed to send customer confirmation:', error));
+      }
+    } catch (error) {
+      console.error('Failed to send notifications:', error);
+      // Don't fail the booking creation if notifications fail
+    }
 
     return NextResponse.json({ success: true, booking });
   } catch (error: any) {
@@ -132,6 +152,36 @@ export async function PUT(request: NextRequest) {
         updated_at: new Date().toISOString()
       }
     );
+
+    // Send notifications based on status changes
+    try {
+      const notificationData = await buildNotificationData(updatedBooking);
+      
+      // Handle different status changes
+      if (updateData.status) {
+        switch (updateData.status) {
+          case 'confirmed':
+            NotificationService.sendBookingConfirmationToCustomer(notificationData)
+              .catch(error => console.error('Failed to send confirmation:', error));
+            break;
+          case 'in_progress':
+            NotificationService.sendServiceStartedNotification(notificationData)
+              .catch(error => console.error('Failed to send service started notification:', error));
+            break;
+          case 'completed':
+            NotificationService.sendServiceCompletedNotification(notificationData)
+              .catch(error => console.error('Failed to send service completed notification:', error));
+            break;
+          case 'cancelled':
+            NotificationService.sendBookingCancelledNotification(notificationData, updateData.cancellation_reason)
+              .catch(error => console.error('Failed to send cancellation notification:', error));
+            break;
+        }
+      }
+    } catch (error) {
+      console.error('Failed to send status change notifications:', error);
+      // Don't fail the update if notifications fail
+    }
 
     return NextResponse.json({ success: true, booking: updatedBooking });
   } catch (error: any) {

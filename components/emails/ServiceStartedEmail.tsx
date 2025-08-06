@@ -1,0 +1,147 @@
+import {
+  Html,
+  Head,
+  Body,
+  Container,
+  Text,
+  Preview,
+  Section,
+  Hr,
+} from '@react-email/components';
+
+interface ServiceStartedEmailProps {
+  customerName: string;
+  bookingId: string;
+  serviceName: string;
+  deviceInfo : string;
+}
+
+export const ServiceStartedEmail = ({
+  customerName,
+  bookingId,
+  serviceName,
+  deviceInfo,
+}: ServiceStartedEmailProps) => {
+  return (
+    <Html>
+      <Head />
+      <Preview>Service Started - Roovox</Preview>
+      <Body style={main}>
+        <Container style={container}>
+          <Section style={header}>
+            <Text style={logo}>🔧 Roovox</Text>
+          </Section>
+
+          <Section style={content}>
+            <Text style={title}>Service Started!</Text>
+            <Text style={greeting}>Hi {customerName},</Text>
+            <Text style={paragraph}>
+              Great news! Your technician has started working on your device. 
+              You'll receive another notification when the service is completed.
+            </Text>
+
+            <Section style={bookingDetails}>
+              <Text style={detailLabel}>Booking ID: {bookingId}</Text>
+              <Text style={detailLabel}>Service: {serviceName}</Text>
+              <Text style={detailLabel}>Device: {deviceInfo}</Text>
+            </Section>
+
+            <Text style={paragraph}>
+              Thank you for choosing Roovox! We'll keep you updated on the progress.
+            </Text>
+          </Section>
+
+          <Hr style={hr} />
+
+          <Section style={footer}>
+            <Text style={footerText}>
+              Thank you for choosing Roovox! 🚀
+            </Text>
+            <Text style={footerText}>
+              Need help? Contact us at support@roovox.com
+            </Text>
+          </Section>
+        </Container>
+      </Body>
+    </Html>
+  );
+};
+
+const main = {
+  backgroundColor: '#f6f9fc',
+  fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Ubuntu,sans-serif',
+};
+
+const container = {
+  backgroundColor: '#ffffff',
+  margin: '0 auto',
+  padding: '20px 0 48px',
+  marginBottom: '64px',
+};
+
+const header = {
+  textAlign: 'center' as const,
+  padding: '20px 0',
+};
+
+const logo = {
+  fontSize: '24px',
+  fontWeight: 'bold',
+  color: '#1f2937',
+};
+
+const content = {
+  padding: '0 48px',
+};
+
+const title = {
+  fontSize: '24px',
+  fontWeight: 'bold',
+  color: '#1f2937',
+  textAlign: 'center' as const,
+  margin: '30px 0',
+};
+
+const greeting = {
+  fontSize: '16px',
+  color: '#374151',
+  marginBottom: '16px',
+};
+
+const paragraph = {
+  fontSize: '16px',
+  lineHeight: '24px',
+  color: '#374151',
+  marginBottom: '16px',
+};
+
+const bookingDetails = {
+  backgroundColor: '#f9fafb',
+  padding: '20px',
+  borderRadius: '8px',
+  margin: '20px 0',
+};
+
+const detailLabel = {
+  fontSize: '14px',
+  color: '#374151',
+  marginBottom: '8px',
+};
+
+const hr = {
+  borderColor: '#e5e7eb',
+  margin: '20px 0',
+};
+
+const footer = {
+  textAlign: 'center' as const,
+  padding: '20px 48px',
+};
+
+const footerText = {
+  fontSize: '14px',
+  color: '#6b7280',
+  marginBottom: '8px',
+};
+
+export default ServiceStartedEmail; 
