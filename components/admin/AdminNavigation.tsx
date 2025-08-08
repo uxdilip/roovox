@@ -26,7 +26,8 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
-  UserCheck
+  UserCheck,
+  Download
 } from "lucide-react";
 
 interface NavItem {
@@ -84,6 +85,12 @@ const navItems: NavItem[] = [
     href: "/admin/quality",
     icon: Shield,
     description: "Reviews and disputes"
+  },
+  {
+    title: "Data Export",
+    href: "/admin/data-export",
+    icon: Download,
+    description: "Export device collections to CSV"
   },
   {
     title: "Communication",

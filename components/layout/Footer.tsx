@@ -1,6 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
-import { Smartphone, Mail, Phone, MapPin } from 'lucide-react';
+import { Logo } from '@/components/ui/Logo';
+import { Mail, Phone, MapPin } from 'lucide-react';
 
 export function Footer() {
   return (
@@ -8,10 +9,7 @@ export function Footer() {
       <div className="container mx-auto px-4 py-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="space-y-4">
-            <div className="flex items-center space-x-2">
-              <Smartphone className="h-8 w-8 text-blue-400" />
-              <span className="text-2xl font-bold">Roovox</span>
-            </div>
+            <Logo size="lg" showText={true} variant="footer" />
             <p className="text-gray-400">
               Professional device repair services at your doorstep. Fast, reliable, and affordable.
             </p>
@@ -42,7 +40,7 @@ export function Footer() {
             <ul className="space-y-2">
               <li className="flex items-center space-x-2">
                 <Mail className="h-4 w-4 text-blue-400" />
-                <span className="text-gray-400">support@roovox.com</span>
+                <span className="text-gray-400">support@sniket.com</span>
               </li>
               <li className="flex items-center space-x-2">
                 <Phone className="h-4 w-4 text-blue-400" />
@@ -58,7 +56,7 @@ export function Footer() {
 
         <div className="border-t border-gray-800 mt-8 pt-8 text-center">
           <p className="text-gray-400">
-            © 2025 Roovox. All rights reserved.
+            © 2025 Sniket. All rights reserved.
           </p>
         </div>
       </div>

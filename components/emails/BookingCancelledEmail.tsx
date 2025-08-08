@@ -27,11 +27,11 @@ export const BookingCancelledEmail = ({
   return (
     <Html>
       <Head />
-      <Preview>Booking Cancelled - Roovox</Preview>
+      <Preview>Booking Cancelled - Sniket</Preview>
       <Body style={main}>
         <Container style={container}>
           <Section style={header}>
-            <Text style={logo}>🔧 Roovox</Text>
+            <Text style={logo}>🔧 Sniket</Text>
           </Section>
 
           <Section style={content}>
@@ -54,7 +54,7 @@ export const BookingCancelledEmail = ({
             </Text>
 
             <Text style={paragraph}>
-              Thank you for considering Roovox for your service needs.
+              Thank you for considering Sniket for your service needs.
             </Text>
           </Section>
 
@@ -62,10 +62,10 @@ export const BookingCancelledEmail = ({
 
           <Section style={footer}>
             <Text style={footerText}>
-              Thank you for choosing Roovox! 🚀
+              Thank you for choosing Sniket! 🚀
             </Text>
             <Text style={footerText}>
-              Need help? Contact us at support@roovox.com
+              Need help? Contact us at support@sniket.com
             </Text>
           </Section>
         </Container>

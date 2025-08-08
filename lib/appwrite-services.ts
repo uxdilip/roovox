@@ -977,18 +977,68 @@ export const updateBusinessSetupKycDocs = async (user_id: string, kyc_docs: any)
 
 export const getBrandsByCategory = async (category: 'phone' | 'laptop'): Promise<{ key: string; label: string }[]> => {
   try {
+    // Try to get brands from the brands collection first
     const response = await databases.listDocuments(
       DATABASE_ID,
       'brands',
       [Query.equal('category_id', category)]
     );
-    return response.documents.map((doc: any) => ({
-      key: doc.name,
-      label: doc.name.charAt(0).toUpperCase() + doc.name.slice(1)
-    }));
+    
+    if (response.documents.length > 0) {
+      return response.documents.map((doc: any) => ({
+        key: doc.name,
+        label: doc.name.charAt(0).toUpperCase() + doc.name.slice(1)
+      }));
+    }
+    
+    // If no brands found, return common brands based on category
+    const commonBrands = category === 'phone' ? [
+      { key: 'Apple', label: 'Apple' },
+      { key: 'Samsung', label: 'Samsung' },
+      { key: 'OnePlus', label: 'OnePlus' },
+      { key: 'Xiaomi', label: 'Xiaomi' },
+      { key: 'Realme', label: 'Realme' },
+      { key: 'Oppo', label: 'Oppo' },
+      { key: 'Vivo', label: 'Vivo' },
+      { key: 'Nothing', label: 'Nothing' },
+      { key: 'Google', label: 'Google' },
+      { key: 'Motorola', label: 'Motorola' },
+    ] : [
+      { key: 'Apple', label: 'Apple' },
+      { key: 'Dell', label: 'Dell' },
+      { key: 'HP', label: 'HP' },
+      { key: 'Lenovo', label: 'Lenovo' },
+      { key: 'ASUS', label: 'ASUS' },
+      { key: 'Acer', label: 'Acer' },
+      { key: 'MSI', label: 'MSI' },
+      { key: 'Razer', label: 'Razer' },
+      { key: 'Alienware', label: 'Alienware' },
+    ];
+    
+    return commonBrands;
   } catch (error) {
     console.error('Error fetching brands by category:', error);
-    return [];
+    
+    // Fallback to common brands
+    const fallbackBrands = category === 'phone' ? [
+      { key: 'Apple', label: 'Apple' },
+      { key: 'Samsung', label: 'Samsung' },
+      { key: 'OnePlus', label: 'OnePlus' },
+      { key: 'Xiaomi', label: 'Xiaomi' },
+      { key: 'Realme', label: 'Realme' },
+      { key: 'Oppo', label: 'Oppo' },
+      { key: 'Vivo', label: 'Vivo' },
+      { key: 'Nothing', label: 'Nothing' },
+    ] : [
+      { key: 'Apple', label: 'Apple' },
+      { key: 'Dell', label: 'Dell' },
+      { key: 'HP', label: 'HP' },
+      { key: 'Lenovo', label: 'Lenovo' },
+      { key: 'ASUS', label: 'ASUS' },
+      { key: 'Acer', label: 'Acer' },
+    ];
+    
+    return fallbackBrands;
   }
 }; 
 
@@ -1513,3 +1563,1067 @@ export const getBusinessSetupByUserId = async (userId: string) => {
     return null;
   }
 }; 
+
+// Model Series Services
+export const createModelSeries = async (seriesData: {
+  name: string;
+  brand: string;
+  device_type: 'phone' | 'laptop';
+  description: string;
+  models: string[];
+}): Promise<any> => {
+  try {
+    const doc = await databases.createDocument(
+      DATABASE_ID,
+      COLLECTIONS.MODEL_SERIES,
+      'unique()',
+      {
+        ...seriesData,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }
+    );
+    return doc;
+  } catch (error) {
+    console.error('Error creating model series:', error);
+    throw error;
+  }
+};
+
+export const getModelSeries = async (brand?: string, deviceType?: 'phone' | 'laptop'): Promise<any[]> => {
+  try {
+    let queries = [];
+    if (brand) {
+      queries.push(Query.equal('brand', brand));
+    }
+    if (deviceType) {
+      queries.push(Query.equal('device_type', deviceType));
+    }
+    
+    const response = await databases.listDocuments(
+      DATABASE_ID,
+      COLLECTIONS.MODEL_SERIES,
+      queries
+    );
+    return response.documents;
+  } catch (error) {
+    console.error('Error fetching model series:', error);
+    return [];
+  }
+};
+
+export const populateModelSeries = async (): Promise<void> => {
+  try {
+    console.log('Starting comprehensive model series population...');
+
+    // Get all phones and laptops from database
+    const allPhones = await getPhones();
+    const allLaptops = await getLaptops();
+    
+    console.log(`Found ${allPhones.length} phones and ${allLaptops.length} laptops`);
+
+    // Group by brand and device type
+    const phoneBrands = new Map<string, string[]>();
+    const laptopBrands = new Map<string, string[]>();
+
+    // Group phones by brand
+    allPhones.forEach(phone => {
+      if (!phoneBrands.has(phone.brand)) {
+        phoneBrands.set(phone.brand, []);
+      }
+      phoneBrands.get(phone.brand)!.push(phone.model);
+    });
+
+    // Group laptops by brand
+    allLaptops.forEach(laptop => {
+      if (!laptopBrands.has(laptop.brand)) {
+        laptopBrands.set(laptop.brand, []);
+      }
+      laptopBrands.get(laptop.brand)!.push(laptop.model);
+    });
+
+    console.log(`Found ${phoneBrands.size} phone brands and ${laptopBrands.size} laptop brands`);
+
+    // Get existing series to avoid duplicates
+    const existingSeries = await getModelSeries();
+    const existingSeriesMap = new Map();
+    existingSeries.forEach(series => {
+      const key = `${series.brand}-${series.device_type}-${series.name}`;
+      existingSeriesMap.set(key, series);
+    });
+
+    console.log(`Found ${existingSeries.length} existing series`);
+
+    // Predefined series patterns for known brands
+    const seriesPatterns: Record<string, Partial<Record<'phone' | 'laptop', Array<{
+      pattern: RegExp;
+      name: string;
+      description: string;
+    }>>>> = {
+      // Samsung patterns
+      samsung: {
+        phone: [
+          { pattern: /^Galaxy\s+S\d+/, name: 'Galaxy S Series', description: 'Samsung Galaxy S series flagship models' },
+          { pattern: /^Galaxy\s+A\d+/, name: 'Galaxy A Series', description: 'Samsung Galaxy A series mid-range models' },
+          { pattern: /^Galaxy\s+M\d+/, name: 'Galaxy M Series', description: 'Samsung Galaxy M series budget models' },
+          { pattern: /^Galaxy\s+F\d+/, name: 'Galaxy F Series', description: 'Samsung Galaxy F series models' },
+          { pattern: /^Galaxy\s+Z\s*(Fold|Flip)/, name: 'Galaxy Z Series', description: 'Samsung Galaxy Z series foldable models' },
+          { pattern: /^Galaxy\s+Note\s*\d+/, name: 'Galaxy Note Series', description: 'Samsung Galaxy Note series models' }
+        ],
+        laptop: [
+          { pattern: /^Galaxy\s*Book/, name: 'Galaxy Book Series', description: 'Samsung Galaxy Book series laptops' }
+        ]
+      },
+      // Apple patterns
+      apple: {
+        phone: [
+          { pattern: /^iPhone\s*15/, name: 'iPhone 15 Series', description: 'Apple iPhone 15 series models' },
+          { pattern: /^iPhone\s*14/, name: 'iPhone 14 Series', description: 'Apple iPhone 14 series models' },
+          { pattern: /^iPhone\s*13/, name: 'iPhone 13 Series', description: 'Apple iPhone 13 series models' },
+          { pattern: /^iPhone\s*12/, name: 'iPhone 12 Series', description: 'Apple iPhone 12 series models' },
+          { pattern: /^iPhone\s*11/, name: 'iPhone 11 Series', description: 'Apple iPhone 11 series models' },
+          { pattern: /^iPhone\s*X/, name: 'iPhone X Series', description: 'Apple iPhone X series models' },
+          { pattern: /^iPhone\s*SE/, name: 'iPhone SE Series', description: 'Apple iPhone SE series models' }
+        ],
+        laptop: [
+          { pattern: /^MacBook\s*Pro/, name: 'MacBook Pro Series', description: 'Apple MacBook Pro series models' },
+          { pattern: /^MacBook\s*Air/, name: 'MacBook Air Series', description: 'Apple MacBook Air series models' }
+        ]
+      },
+      // Realme patterns
+      realme: {
+        phone: [
+          { pattern: /^(\d+)\s*Pro/, name: 'Realme Pro Series', description: 'Realme Pro series models' },
+          { pattern: /^(\d+)$/, name: 'Realme Number Series', description: 'Realme Number series models' },
+          { pattern: /^GT/, name: 'Realme GT Series', description: 'Realme GT series models' },
+          { pattern: /^C\d+/, name: 'Realme C Series', description: 'Realme C series models' },
+          { pattern: /^Narzo/, name: 'Realme Narzo Series', description: 'Realme Narzo series models' }
+        ]
+      },
+      // Vivo patterns
+      vivo: {
+        phone: [
+          { pattern: /^V\d+/, name: 'Vivo V Series', description: 'Vivo V series models' },
+          { pattern: /^Y\d+/, name: 'Vivo Y Series', description: 'Vivo Y series models' },
+          { pattern: /^X\d+/, name: 'Vivo X Series', description: 'Vivo X series models' },
+          { pattern: /^T\d+/, name: 'Vivo T Series', description: 'Vivo T series models' },
+          { pattern: /^U\d+/, name: 'Vivo U Series', description: 'Vivo U series models' }
+        ]
+      },
+      // OnePlus patterns
+      oneplus: {
+        phone: [
+          { pattern: /^(\d+)$/, name: 'OnePlus Number Series', description: 'OnePlus Number series models' },
+          { pattern: /^Nord/, name: 'OnePlus Nord Series', description: 'OnePlus Nord series models' },
+          { pattern: /^R/, name: 'OnePlus R Series', description: 'OnePlus R series models' }
+        ]
+      },
+      // Xiaomi patterns
+      xiaomi: {
+        phone: [
+          { pattern: /^Mi\s*\d+/, name: 'Xiaomi Mi Series', description: 'Xiaomi Mi series models' },
+          { pattern: /^Redmi/, name: 'Xiaomi Redmi Series', description: 'Xiaomi Redmi series models' },
+          { pattern: /^POCO/, name: 'Xiaomi POCO Series', description: 'Xiaomi POCO series models' },
+          { pattern: /^Black\s*Shark/, name: 'Xiaomi Black Shark Series', description: 'Xiaomi Black Shark series models' }
+        ],
+        laptop: [
+          { pattern: /^Mi\s*Notebook/, name: 'Xiaomi Mi Notebook Series', description: 'Xiaomi Mi Notebook series laptops' }
+        ]
+      },
+      // OPPO patterns
+      oppo: {
+        phone: [
+          { pattern: /^Find/, name: 'OPPO Find Series', description: 'OPPO Find series models' },
+          { pattern: /^Reno/, name: 'OPPO Reno Series', description: 'OPPO Reno series models' },
+          { pattern: /^A\d+/, name: 'OPPO A Series', description: 'OPPO A series models' },
+          { pattern: /^F\d+/, name: 'OPPO F Series', description: 'OPPO F Series models' }
+        ]
+      },
+      // Dell patterns
+      dell: {
+        laptop: [
+          { pattern: /^XPS/, name: 'Dell XPS Series', description: 'Dell XPS series models' },
+          { pattern: /^Inspiron/, name: 'Dell Inspiron Series', description: 'Dell Inspiron series models' },
+          { pattern: /^Latitude/, name: 'Dell Latitude Series', description: 'Dell Latitude series models' },
+          { pattern: /^Precision/, name: 'Dell Precision Series', description: 'Dell Precision series models' },
+          { pattern: /^Alienware/, name: 'Dell Alienware Series', description: 'Dell Alienware series models' }
+        ]
+      },
+      // HP patterns
+      hp: {
+        laptop: [
+          { pattern: /^Spectre/, name: 'HP Spectre Series', description: 'HP Spectre series models' },
+          { pattern: /^Envy/, name: 'HP Envy Series', description: 'HP Envy series models' },
+          { pattern: /^Pavilion/, name: 'HP Pavilion Series', description: 'HP Pavilion series models' },
+          { pattern: /^EliteBook/, name: 'HP EliteBook Series', description: 'HP EliteBook series models' },
+          { pattern: /^ProBook/, name: 'HP ProBook Series', description: 'HP ProBook series models' },
+          { pattern: /^OMEN/, name: 'HP OMEN Series', description: 'HP OMEN series models' }
+        ]
+      },
+      // Lenovo patterns
+      lenovo: {
+        laptop: [
+          { pattern: /^ThinkPad/, name: 'Lenovo ThinkPad Series', description: 'Lenovo ThinkPad series models' },
+          { pattern: /^Yoga/, name: 'Lenovo Yoga Series', description: 'Lenovo Yoga series models' },
+          { pattern: /^IdeaPad/, name: 'Lenovo IdeaPad Series', description: 'Lenovo IdeaPad series models' },
+          { pattern: /^Legion/, name: 'Lenovo Legion Series', description: 'Lenovo Legion series models' }
+        ]
+      },
+      // Asus patterns
+      asus: {
+        phone: [
+          { pattern: /^ZenFone/, name: 'Asus ZenFone Series', description: 'Asus ZenFone series models' },
+          { pattern: /^ROG\s*Phone/, name: 'Asus ROG Phone Series', description: 'Asus ROG Phone series models' }
+        ],
+        laptop: [
+          { pattern: /^ZenBook/, name: 'Asus ZenBook Series', description: 'Asus ZenBook series models' },
+          { pattern: /^VivoBook/, name: 'Asus VivoBook Series', description: 'Asus VivoBook series models' },
+          { pattern: /^ROG/, name: 'Asus ROG Series', description: 'Asus ROG series models' },
+          { pattern: /^TUF/, name: 'Asus TUF Series', description: 'Asus TUF series models' }
+        ]
+      },
+      // Acer patterns
+      acer: {
+        laptop: [
+          { pattern: /^Aspire/, name: 'Acer Aspire Series', description: 'Acer Aspire series models' },
+          { pattern: /^Swift/, name: 'Acer Swift Series', description: 'Acer Swift series models' },
+          { pattern: /^Predator/, name: 'Acer Predator Series', description: 'Acer Predator series models' },
+          { pattern: /^Spin/, name: 'Acer Spin Series', description: 'Acer Spin series models' }
+        ]
+      },
+      // MSI patterns
+      msi: {
+        laptop: [
+          { pattern: /^GS/, name: 'MSI GS Series', description: 'MSI GS series models' },
+          { pattern: /^GE/, name: 'MSI GE Series', description: 'MSI GE series models' },
+          { pattern: /^GL/, name: 'MSI GL Series', description: 'MSI GL series models' },
+          { pattern: /^Creator/, name: 'MSI Creator Series', description: 'MSI Creator series models' }
+        ]
+      }
+    };
+
+    // Function to group models into series
+    const groupModelsIntoSeries = (models: string[], brand: string, deviceType: 'phone' | 'laptop'): Array<{
+      name: string;
+      description: string;
+      models: string[];
+    }> => {
+      const series: Array<{ name: string; description: string; models: string[] }> = [];
+      const brandLower = brand.toLowerCase();
+      
+      // Check if we have predefined patterns for this brand
+      const brandPatterns = seriesPatterns[brandLower as keyof typeof seriesPatterns];
+      const patterns = brandPatterns?.[deviceType] || [];
+      
+      if (patterns.length > 0) {
+        // Use predefined patterns
+        const usedModels = new Set<string>();
+        
+        patterns.forEach((pattern: { pattern: RegExp; name: string; description: string }) => {
+          const matchingModels = models.filter(model => 
+            pattern.pattern.test(model) && !usedModels.has(model)
+          );
+          
+          if (matchingModels.length > 0) {
+            series.push({
+              name: pattern.name,
+              description: pattern.description,
+              models: matchingModels
+            });
+            matchingModels.forEach(model => usedModels.add(model));
+          }
+        });
+        
+        // Add remaining models to "Other" series
+        const remainingModels = models.filter(model => !usedModels.has(model));
+        if (remainingModels.length > 0) {
+          series.push({
+            name: `${brand} Other Series`,
+            description: `${brand} other models`,
+            models: remainingModels
+          });
+        }
+      } else {
+        // No predefined patterns - create generic series
+        if (models.length <= 5) {
+          // Small number of models - put all in one series
+          series.push({
+            name: `${brand} Series`,
+            description: `${brand} models`,
+            models: models
+          });
+        } else {
+          // Large number of models - split into multiple series
+          const chunkSize = Math.ceil(models.length / 3);
+          for (let i = 0; i < models.length; i += chunkSize) {
+            const chunk = models.slice(i, i + chunkSize);
+            series.push({
+              name: `${brand} Series ${Math.floor(i / chunkSize) + 1}`,
+              description: `${brand} series ${Math.floor(i / chunkSize) + 1}`,
+              models: chunk
+            });
+          }
+        }
+      }
+      
+      return series;
+    };
+
+    // Process phone brands
+    const phoneSeries: Array<{
+      name: string;
+      brand: string;
+      device_type: 'phone' | 'laptop';
+      description: string;
+      models: string[];
+    }> = [];
+
+    for (const [brand, models] of phoneBrands) {
+      const brandSeries = groupModelsIntoSeries(models, brand, 'phone');
+      brandSeries.forEach(series => {
+        phoneSeries.push({
+          name: series.name,
+          brand: brand,
+          device_type: 'phone',
+          description: series.description,
+          models: series.models
+        });
+      });
+    }
+
+    // Process laptop brands
+    const laptopSeries: Array<{
+      name: string;
+      brand: string;
+      device_type: 'phone' | 'laptop';
+      description: string;
+      models: string[];
+    }> = [];
+
+    for (const [brand, models] of laptopBrands) {
+      const brandSeries = groupModelsIntoSeries(models, brand, 'laptop');
+      brandSeries.forEach(series => {
+        laptopSeries.push({
+          name: series.name,
+          brand: brand,
+          device_type: 'laptop',
+          description: series.description,
+          models: series.models
+        });
+      });
+    }
+
+    // Combine all series
+    const allSeries = [...phoneSeries, ...laptopSeries];
+    
+    console.log(`Generated ${allSeries.length} series total`);
+    console.log(`Phone series: ${phoneSeries.length}`);
+    console.log(`Laptop series: ${laptopSeries.length}`);
+
+    // Create all series in database (with duplicate checking)
+    let createdCount = 0;
+    let skippedCount = 0;
+    
+    for (const series of allSeries) {
+      // Check if series already exists
+      const seriesKey = `${series.brand}-${series.device_type}-${series.name}`;
+      
+      if (existingSeriesMap.has(seriesKey)) {
+        skippedCount++;
+        console.log(`⏭️ Skipped existing series: ${series.name} for ${series.brand}`);
+        continue;
+      }
+      
+      try {
+        await createModelSeries(series);
+        createdCount++;
+        console.log(`✅ Created series: ${series.name} for ${series.brand} (${series.models.length} models)`);
+      } catch (error) {
+        skippedCount++;
+        console.log(`❌ Failed to create series ${series.name} for ${series.brand}:`, error);
+      }
+    }
+
+    console.log(`Series population completed: ${createdCount} created, ${skippedCount} skipped`);
+    console.log(`Total series created: ${createdCount}`);
+  } catch (error) {
+    console.error('Error populating model series:', error);
+    throw error;
+  }
+}; 
+
+export const updatePhonesWithSeriesMapping = async (): Promise<void> => {
+  try {
+    // First, get all model series
+    const allSeries = await getModelSeries();
+    const seriesMap = new Map();
+    
+    // Create a map for quick lookup: model -> series_id
+    allSeries.forEach(series => {
+      series.models.forEach((model: string) => {
+        seriesMap.set(model.toLowerCase(), {
+          series_id: series.$id,
+          series_name: series.name,
+          brand: series.brand,
+          device_type: series.device_type
+        });
+      });
+    });
+
+    // Get all phones
+    let allPhones: any[] = [];
+    let offset = 0;
+    const LIMIT = 100;
+    
+    while (true) {
+      const response = await databases.listDocuments(
+        DATABASE_ID,
+        COLLECTIONS.PHONES,
+        [Query.limit(LIMIT), Query.offset(offset)]
+      );
+      
+      allPhones = allPhones.concat(response.documents);
+      
+      if (response.documents.length < LIMIT) {
+        break;
+      }
+      offset += LIMIT;
+    }
+
+    console.log(`Found ${allPhones.length} phones to update`);
+
+    // Update each phone with series_id if it matches
+    let updatedCount = 0;
+    let skippedCount = 0;
+
+    for (const phone of allPhones) {
+      const modelKey = phone.model.toLowerCase();
+      const seriesInfo = seriesMap.get(modelKey);
+      
+      if (seriesInfo && seriesInfo.brand === phone.brand) {
+        try {
+          await databases.updateDocument(
+            DATABASE_ID,
+            COLLECTIONS.PHONES,
+            phone.$id,
+            {
+              series_id: seriesInfo.series_id,
+              series_name: seriesInfo.series_name
+            }
+          );
+          updatedCount++;
+          console.log(`Updated phone: ${phone.brand} ${phone.model} -> ${seriesInfo.series_name}`);
+        } catch (error) {
+          console.error(`Failed to update phone ${phone.brand} ${phone.model}:`, error);
+        }
+      } else {
+        skippedCount++;
+        console.log(`Skipped phone (no series match): ${phone.brand} ${phone.model}`);
+      }
+    }
+
+    console.log(`Update completed: ${updatedCount} updated, ${skippedCount} skipped`);
+  } catch (error) {
+    console.error('Error updating phones with series mapping:', error);
+    throw error;
+  }
+}; 
+
+// Find provider services with series-based pricing and fallback
+export const findProviderServicesWithSeries = async (
+  deviceType: string,
+  brand: string,
+  model: string,
+  issueNames: string[]
+): Promise<any[]> => {
+  try {
+    // Step 1: Get the device's series information
+    let deviceSeries = null;
+    try {
+      // Get device from phones or laptops collection
+      const deviceCollection = deviceType === 'phone' ? COLLECTIONS.PHONES : COLLECTIONS.LAPTOPS;
+      const deviceRes = await databases.listDocuments(
+        DATABASE_ID,
+        deviceCollection,
+        [Query.equal('brand', brand), Query.equal('model', model), Query.limit(1)]
+      );
+      
+      if (deviceRes.documents.length > 0) {
+        const device = deviceRes.documents[0];
+        if (device.series_id) {
+          // Get series information
+          const seriesRes = await databases.getDocument(
+            DATABASE_ID,
+            COLLECTIONS.MODEL_SERIES,
+            device.series_id
+          );
+          deviceSeries = seriesRes;
+        }
+      }
+    } catch (error) {
+      // Series not found, continue with individual model lookup
+    }
+
+    // Step 2: Look for series-based pricing first
+    let seriesServices: any[] = [];
+    if (deviceSeries) {
+      try {
+        const seriesServicesRes = await databases.listDocuments(
+          DATABASE_ID,
+          COLLECTIONS.SERVICES_OFFERED,
+          [
+            Query.equal('deviceType', deviceType),
+            Query.equal('brand', brand),
+            Query.equal('series_id', deviceSeries.$id),
+            Query.isNull('model') // Series-based pricing has model = null
+          ]
+        );
+        
+        seriesServices = seriesServicesRes.documents.filter((doc: any) => {
+          const serviceIssue = doc.issue?.toLowerCase().trim();
+          return issueNames.some(issueName => 
+            issueName.toLowerCase().trim() === serviceIssue
+          );
+        });
+      } catch (error) {
+        // Error fetching series services, continue with model lookup
+      }
+    }
+
+    // Step 3: Look for custom series that include this model
+    let customSeriesServices: any[] = [];
+    try {
+      // Get all custom series
+      const customSeriesRes = await databases.listDocuments(
+        DATABASE_ID,
+        COLLECTIONS.CUSTOM_SERIES,
+        [Query.equal('deviceType', deviceType)]
+      );
+      
+              // Filter custom series that include this specific brand:model
+        const matchingCustomSeries = customSeriesRes.documents.filter((series: any) => {
+          if (!series.models || !Array.isArray(series.models)) return false;
+          return series.models.some((modelString: string) => {
+            const [seriesBrand, seriesModel] = modelString.split(':');
+            return seriesBrand === brand && seriesModel === model;
+          });
+        });
+        
+        console.log('🔍 Found matching custom series:', matchingCustomSeries.length);
+        
+        // Get services for matching custom series
+        for (const customSeries of matchingCustomSeries) {
+          try {
+            const customSeriesServicesRes = await databases.listDocuments(
+              DATABASE_ID,
+              COLLECTIONS.CUSTOM_SERIES_SERVICES,
+              [
+                Query.equal('customSeriesId', customSeries.$id),
+                Query.equal('providerId', customSeries.providerId)
+              ]
+            );
+            
+            console.log('🔍 Custom series services found:', customSeriesServicesRes.documents.length);
+            console.log('🔍 Looking for issues:', issueNames);
+            console.log('🔍 Available services:', customSeriesServicesRes.documents.map((s: any) => s.issue));
+            
+            // Case-insensitive matching
+            const filteredServices = customSeriesServicesRes.documents.filter((doc: any) => {
+              const serviceIssue = doc.issue?.toLowerCase().trim();
+              const matches = issueNames.some(issueName => 
+                issueName.toLowerCase().trim() === serviceIssue
+              );
+              console.log('🔍 Matching service:', doc.issue, 'with issues:', issueNames, 'result:', matches);
+              return matches;
+            });
+          
+          // Transform custom series services to match regular service format
+          const transformedServices = filteredServices.map(service => ({
+            ...service,
+            $id: service.$id,
+            providerId: service.providerId,
+            deviceType: customSeries.deviceType,
+            brand: brand, // Use the requested brand
+            model: model, // Use the requested model
+            issue: service.issue,
+            price: service.price,
+            partType: service.partType,
+            warranty: service.warranty,
+            created_at: service.created_at,
+            pricingType: 'custom_series',
+            seriesName: customSeries.name,
+            customSeriesId: customSeries.$id
+          }));
+          
+          customSeriesServices.push(...transformedServices);
+        } catch (error) {
+          // Error fetching custom series services, continue
+        }
+      }
+    } catch (error) {
+      // Error fetching custom series, continue with model lookup
+    }
+
+    // Step 4: Look for individual model pricing (overrides)
+    let modelServices: any[] = [];
+    try {
+      const modelServicesRes = await databases.listDocuments(
+        DATABASE_ID,
+        COLLECTIONS.SERVICES_OFFERED,
+        [
+          Query.equal('deviceType', deviceType),
+          Query.equal('brand', brand),
+          Query.equal('model', model)
+        ]
+      );
+      
+      modelServices = modelServicesRes.documents.filter((doc: any) => {
+        const serviceIssue = doc.issue?.toLowerCase().trim();
+        return issueNames.some(issueName => 
+          issueName.toLowerCase().trim() === serviceIssue
+        );
+      });
+    } catch (error) {
+      // Error fetching model services
+    }
+
+    // Step 5: Merge services with priority (model overrides > custom series > platform series)
+    const mergedServices = new Map();
+    
+    // Add platform series-based services first (lowest priority)
+    seriesServices.forEach(service => {
+      const key = `${service.providerId}-${service.issue}-${service.partType}`;
+      mergedServices.set(key, {
+        ...service,
+        pricingType: 'platform_series',
+        seriesName: deviceSeries?.name
+      });
+    });
+    
+    // Override with custom series services (medium priority)
+    customSeriesServices.forEach(service => {
+      const key = `${service.providerId}-${service.issue}-${service.partType}`;
+      mergedServices.set(key, {
+        ...service,
+        pricingType: 'custom_series',
+        seriesName: service.seriesName
+      });
+    });
+    
+    // Override with model-specific services (highest priority)
+    modelServices.forEach(service => {
+      const key = `${service.providerId}-${service.issue}-${service.partType}`;
+      mergedServices.set(key, {
+        ...service,
+        pricingType: 'model_override'
+      });
+    });
+
+    const finalServices = Array.from(mergedServices.values());
+    
+    return finalServices;
+  } catch (error) {
+    console.error('Error finding provider services with series:', error);
+    return [];
+  }
+};
+
+// Create service offered with series support
+export const createServiceOfferedWithSeries = async (serviceData: {
+  providerId: string;
+  deviceType: string;
+  brand: string;
+  model: string | null; // null for series-based, model name for override
+  series_id?: string | null; // series ID for series-based pricing
+  issue: string;
+  partType: string | null;
+  price: number;
+  warranty: string | null;
+  created_at: string;
+}) => {
+  try {
+    const doc = await databases.createDocument(
+      DATABASE_ID,
+      COLLECTIONS.SERVICES_OFFERED,
+      'unique()',
+      {
+        providerId: serviceData.providerId,
+        deviceType: serviceData.deviceType,
+        brand: serviceData.brand,
+        model: serviceData.model,
+        series_id: serviceData.series_id || null,
+        issue: serviceData.issue,
+        partType: serviceData.partType,
+        price: serviceData.price,
+        warranty: serviceData.warranty,
+        created_at: serviceData.created_at,
+      }
+    );
+    
+    return doc;
+  } catch (error) {
+    console.error('Error creating service offered with series:', error);
+    throw error;
+  }
+}; 
+
+// Update existing service offered with series support
+export const updateServiceOfferedWithSeries = async (
+  serviceId: string,
+  updates: {
+    price?: number;
+    warranty?: string | null;
+  }
+) => {
+  try {
+    const doc = await databases.updateDocument(
+      DATABASE_ID,
+      COLLECTIONS.SERVICES_OFFERED,
+      serviceId,
+      updates
+    );
+    
+    return doc;
+  } catch (error) {
+    console.error('Error updating service offered with series:', error);
+    throw error;
+  }
+};
+
+// Find existing service by series, issue, and partType
+export const findExistingService = async (
+  providerId: string,
+  seriesId: string,
+  issue: string,
+  partType: string | null
+): Promise<any | null> => {
+  try {
+    let queries = [
+      Query.equal('providerId', providerId),
+      Query.equal('series_id', seriesId),
+      Query.equal('issue', issue),
+      Query.isNull('model')
+    ];
+
+    // Handle partType query properly
+    if (partType === null) {
+      queries.push(Query.isNull('partType'));
+    } else {
+      queries.push(Query.equal('partType', partType));
+    }
+
+    const servicesRes = await databases.listDocuments(
+      DATABASE_ID,
+      COLLECTIONS.SERVICES_OFFERED,
+      queries
+    );
+    
+    return servicesRes.documents.length > 0 ? servicesRes.documents[0] : null;
+  } catch (error) {
+    console.error('Error finding existing service:', error);
+    return null;
+  }
+}; 
+
+// Custom Series Functions
+export const createCustomSeries = async (seriesData: {
+  providerId: string;
+  name: string;
+  description: string;
+  deviceType: 'phone' | 'laptop';
+  models: Array<{ brand: string; model: string }>;
+}) => {
+  try {
+    // Convert models array to string array for storage
+    const modelsAsStrings = seriesData.models.map(model => 
+      `${model.brand}:${model.model}`
+    );
+    
+    const doc = await databases.createDocument(
+      DATABASE_ID,
+      'custom_series',
+      'unique()',
+      {
+        providerId: seriesData.providerId,
+        name: seriesData.name,
+        description: seriesData.description,
+        deviceType: seriesData.deviceType,
+        models: modelsAsStrings,
+        created_at: new Date().toISOString(),
+      }
+    );
+    
+    return doc;
+  } catch (error) {
+    console.error('Error creating custom series:', error);
+    throw error;
+  }
+};
+
+export const getCustomSeriesByProvider = async (providerId: string): Promise<any[]> => {
+  try {
+    const response = await databases.listDocuments(
+      DATABASE_ID,
+      'custom_series',
+      [Query.equal('providerId', providerId)]
+    );
+    
+    return response.documents;
+  } catch (error) {
+    console.error('Error fetching custom series:', error);
+    return [];
+  }
+};
+
+export const updateCustomSeries = async (
+  seriesId: string,
+  updates: {
+    name?: string;
+    description?: string;
+    models?: Array<{ brand: string; model: string }>;
+  }
+) => {
+  try {
+    // Convert models array to string array for storage if models are provided
+    const updateData: any = { ...updates };
+    if (updates.models) {
+      updateData.models = updates.models.map(model => 
+        `${model.brand}:${model.model}`
+      );
+    }
+    
+    const doc = await databases.updateDocument(
+      DATABASE_ID,
+      'custom_series',
+      seriesId,
+      updateData
+    );
+    
+    return doc;
+  } catch (error) {
+    console.error('Error updating custom series:', error);
+    throw error;
+  }
+};
+
+export const deleteCustomSeries = async (seriesId: string) => {
+  try {
+    // First delete all associated services
+    const servicesResponse = await databases.listDocuments(
+      DATABASE_ID,
+      'custom_series_services',
+      [Query.equal('customSeriesId', seriesId)]
+    );
+    
+    // Delete all services for this series
+    for (const service of servicesResponse.documents) {
+      await databases.deleteDocument(
+        DATABASE_ID,
+        'custom_series_services',
+        service.$id
+      );
+    }
+    
+    // Then delete the series
+    await databases.deleteDocument(
+      DATABASE_ID,
+      'custom_series',
+      seriesId
+    );
+    
+    return true;
+  } catch (error) {
+    console.error('Error deleting custom series:', error);
+    throw error;
+  }
+};
+
+export const createCustomSeriesService = async (serviceData: {
+  customSeriesId: string;
+  providerId: string;
+  issue: string;
+  partType: string | null;
+  price: number;
+  warranty: string | null;
+}) => {
+  try {
+    const doc = await databases.createDocument(
+      DATABASE_ID,
+      'custom_series_services',
+      'unique()',
+      {
+        customSeriesId: serviceData.customSeriesId,
+        providerId: serviceData.providerId,
+        issue: serviceData.issue,
+        partType: serviceData.partType,
+        price: serviceData.price,
+        warranty: serviceData.warranty,
+        created_at: new Date().toISOString(),
+      }
+    );
+    
+    return doc;
+  } catch (error) {
+    console.error('Error creating custom series service:', error);
+    throw error;
+  }
+};
+
+export const getCustomSeriesServices = async (customSeriesId: string): Promise<any[]> => {
+  try {
+    const response = await databases.listDocuments(
+      DATABASE_ID,
+      'custom_series_services',
+      [Query.equal('customSeriesId', customSeriesId)]
+    );
+    
+    return response.documents;
+  } catch (error) {
+    console.error('Error fetching custom series services:', error);
+    return [];
+  }
+};
+
+export const updateCustomSeriesService = async (
+  serviceId: string,
+  updates: {
+    price?: number;
+    warranty?: string | null;
+  }
+) => {
+  try {
+    const doc = await databases.updateDocument(
+      DATABASE_ID,
+      'custom_series_services',
+      serviceId,
+      updates
+    );
+    
+    return doc;
+  } catch (error) {
+    console.error('Error updating custom series service:', error);
+    throw error;
+  }
+};
+
+export const deleteCustomSeriesService = async (serviceId: string) => {
+  try {
+    await databases.deleteDocument(
+      DATABASE_ID,
+      'custom_series_services',
+      serviceId
+    );
+    
+    return true;
+  } catch (error) {
+    console.error('Error deleting custom series service:', error);
+    throw error;
+  }
+};
+
+export const findCustomSeriesForModel = async (
+  providerId: string,
+  deviceType: string,
+  brand: string,
+  model: string
+): Promise<any | null> => {
+  try {
+    const response = await databases.listDocuments(
+      DATABASE_ID,
+      'custom_series',
+      [
+        Query.equal('providerId', providerId),
+        Query.equal('deviceType', deviceType)
+      ]
+    );
+    
+    // Find series that contains this specific model
+    for (const series of response.documents) {
+      // Convert string array back to object array for comparison
+      const modelObjects = series.models.map((modelString: string) => {
+        const [brand, model] = modelString.split(':');
+        return { brand, model };
+      });
+      
+      const hasModel = modelObjects.some((m: any) => 
+        m.brand === brand && m.model === model
+      );
+      
+      if (hasModel) {
+        return series;
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error finding custom series for model:', error);
+    return null;
+  }
+};
+
+// Enhanced service lookup with custom series support
+export const findProviderServicesWithCustomSeries = async (
+  deviceType: string,
+  brand: string,
+  model: string,
+  issueNames: string[],
+  providerId: string
+): Promise<any[]> => {
+  try {
+    // Step 1: Check for custom series containing this model
+    const customSeries = await findCustomSeriesForModel(
+      providerId,
+      deviceType,
+      brand,
+      model
+    );
+    
+    let customSeriesServices: any[] = [];
+    
+    if (customSeries) {
+      // Get services for this custom series
+      const seriesServices = await getCustomSeriesServices(customSeries.$id);
+      customSeriesServices = seriesServices.filter((doc: any) => 
+        issueNames.includes(doc.issue)
+      );
+    }
+    
+    // Step 2: Get existing series-based and model-specific services
+    const existingServices = await findProviderServicesWithSeries(
+      deviceType,
+      brand,
+      model,
+      issueNames
+    );
+    
+    // Step 3: Merge with priority (custom series > model override > platform series)
+    const mergedServices = new Map();
+    
+    // Add existing services first
+    existingServices.forEach((service: any) => {
+      const key = `${service.issue}-${service.partType}`;
+      mergedServices.set(key, service);
+    });
+    
+    // Override with custom series services (highest priority)
+    customSeriesServices.forEach((service: any) => {
+      const key = `${service.issue}-${service.partType}`;
+      mergedServices.set(key, {
+        ...service,
+        customSeriesId: customSeries.$id,
+        customSeriesName: customSeries.name
+      });
+    });
+    
+    return Array.from(mergedServices.values());
+  } catch (error) {
+    console.error('Error in findProviderServicesWithCustomSeries:', error);
+    // Fallback to existing logic
+    return await findProviderServicesWithSeries(
+      deviceType,
+      brand,
+      model,
+      issueNames
+    );
+  }
+};

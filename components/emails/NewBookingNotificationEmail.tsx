@@ -48,11 +48,11 @@ export const NewBookingNotificationEmail = ({
   return (
     <Html>
       <Head />
-      <Preview>New booking request - Roovox</Preview>
+      <Preview>New booking request - Sniket</Preview>
       <Body style={main}>
         <Container style={container}>
           <Section style={header}>
-            <Text style={logo}>🔧 Roovox</Text>
+            <Text style={logo}>🔧 Sniket</Text>
           </Section>
 
           <Section style={content}>
@@ -96,10 +96,10 @@ export const NewBookingNotificationEmail = ({
 
           <Section style={footer}>
             <Text style={footerText}>
-              Thank you for being part of Roovox! 🚀
+              Thank you for being part of Sniket! 🚀
             </Text>
             <Text style={footerText}>
-              Need help? Contact us at support@roovox.com
+              Need help? Contact us at support@sniket.com
             </Text>
           </Section>
         </Container>

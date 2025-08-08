@@ -26,7 +26,7 @@ export async function geocodeAddress(address: string): Promise<GeocodingResult |
       `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`,
       {
         headers: {
-          'User-Agent': 'Roovox-App/1.0', // Required by Nominatim terms of service
+          'User-Agent': 'Sniket-App/1.0', // Required by Nominatim terms of service
         },
       }
     );
@@ -64,7 +64,7 @@ export async function reverseGeocode(lat: number, lng: number): Promise<string |
       `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
       {
         headers: {
-          'User-Agent': 'Roovox-App/1.0',
+          'User-Agent': 'Sniket-App/1.0',
         },
       }
     );

@@ -1,4 +1,4 @@
-# Roovox - Device Repair Service Platform
+# Sniket - Device Repair Service Platform
 
 A modern, full-stack service booking platform for device repairs built with Next.js 14, TypeScript, Appwrite, and Tailwind CSS.
 
@@ -36,7 +36,7 @@ A modern, full-stack service booking platform for device repairs built with Next
 1. **Clone the repository**
    ```bash
    git clone <repository-url>
-   cd roovox-service-platform
+   cd sniket-service-platform
    ```
 
 2. **Install dependencies**

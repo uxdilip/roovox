@@ -2,6 +2,116 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Custom Font Declarations */
+@font-face {
+  font-family: 'Chillax';
+  src: url('/fonts/Chillax-Variable.woff2') format('woff2'),
+       url('/fonts/Chillax-Variable.woff') format('woff');
+  font-weight: 200 700;
+  font-display: swap;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Snonym';
+  src: url('/fonts/Snonym-Variable.woff2') format('woff2'),
+       url('/fonts/Snonym-Variable.woff') format('woff');
+  font-weight: 200 700;
+  font-display: swap;
+  font-style: normal;
+}
+
+/* Fallback for static font files if variable fonts aren't available */
+@font-face {
+  font-family: 'Chillax';
+  src: url('/fonts/Chillax-Light.woff2') format('woff2'),
+       url('/fonts/Chillax-Light.woff') format('woff');
+  font-weight: 200;
+  font-display: swap;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Chillax';
+  src: url('/fonts/Chillax-Regular.woff2') format('woff2'),
+       url('/fonts/Chillax-Regular.woff') format('woff');
+  font-weight: 400;
+  font-display: swap;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Chillax';
+  src: url('/fonts/Chillax-Medium.woff2') format('woff2'),
+       url('/fonts/Chillax-Medium.woff') format('woff');
+  font-weight: 500;
+  font-display: swap;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Chillax';
+  src: url('/fonts/Chillax-SemiBold.woff2') format('woff2'),
+       url('/fonts/Chillax-SemiBold.woff') format('woff');
+  font-weight: 600;
+  font-display: swap;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Chillax';
+  src: url('/fonts/Chillax-Bold.woff2') format('woff2'),
+       url('/fonts/Chillax-Bold.woff') format('woff');
+  font-weight: 700;
+  font-display: swap;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Snonym';
+  src: url('/fonts/Snonym-Light.woff2') format('woff2'),
+       url('/fonts/Snonym-Light.woff') format('woff');
+  font-weight: 200;
+  font-display: swap;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Snonym';
+  src: url('/fonts/Snonym-Regular.woff2') format('woff2'),
+       url('/fonts/Snonym-Regular.woff') format('woff');
+  font-weight: 400;
+  font-display: swap;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Snonym';
+  src: url('/fonts/Snonym-Medium.woff2') format('woff2'),
+       url('/fonts/Snonym-Medium.woff') format('woff');
+  font-weight: 500;
+  font-display: swap;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Snonym';
+  src: url('/fonts/Snonym-SemiBold.woff2') format('woff2'),
+       url('/fonts/Snonym-SemiBold.woff') format('woff');
+  font-weight: 600;
+  font-display: swap;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Snonym';
+  src: url('/fonts/Snonym-Bold.woff2') format('woff2'),
+       url('/fonts/Snonym-Bold.woff') format('woff');
+  font-weight: 700;
+  font-display: swap;
+  font-style: normal;
+}
+
 html, body {
   width: 100%;
   height: 100vh;
@@ -52,6 +162,16 @@ html, body {
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
+    
+    /* Brand Colors */
+    --brand: #601D8A;
+    --brand-light: #7B2BA8;
+    --brand-dark: #4A1566;
+    
+    /* Font Family Tokens */
+    --font-display: 'Chillax', 'Inter', system-ui, sans-serif;
+    --font-body: 'Snonym', 'Inter', system-ui, sans-serif;
+    --font-sans: 'Inter', system-ui, sans-serif;
   }
   .dark {
     --background: 222.2 84% 4.9%;
@@ -78,6 +198,11 @@ html, body {
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
+    
+    /* Brand Colors - Dark Mode */
+    --brand: #8B5CF6;
+    --brand-light: #A78BFA;
+    --brand-dark: #7C3AED;
   }
 }
 
@@ -87,6 +212,105 @@ html, body {
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@layer components {
+  /* Font Utility Classes */
+  .font-display {
+    font-family: var(--font-display);
+  }
+  
+  .font-body {
+    font-family: var(--font-body);
+  }
+  
+  .font-chillax {
+    font-family: 'Chillax', 'Inter', system-ui, sans-serif;
+  }
+  
+  .font-snonym {
+    font-family: 'Snonym', 'Inter', system-ui, sans-serif;
+  }
+  
+  /* OpenType Features for Chillax */
+  .font-features-fractions {
+    font-feature-settings: "frac" 1;
+  }
+  
+  .font-features-ligatures {
+    font-feature-settings: "liga" 1, "clig" 1;
+  }
+  
+  .font-features-ordinals {
+    font-feature-settings: "ordn" 1;
+  }
+  
+  .font-features-stylistic {
+    font-feature-settings: "salt" 1;
+  }
+  
+  /* Stylistic Sets for Chillax */
+  .font-stylistic-body {
+    font-feature-settings: "ss01" 1;
+  }
+  
+  .font-stylistic-alt-a {
+    font-feature-settings: "ss02" 1;
+  }
+  
+  .font-stylistic-alt-k {
+    font-feature-settings: "ss03" 1;
+  }
+  
+  .font-stylistic-alt-x {
+    font-feature-settings: "ss04" 1;
+  }
+  
+  .font-stylistic-alt-y {
+    font-feature-settings: "ss05" 1;
+  }
+  
+  .font-stylistic-alt-lowercase {
+    font-feature-settings: "ss06" 1;
+  }
+  
+  /* Combined OpenType Features */
+  .font-features-all {
+    font-feature-settings: "frac" 1, "liga" 1, "clig" 1, "ordn" 1, "salt" 1;
+  }
+  
+  .font-stylistic-all {
+    font-feature-settings: "ss01" 1, "ss02" 1, "ss03" 1, "ss04" 1, "ss05" 1, "ss06" 1;
+  }
+  
+  /* Typography Scale with Custom Fonts */
+  .text-display-2xl {
+    @apply font-display text-4xl font-bold leading-tight;
+  }
+  
+  .text-display-xl {
+    @apply font-display text-3xl font-semibold leading-tight;
+  }
+  
+  .text-display-lg {
+    @apply font-display text-2xl font-semibold leading-tight;
+  }
+  
+  .text-display-md {
+    @apply font-display text-xl font-medium leading-snug;
+  }
+  
+  .text-body-lg {
+    @apply font-body text-lg font-medium leading-relaxed;
+  }
+  
+  .text-body-md {
+    @apply font-body text-base font-normal leading-relaxed;
+  }
+  
+  .text-body-sm {
+    @apply font-body text-sm font-normal leading-relaxed;
   }
 }
 

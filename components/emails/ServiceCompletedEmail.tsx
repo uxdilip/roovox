@@ -26,11 +26,11 @@ export const ServiceCompletedEmail = ({
   return (
     <Html>
       <Head />
-      <Preview>Service Completed - Roovox</Preview>
+      <Preview>Service Completed - Sniket</Preview>
       <Body style={main}>
         <Container style={container}>
           <Section style={header}>
-            <Text style={logo}>🔧 Roovox</Text>
+            <Text style={logo}>🔧 Sniket</Text>
           </Section>
 
           <Section style={content}>
@@ -57,7 +57,7 @@ export const ServiceCompletedEmail = ({
             </Section>
 
             <Text style={paragraph}>
-              Thank you for choosing Roovox! We hope to serve you again soon.
+              Thank you for choosing Sniket! We hope to serve you again soon.
             </Text>
           </Section>
 
@@ -65,10 +65,10 @@ export const ServiceCompletedEmail = ({
 
           <Section style={footer}>
             <Text style={footerText}>
-              Thank you for choosing Roovox! 🚀
+              Thank you for choosing Sniket! 🚀
             </Text>
             <Text style={footerText}>
-              Need help? Contact us at support@roovox.com
+              Need help? Contact us at support@sniket.com
             </Text>
           </Section>
         </Container>

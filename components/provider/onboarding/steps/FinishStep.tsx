@@ -1,14 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { createProvider, createServiceOffered, createUserDocument, addProviderRole, updateUserDocument, upsertBusinessSetup } from '@/lib/appwrite-services';
+import { createProvider, createUserDocument, addProviderRole, updateUserDocument, upsertBusinessSetup } from '@/lib/appwrite-services';
 import { account } from '@/lib/appwrite';
 import { useAuth } from '@/contexts/AuthContext';
-import { ISSUES } from './ServiceSelectionStep';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, User, Building2, MapPin, Clock, Wrench, Shield, CreditCard, ArrowLeft, Check } from 'lucide-react';
+import { CheckCircle, User, Building2, MapPin, Clock, Shield, CreditCard, ArrowLeft, Check } from 'lucide-react';
 import { databases, DATABASE_ID, COLLECTIONS } from '@/lib/appwrite';
 import { Query } from 'appwrite';
 import { getUserByUserId } from '@/lib/appwrite-services';
@@ -37,7 +36,6 @@ const FinishStep: React.FC<FinishStepProps> = ({ data, onPrev }) => {
   const router = useRouter();
   const { user, refreshSession } = useAuth();
   const { toast } = useToast();
-  const [issueMap, setIssueMap] = useState<Record<string, string>>({});
 
   // Load onboarding data from database
   useEffect(() => {
@@ -78,35 +76,6 @@ const FinishStep: React.FC<FinishStepProps> = ({ data, onPrev }) => {
     loadOnboardingData();
   }, [user]);
 
-  // Fetch all issues on mount
-  useEffect(() => {
-    async function fetchIssues() {
-      let allIssues: any[] = [];
-      let offset = 0;
-      const limit = 100;
-      let keepFetching = true;
-      while (keepFetching) {
-        const res = await databases.listDocuments(
-          DATABASE_ID,
-          COLLECTIONS.ISSUES,
-          [Query.limit(limit), Query.offset(offset)]
-        );
-        allIssues = allIssues.concat(res.documents);
-        if (res.documents.length < limit) {
-          keepFetching = false;
-        } else {
-          offset += limit;
-        }
-      }
-      const map: Record<string, string> = {};
-      allIssues.forEach((issue: any) => {
-        map[issue.$id] = issue.name;
-      });
-      setIssueMap(map);
-    }
-    fetchIssues();
-  }, []);
-
   // Extract and format data from previous steps
   const extractReviewData = () => {
     // Use the loaded onboarding data from database
@@ -144,7 +113,6 @@ const FinishStep: React.FC<FinishStepProps> = ({ data, onPrev }) => {
         locationType: data.serviceSetup?.locationType || 'Not provided'
       },
       availability: data.serviceSetup?.availability || {},
-      services: extractServicesData(),
       verification: {
         identityDocument: data.kyc_docs?.aadhaar ? 'Aadhaar Card Uploaded' : 'Not uploaded',
         businessLicense: data.kyc_docs?.pan ? 'PAN Card Uploaded' : 'Not uploaded',
@@ -165,90 +133,6 @@ const FinishStep: React.FC<FinishStepProps> = ({ data, onPrev }) => {
     return reviewData;
   };
 
-  const extractServicesData = () => {
-    const services = [];
-    
-    // Extract from the actual data structure from database
-    const serviceSelection = onboardingData?.serviceSelection || {};
-    
-    console.log('🔍 Debug: Service selection data:', serviceSelection);
-    
-    // Extract from serviceSelection structure - mobile devices
-    if (serviceSelection.phone) {
-      const phoneData = serviceSelection.phone;
-      const phoneBrands = phoneData.brands || [];
-      const phoneBrandModelIssue = phoneData.brandModelIssue || {};
-      
-      console.log('🔍 Debug: Phone brands:', phoneBrands);
-      console.log('🔍 Debug: Phone brand model issue:', phoneBrandModelIssue);
-      
-      for (const brand of phoneBrands) {
-        const brandData = phoneBrandModelIssue[brand] || {};
-        for (const model of Object.keys(brandData)) {
-          const modelData = brandData[model];
-          if (modelData?.selected) {
-            const issues = modelData.issues || {};
-            for (const issueId of Object.keys(issues)) {
-              const issueData = issues[issueId];
-              if (issueData?.selected) {
-                // Find the issue type by looking up the issue document
-                const issueType = issueMap[issueId] || 'unknown';
-                console.log(`🔍 Debug: Issue ID ${issueId} maps to type: ${issueType}`);
-                
-                services.push({
-                  deviceType: 'phone',
-                  brand,
-                  model,
-                  issue: issueType, // Use the mapped issue type instead of the ID
-                  pricing: issueData.pricing
-                });
-              }
-            }
-          }
-        }
-      }
-    }
-
-    // Extract from serviceSelection structure - laptop devices
-    if (serviceSelection.laptop) {
-      const laptopData = serviceSelection.laptop;
-      const laptopBrands = laptopData.brands || [];
-      const laptopBrandModelIssue = laptopData.brandModelIssue || {};
-      
-      console.log('🔍 Debug: Laptop brands:', laptopBrands);
-      console.log('🔍 Debug: Laptop brand model issue:', laptopBrandModelIssue);
-      
-      for (const brand of laptopBrands) {
-        const brandData = laptopBrandModelIssue[brand] || {};
-        for (const model of Object.keys(brandData)) {
-          const modelData = brandData[model];
-          if (modelData?.selected) {
-            const issues = modelData.issues || {};
-            for (const issueId of Object.keys(issues)) {
-              const issueData = issues[issueId];
-              if (issueData?.selected) {
-                // Find the issue type by looking up the issue document
-                const issueType = issueMap[issueId] || 'unknown';
-                console.log(`🔍 Debug: Issue ID ${issueId} maps to type: ${issueType}`);
-                
-                services.push({
-                  deviceType: 'laptop',
-                  brand,
-                  model,
-                  issue: issueType, // Use the mapped issue type instead of the ID
-                  pricing: issueData.pricing
-                });
-              }
-            }
-          }
-        }
-      }
-    }
-
-    console.log('🔍 Debug: Extracted services:', services);
-    return services;
-  };
-
   const handleFinish = async () => {
     setLoading(true);
     setError(null);
@@ -261,10 +145,12 @@ const FinishStep: React.FC<FinishStepProps> = ({ data, onPrev }) => {
       console.debug('[DEBUG] Starting provider onboarding completion');
       console.debug('[DEBUG] User ID:', user.id);
       console.debug('[DEBUG] Full onboardingData object:', onboardingData);
+      
       // Extract details from onboardingData
       const personalDetails = onboardingData?.personalDetails || {};
       const serviceSetup = onboardingData?.serviceSetup || {};
       const location = serviceSetup.location || {};
+      
       // Fetch current user document to merge roles
       let mergedRoles = ["provider"];
       try {
@@ -277,6 +163,7 @@ const FinishStep: React.FC<FinishStepProps> = ({ data, onPrev }) => {
       } catch (e) {
         console.debug('[DEBUG] Error fetching user roles, fallback to provider:', e);
       }
+      
       // Upsert user document with onboarding details and merged roles
       try {
         // Ensure valid email
@@ -345,6 +232,7 @@ const FinishStep: React.FC<FinishStepProps> = ({ data, onPrev }) => {
       console.debug('[DEBUG] Creating provider with:', providerData);
       await createProvider(providerData);
       console.debug('[DEBUG] Provider created');
+      
       // Add provider role to the user document
       try {
         await addProviderRole(user.id);
@@ -352,13 +240,13 @@ const FinishStep: React.FC<FinishStepProps> = ({ data, onPrev }) => {
       } catch (error) {
         console.error('❌ Error adding provider role to user document:', error);
       }
+      
       // Save business details to business_setup collection
       try {
         const businessSetupData = {
           businessSetup: onboardingData?.businessSetup,
           personalDetails: onboardingData?.personalDetails,
           serviceSetup: onboardingData?.serviceSetup,
-          serviceSelection: onboardingData?.serviceSelection,
           verification: onboardingData?.verification,
           payment: onboardingData?.payment,
         };
@@ -375,102 +263,15 @@ const FinishStep: React.FC<FinishStepProps> = ({ data, onPrev }) => {
         console.debug('[DEBUG] Error saving business setup data:', error);
         return;
       }
-      // Create service offerings
-      const services = extractServicesData();
-      console.log('🔍 Debug: Issue map contents:', issueMap);
-      console.log('🔍 Debug: Extracted services before processing:', services);
       
-      const providerId = user.id;
-      const now = new Date().toISOString();
-      let servicesCreated = 0;
-      for (const service of services) {
-        const { deviceType, brand, model, issue, pricing } = service;
-        // Robust screen replacement matching
-        const isScreenReplacement = (
-          issueKey => issueKey.toLowerCase() === 'screen' || issueKey.toLowerCase() === 'screen replacement'
-        )(issue);
-        
-        // Debug log
-        console.log('[DEBUG] Service to be created:', { deviceType, brand, model, issue, pricing });
-        
-        if (isScreenReplacement) {
-          // Screen Replacement: OEM and HQ
-          if (pricing?.oem && Number(pricing.oem) > 0) {
-            try {
-              await createServiceOffered({
-                providerId,
-                deviceType,
-                brand,
-                model,
-                issue: 'Screen Replacement',
-                partType: 'OEM',
-                price: Number(pricing.oem),
-                warranty: pricing.oemWarranty ? `${pricing.oemWarranty} months` : null,
-                created_at: now,
-              });
-              servicesCreated++;
-            } catch (error) {
-              console.error(`❌ Failed to create OEM screen service for ${brand} ${model}:`, error);
-            }
-          }
-          if (pricing?.hq && Number(pricing.hq) > 0) {
-            try {
-              await createServiceOffered({
-                providerId,
-                deviceType,
-                brand,
-                model,
-                issue: 'Screen Replacement',
-                partType: 'HQ',
-                price: Number(pricing.hq),
-                warranty: pricing.hqWarranty ? `${pricing.hqWarranty} months` : null,
-                created_at: now,
-              });
-              servicesCreated++;
-            } catch (error) {
-                              console.error(`❌ Failed to create HQ screen service for ${brand} ${model}:`, error);
-            }
-          }
-        } else {
-          // Other issues: single price
-          if (pricing?.single && Number(pricing.single) > 0) {
-            const issueLabel = ISSUES[deviceType.toLowerCase()]?.find(i => i.key === issue)?.label || issue;
-            try {
-              await createServiceOffered({
-                providerId,
-                deviceType,
-                brand,
-                model,
-                issue: issueLabel,
-                partType: null,
-                price: Number(pricing.single),
-                warranty: null,
-                created_at: now,
-              });
-              servicesCreated++;
-            } catch (error) {
-              console.error(`❌ Failed to create ${issueLabel} service for ${brand} ${model}:`, error);
-            }
-          }
-        }
-      }
-      console.debug('[DEBUG] Successfully created', servicesCreated, 'service offerings');
-      
-      if (servicesCreated > 0) {
-        toast({
-          title: 'Services Saved Successfully',
-          description: `${servicesCreated} service offerings have been saved to your profile.`,
-        });
-      } else {
-        toast({
-          title: 'No Services Selected',
-          description: 'No service offerings were found to save. Please go back and select services.',
-          variant: 'destructive',
-        });
-      }
+      toast({
+        title: 'Onboarding Complete!',
+        description: 'Your provider profile has been created successfully. You can now set up your services in the dashboard.',
+      });
       
       setSubmitted(true);
       console.debug('[DEBUG] Onboarding submitted, setSubmitted(true)');
+      
       // Refresh AuthContext/session so dashboard sees provider role
       if (refreshSession) {
         try {
@@ -523,6 +324,9 @@ const FinishStep: React.FC<FinishStepProps> = ({ data, onPrev }) => {
           <CardContent className="p-6">
             <p className="text-lg text-green-800">
               Thank you for completing your provider onboarding. Our team will review your details and contact you soon.
+            </p>
+            <p className="text-sm text-green-700 mt-2">
+              You can now set up your services in the dashboard.
             </p>
           </CardContent>
         </Card>
@@ -658,61 +462,6 @@ const FinishStep: React.FC<FinishStepProps> = ({ data, onPrev }) => {
               </div>
               );
             })}
-          </CardContent>
-        </Card>
-
-        {/* Services */}
-        <Card className="md:col-span-2">
-          <CardHeader className="flex flex-row items-center space-y-0 pb-2">
-            <Wrench className="h-5 w-5 mr-2 text-orange-600" />
-            <CardTitle className="text-lg">Selected Services</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {reviewData.services.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {Object.values(
-                  reviewData.services.reduce((acc: Record<string, { deviceType: string; brand: string; model: string; issues: any[] }>, service: any) => {
-                    const key = `${service.deviceType}|${service.brand}|${service.model}`;
-                    if (!acc[key]) {
-                      acc[key] = {
-                        deviceType: service.deviceType,
-                        brand: service.brand,
-                        model: service.model,
-                        issues: []
-                      };
-                    }
-                    acc[key].issues.push({
-                      issue: service.issue,
-                      pricing: service.pricing
-                    });
-                    return acc;
-                  }, {} as Record<string, { deviceType: string; brand: string; model: string; issues: any[] }> )
-                ).map((group, idx: number) => (
-                  <div key={idx} className="border rounded-lg p-3 bg-gray-50">
-                    <div className="flex justify-between items-start mb-2">
-                      <span className="font-medium">{group.brand} {group.model}</span>
-                      <Badge variant="outline">{group.deviceType}</Badge>
-                    </div>
-                    <div className="space-y-1">
-                      {group.issues.map((iss: any, i: number) => (
-                        <div key={i} className="flex items-center justify-between text-sm text-gray-600 border-b last:border-b-0 py-1">
-                          <span className="capitalize font-medium">{issueMap[iss.issue] || iss.issue}</span>
-                          <span className="ml-4 text-xs text-gray-700">
-                            {iss.pricing?.oem && <span className="mr-2">OEM: ₹{iss.pricing.oem}</span>}
-                            {iss.pricing?.hq && <span className="mr-2">HQ: ₹{iss.pricing.hq}</span>}
-                            {iss.pricing?.single && <span>Price: ₹{iss.pricing.single}</span>}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-4 text-gray-500">
-                No services selected
-              </div>
-            )}
           </CardContent>
         </Card>
 

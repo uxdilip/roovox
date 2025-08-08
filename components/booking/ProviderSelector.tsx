@@ -82,8 +82,12 @@ export function ProviderSelector({ device, services, partQuality, onProviderSele
       setLoading(true);
       setError(null);
       try {
+        console.log('🔍 Starting provider search for device:', device);
+        console.log('🔍 Services:', services);
+        
         // Get issue names from issue IDs
         const issueIds = services.map((s: any) => s.id);
+        console.log('🔍 Issue IDs:', issueIds);
         
         // First, get the issue names from the issues collection
         const issuesRes = await databases.listDocuments(
@@ -94,26 +98,18 @@ export function ProviderSelector({ device, services, partQuality, onProviderSele
         
         const issueNames = issuesRes.documents.map((doc: any) => doc.name);
         console.log('🔍 Looking for providers with issues:', issueNames);
+        console.log('🔍 Issue names (normalized):', issueNames.map(name => name.toLowerCase().trim()));
 
-        // Query services_offered using issue names
-        const soRes = await databases.listDocuments(
-          DATABASE_ID,
-          'services_offered',
-          [
-            Query.equal('deviceType', device.category),
-            Query.equal('brand', device.brand),
-            Query.equal('model', device.model)
-          ]
+        // Use series-based service lookup
+        const { findProviderServicesWithSeries } = await import('@/lib/appwrite-services');
+        const serviceDocs = await findProviderServicesWithSeries(
+          device.category,
+          device.brand,
+          device.model,
+          issueNames
         );
-        console.log('🔍 Found', soRes.documents.length, 'services for this device');
-
-        // Filter services that match our selected issues
-        const serviceDocs = soRes.documents.filter((doc: any) => {
-          const matchesIssue = issueNames.includes(doc.issue);
-          return matchesIssue;
-        });
         
-        console.log('🔍 Filtered to', serviceDocs.length, 'services matching selected issues');
+        console.log('🔍 Service documents found:', serviceDocs.length);
 
         const providerIds = Array.from(new Set(serviceDocs.map((s: any) => s.providerId)));
         console.log('🔍 Found', providerIds.length, 'unique providers');
@@ -212,8 +208,26 @@ export function ProviderSelector({ device, services, partQuality, onProviderSele
           const totalBookings = providerBookings.length;
           const ratings = providerBookings.map((b: any) => b.rating).filter((r: any) => typeof r === 'number' && r > 0);
           const avgRating = ratings.length > 0 ? (ratings.reduce((sum: number, r: number) => sum + r, 0) / ratings.length) : null;
-          // Matching services
-          const matchingServices = serviceDocs.filter((s: any) => s.providerId === pid && issueNames.includes(s.issue));
+          // Matching services with case-insensitive matching
+          const matchingServices = serviceDocs.filter((s: any) => {
+            const isProviderMatch = s.providerId === pid;
+            const serviceIssue = s.issue?.toLowerCase().trim();
+            const isIssueMatch = issueNames.some(issueName => 
+              issueName.toLowerCase().trim() === serviceIssue
+            );
+            
+            console.log('🔍 Service matching for provider:', {
+              providerId: pid,
+              serviceProviderId: s.providerId,
+              serviceIssue: s.issue,
+              issueNames,
+              isProviderMatch,
+              isIssueMatch,
+              result: isProviderMatch && isIssueMatch
+            });
+            
+            return isProviderMatch && isIssueMatch;
+          });
           
           console.log('🔍 Matching services for provider:', {
             providerId: pid,
@@ -256,6 +270,7 @@ export function ProviderSelector({ device, services, partQuality, onProviderSele
         console.log('🔍 Final provider cards data:', providerCards);
         setProviders(providerCards);
       } catch (err) {
+        console.error('❌ Error fetching providers:', err);
         setError('Failed to load providers. Please check your filters and try again.');
         setProviders([]);
         setLoading(false);

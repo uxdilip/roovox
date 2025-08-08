@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { getProviderByUserId, getCustomerByUserId } from '@/lib/appwrite-services';
+import { detectUserRoles, getRedirectPath, getCrossRoleMessage } from '@/lib/role-detection';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -145,10 +146,9 @@ export default function LoginModal({ open, onOpenChange, returnUrl }: LoginModal
       await loginWithPhoneOtp('+91' + phone, otp, userId);
       console.log('✅ OTP verification successful');
       
-      // Check user type immediately after login
+      // Enhanced role detection with cross-role handling
       try {
         console.log('🔄 Checking user type after login...');
-        // Get the current user from the session
         const session = await account.get();
         
         if (!session) {
@@ -160,68 +160,29 @@ export default function LoginModal({ open, onOpenChange, returnUrl }: LoginModal
         
         console.log('👤 Session found for user:', session.$id);
         
-        // Check if user is a provider
-        console.log('🔍 Checking if user is a provider...');
-        const provider = await getProviderByUserId(session.$id);
-        if (provider) {
-          console.log('🏢 User is a provider:', provider);
-          // User is a provider, check onboarding status
-          if (provider.business_name && provider.business_name !== 'Your Business') {
-            console.log('✅ Provider onboarding completed, redirecting to dashboard');
-            onOpenChange(false);
-            if (returnUrl && returnUrl.trim() !== '') {
-              router.push(decodeURIComponent(returnUrl));
-            } else {
-              router.push('/provider/dashboard');
-            }
-          } else {
-            console.log('⏳ Provider onboarding not completed, redirecting to onboarding');
-            onOpenChange(false);
-            if (returnUrl && returnUrl.trim() !== '') {
-              router.push(decodeURIComponent(returnUrl));
-            } else {
-              router.push('/provider/onboarding');
-            }
-          }
-        } else {
-          console.log('👤 User is not a provider, checking customer profile...');
-          // User is not a provider, check if customer profile exists
-          const customerProfile = await getCustomerByUserId(session.$id);
-          console.log('📋 Customer profile check result:', customerProfile);
-          
-          if (customerProfile) {
-            // Customer profile exists, go to dashboard
-            console.log('✅ Customer profile exists, redirecting to dashboard');
-            onOpenChange(false);
-            if (returnUrl && returnUrl.trim() !== '') {
-              router.push(decodeURIComponent(returnUrl));
-            } else {
-              router.push('/customer/dashboard');
-            }
-          } else {
-            // Customer profile doesn't exist, redirect to onboarding page
-            console.log('🆕 Customer profile not found, redirecting to onboarding');
-            onOpenChange(false);
-            console.log('🔄 Redirecting to onboarding page: /customer/onboarding');
-            // Force navigation to onboarding page
-            if (typeof window !== 'undefined') {
-              console.log('🔄 Using window.location.href for navigation');
-              window.location.href = '/customer/onboarding';
-            } else {
-              console.log('🔄 Using router.push for navigation');
-              router.push('/customer/onboarding');
-            }
-          }
+        // Enhanced role detection using utility functions
+        const isProviderLogin = window.location.pathname.includes('/provider/login');
+        const roleResult = await detectUserRoles(session.$id, isProviderLogin);
+        
+        console.log('🔍 Role detection results:', roleResult);
+        
+        // Check for cross-role access and show message if needed
+        const crossRoleMessage = getCrossRoleMessage(roleResult);
+        if (crossRoleMessage) {
+          alert(crossRoleMessage);
         }
+        
+        // Get redirect path based on role detection
+        const redirectPath = getRedirectPath(roleResult);
+        console.log('🔄 Redirecting to:', redirectPath);
+        
+        router.push(redirectPath);
+        
+        onOpenChange(false);
       } catch (error) {
         console.error('❌ Error checking user type:', error);
-        // Default to home page
         onOpenChange(false);
-        if (returnUrl && returnUrl.trim() !== '') {
-          router.push(decodeURIComponent(returnUrl));
-        } else {
-          router.push('/');
-        }
+        router.push('/');
       }
       
     } catch (err: any) {

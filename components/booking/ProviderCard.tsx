@@ -24,6 +24,8 @@ interface ProviderCardProps {
     partType?: 'OEM' | 'HQ';
     price: number;
     warranty?: string;
+    pricingType?: 'platform_series' | 'custom_series' | 'model_override';
+    seriesName?: string;
   }>;
   selectedIssues: { id: string; name?: string; partType?: string }[];
   selectedModel: string;
@@ -56,32 +58,61 @@ export const ProviderCard: React.FC<ProviderCardProps> = ({
 
   // Build UI for each selected issue
   const issueRows = selectedIssues.map((issueObj) => {
-    // Try to match by issue name (not ID)
+    // Try to match by issue name (not ID) with case-insensitive matching
     const match = servicesOffered.find(s => {
-      const matchesIssue = s.issue === (issueObj.name || issueObj.id);
-      const matchesPartType = !s.partType || normalizePartType(s.partType) === normalizePartType(issueObj.partType);
+      const serviceIssue = s.issue?.toLowerCase().trim();
+      const selectedIssue = (issueObj.name || issueObj.id)?.toLowerCase().trim();
+      const matchesIssue = serviceIssue === selectedIssue;
+      // For non-screen replacement issues, don't require part type matching
+      // Only screen replacement issues have part types (OEM/HQ)
+      const isScreenReplacement = selectedIssue.includes('screen replacement');
+      const matchesPartType = isScreenReplacement 
+        ? (!s.partType || normalizePartType(s.partType) === normalizePartType(issueObj.partType))
+        : true; // For non-screen issues, always match part type
+      
+      console.log('🔍 ProviderCard matching:', {
+        serviceIssue: s.issue,
+        selectedIssue: issueObj.name || issueObj.id,
+        servicePartType: s.partType,
+        selectedPartType: issueObj.partType,
+        normalizedServicePartType: normalizePartType(s.partType),
+        normalizedSelectedPartType: normalizePartType(issueObj.partType),
+        isScreenReplacement,
+        matchesIssue,
+        matchesPartType,
+        result: matchesIssue && matchesPartType
+      });
+      
       return matchesIssue && matchesPartType;
     });
     const displayName = issueObj.name || issueObj.id;
     if (match) {
       matchedServices.push(match);
       totalEstimate += match.price || 0;
-      if (issueObj.partType) {
+      
+
+      
+              if (issueObj.partType) {
+          return (
+            <div key={issueObj.id + '-' + issueObj.partType} className="flex flex-col text-sm">
+              <div className="flex items-center justify-between">
+                <span>
+                  {displayName} ({issueObj.partType}): <span className="font-semibold">₹{match.price.toLocaleString()}</span>
+                </span>
+              </div>
+              {match.warranty && <span className="text-xs text-gray-500 ml-2">| {match.warranty} warranty</span>}
+            </div>
+          );
+        }
         return (
-          <div key={issueObj.id + '-' + issueObj.partType} className="flex flex-col text-sm">
-            <span>
-              {displayName} ({issueObj.partType}): <span className="font-semibold">₹{match.price.toLocaleString()}</span> {match.warranty && <span className="ml-2">| {match.warranty} warranty</span>}
-            </span>
+          <div key={issueObj.id} className="flex flex-col text-sm">
+            <div className="flex items-center justify-between">
+              <span>
+                {displayName}: <span className="font-semibold">₹{match.price.toLocaleString()}</span>
+              </span>
+            </div>
           </div>
         );
-      }
-      return (
-        <div key={issueObj.id} className="flex flex-col text-sm">
-          <span>
-            {displayName}: <span className="font-semibold">₹{match.price.toLocaleString()}</span>
-          </span>
-        </div>
-      );
     } else {
       return (
         <div key={issueObj.id + (issueObj.partType ? '-' + issueObj.partType : '')} className="text-sm text-muted-foreground">{displayName}{issueObj.partType ? ` (${issueObj.partType})` : ''}: Not offered</div>

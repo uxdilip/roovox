@@ -46,26 +46,18 @@ export default function ProviderRouteGuard({ children, requireOnboarding = false
             hasOnboardingData = true;
             const onboardingData = JSON.parse(businessSetupRes.documents[0].onboarding_data || '{}');
             
-            // Check if all required steps are completed
+            // Check if all required steps are completed (removed service selection check)
             const hasPersonalDetails = !!onboardingData.personalDetails?.fullName;
             const hasBusinessInfo = !!onboardingData.businessInfo?.businessName;
             const hasServiceSetup = !!onboardingData.serviceSetup?.location;
-            
-            // Check for actual service selection data (brands selected and models configured)
-            const hasServiceSelection = !!(
-              (onboardingData.serviceSelection?.mobile?.brands?.length > 0) ||
-              (onboardingData.serviceSelection?.laptop?.brands?.length > 0)
-            );
-            
             const hasPayment = !!onboardingData.upi;
             
-            isOnboardingCompleted = Boolean(hasPersonalDetails && hasBusinessInfo && hasServiceSetup && hasServiceSelection && hasPayment);
+            isOnboardingCompleted = Boolean(hasPersonalDetails && hasBusinessInfo && hasServiceSetup && hasPayment);
             
             console.log('Onboarding completion check:', {
               hasPersonalDetails,
               hasBusinessInfo,
               hasServiceSetup,
-              hasServiceSelection,
               hasPayment,
               isOnboardingCompleted
             });

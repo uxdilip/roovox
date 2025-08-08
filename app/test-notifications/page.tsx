@@ -9,7 +9,7 @@ export default function TestNotificationsPage() {
             Notification System Test
           </h1>
           <p className="text-gray-600">
-            Test the email notification system for your Roovox application
+            Test the email notification system for your Sniket application
           </p>
         </div>
         

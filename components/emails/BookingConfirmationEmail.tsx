@@ -45,11 +45,11 @@ export const BookingConfirmationEmail = ({
   return (
     <Html>
       <Head />
-      <Preview>Your booking has been confirmed - Roovox</Preview>
+      <Preview>Your booking has been confirmed - Sniket</Preview>
       <Body style={main}>
         <Container style={container}>
           <Section style={header}>
-            <Text style={logo}>🔧 Roovox</Text>
+            <Text style={logo}>🔧 Sniket</Text>
           </Section>
 
           <Section style={content}>
@@ -87,10 +87,10 @@ export const BookingConfirmationEmail = ({
 
           <Section style={footer}>
             <Text style={footerText}>
-              Thank you for choosing Roovox! 🚀
+              Thank you for choosing Sniket! 🚀
             </Text>
             <Text style={footerText}>
-              Need help? Contact us at support@roovox.com
+              Need help? Contact us at support@sniket.com
             </Text>
           </Section>
         </Container>

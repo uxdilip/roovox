@@ -1,165 +1,80 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
-import { getProviderByUserId } from '@/lib/appwrite-services';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { CheckCircle, Mail, Phone, ArrowRight, Wrench, DollarSign, TrendingUp } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { detectUserRoles, getRedirectPath, getCrossRoleMessage } from '@/lib/role-detection';
 import { account } from '@/lib/appwrite';
-import { Clock, RefreshCw } from 'lucide-react';
 
 export default function ProviderLoginPage() {
-  const { user, roles, isLoading, loginWithPhoneOtp, canRequestOtp } = useAuth();
-  const [phone, setPhone] = useState('');
+  const [emailOrPhone, setEmailOrPhone] = useState('');
   const [otp, setOtp] = useState('');
-  const [step, setStep] = useState<'phone' | 'otp'>('phone');
+  const [password, setPassword] = useState('');
+  const [step, setStep] = useState<'input' | 'otp' | 'password'>('input');
   const [userId, setUserId] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [agreed, setAgreed] = useState(false);
-  const [otpTimer, setOtpTimer] = useState(0);
-  const [canResend, setCanResend] = useState(false);
+  const [isEmail, setIsEmail] = useState(false);
+
+  const { loginWithPhoneOtp, canRequestOtp } = useAuth();
   const router = useRouter();
 
-  // Redirect if already logged in as provider
-  useEffect(() => {
-    if (!isLoading && user && roles.includes('provider')) {
-      router.replace('/provider/dashboard');
-    }
-  }, [user, roles, isLoading, router]);
-
-  // OTP Timer effect
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (otpTimer > 0) {
-      interval = setInterval(() => {
-        setOtpTimer((prev) => {
-          if (prev <= 1) {
-            setCanResend(true);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [otpTimer]);
-
-  // Format timer display
-  const formatTimer = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  // Detect if input is email or phone
+  const detectInputType = (value: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(value);
   };
 
-  // Get better error messages
-  const getErrorMessage = (error: any) => {
-    if (typeof error === 'string') {
-      if (error.includes('Too many OTP requests')) {
-        return 'Too many OTP requests. Please try again in an hour.';
-      }
-      if (error.includes('Too many OTP attempts')) {
-        return 'Too many OTP attempts. Please request a new OTP.';
-      }
-      if (error.includes('phone_invalid')) {
-        return 'Please enter a valid 10-digit Indian phone number.';
-      }
-      if (error.includes('otp_expired')) {
-        return 'OTP has expired. Please request a new one.';
-      }
-      if (error.includes('otp_invalid')) {
-        return 'Invalid OTP. Please try again.';
-      }
-      return error;
-    }
-    return 'Something went wrong. Please try again.';
+  const handleInputChange = (value: string) => {
+    setEmailOrPhone(value);
+    setError('');
+    setIsEmail(detectInputType(value));
   };
 
-  // Simplified provider onboarding check
-  const isProviderOnboardingComplete = async (userId: string) => {
-    try {
-      const { databases } = await import('@/lib/appwrite');
-      const { DATABASE_ID } = await import('@/lib/appwrite');
-      const { Query } = await import('appwrite');
-      
-      // Check business_setup document for onboarding completion
-      const businessResponse = await databases.listDocuments(
-        DATABASE_ID,
-        'business_setup',
-        [Query.equal('user_id', userId), Query.limit(1)]
-      );
-      
-      if (businessResponse.documents.length > 0) {
-        const businessData = JSON.parse(businessResponse.documents[0].onboarding_data || '{}');
-        // Check for onboarding completion flag
-        return businessData.onboardingCompleted === true;
-      }
-      
-      return false;
-    } catch (error) {
-      console.error('Error checking onboarding completion:', error);
-      return false;
-    }
-  };
-
-  const handleSendOtp = async (e: React.FormEvent) => {
+  const handleContinue = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     
-    const phonePattern = /^[6-9]\d{9}$/;
-    if (!phonePattern.test(phone)) {
-      setError('Please enter a valid 10-digit Indian phone number');
+    if (!emailOrPhone.trim()) {
+      setError('Please enter your email or phone number');
       return;
     }
 
-    // Check rate limiting
-    if (!canRequestOtp(phone)) {
-      setError('Too many OTP requests. Please try again in an hour.');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const result = await loginWithPhoneOtp('+91' + phone);
-      if (result && result.userId) {
-        setUserId(result.userId);
-        setStep('otp');
-        setOtpTimer(300); // 5 minutes
-        setCanResend(false);
-      } else {
-        setError('Failed to send OTP');
+    if (isEmail) {
+      // Email flow - go to password step
+      setStep('password');
+    } else {
+      // Phone flow - validate and send OTP
+      const phonePattern = /^[6-9]\d{9}$/;
+      if (!phonePattern.test(emailOrPhone)) {
+        setError('Please enter a valid 10-digit Indian phone number');
+        return;
       }
-    } catch (err: any) {
-      setError(getErrorMessage(err.message || err));
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  const handleResendOtp = async () => {
-    if (!canResend) return;
-    
-    setLoading(true);
-    setError('');
-    try {
-      const result = await loginWithPhoneOtp('+91' + phone);
-      if (result && result.userId) {
-        setOtpTimer(300); // 5 minutes
-        setCanResend(false);
-        setOtp(''); // Clear previous OTP
-      } else {
-        setError('Failed to resend OTP');
+      if (!canRequestOtp(emailOrPhone)) {
+        setError('Too many OTP requests. Please try again in an hour.');
+        return;
       }
-    } catch (err: any) {
-      setError(getErrorMessage(err.message || err));
-    } finally {
-      setLoading(false);
+
+      setLoading(true);
+      try {
+        const result = await loginWithPhoneOtp('+91' + emailOrPhone);
+        if (result && result.userId) {
+          setUserId(result.userId);
+          setStep('otp');
+        } else {
+          setError('Failed to send OTP');
+        }
+      } catch (err: any) {
+        setError(err.message || 'Failed to send OTP');
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -167,44 +82,44 @@ export default function ProviderLoginPage() {
     e.preventDefault();
     setError('');
     setLoading(true);
+    
     try {
-      const result = await loginWithPhoneOtp('+91' + phone, otp, userId);
+      await loginWithPhoneOtp('+91' + emailOrPhone, otp, userId);
       
-      // Check if onboarding is completed after successful login
-      const checkOnboardingStatus = async () => {
-        try {
-          // Get the current user from the session
-          const { account } = await import('@/lib/appwrite');
-          const session = await account.get();
-          
-          if (!session) {
-            console.log('No session found, redirecting to onboarding');
-            router.push('/provider/onboarding');
-            return;
-          }
-          
-          console.log('Checking onboarding status for user:', session.$id);
-          const isOnboardingCompleted = await isProviderOnboardingComplete(session.$id);
-          
-          if (isOnboardingCompleted) {
-            console.log('Onboarding completed, redirecting to dashboard');
-            router.push('/provider/dashboard');
-          } else {
-            console.log('Onboarding not completed, redirecting to onboarding');
-            router.push('/provider/onboarding');
-          }
-        } catch (error) {
-          console.error('Error checking onboarding status:', error);
-          // If there's an error checking, assume onboarding is not completed
-          router.push('/provider/onboarding');
-        }
-      };
+      // Enhanced role detection for provider login
+      const session = await account.get();
+      if (!session) {
+        router.push('/provider/onboarding');
+        return;
+      }
+
+      const roleResult = await detectUserRoles(session.$id, true); // true = provider login
+      const crossRoleMessage = getCrossRoleMessage(roleResult);
+      if (crossRoleMessage) {
+        alert(crossRoleMessage);
+      }
       
-      // Wait a bit for the auth context to update, then check onboarding
-      setTimeout(checkOnboardingStatus, 1000);
+      const redirectPath = getRedirectPath(roleResult);
+      router.push(redirectPath);
       
     } catch (err: any) {
-      setError(getErrorMessage(err.message || err));
+      setError(err.message || 'Invalid OTP');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEmailLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    
+    try {
+      // For now, redirect to provider onboarding for email users
+      // You can implement email/password authentication later
+      router.push('/provider/onboarding');
+    } catch (err: any) {
+      setError(err.message || 'Login failed');
     } finally {
       setLoading(false);
     }
@@ -220,127 +135,197 @@ export default function ProviderLoginPage() {
   };
 
   return (
-    <Dialog open={true} onOpenChange={() => {}}>
-      <DialogContent className="max-w-2xl p-0 overflow-hidden rounded-2xl shadow-2xl bg-white/80 backdrop-blur-lg">
-        <div className="flex flex-col md:flex-row">
-          <div className="hidden md:flex flex-col justify-center items-center bg-muted w-1/2 p-8">
-            <img src="/assets/undraw_access-account_aydp.svg" alt="Provider Login Illustration" className="w-72 h-72 object-contain" />
-          </div>
-          <div className="w-full md:w-1/2 p-8 flex flex-col justify-center">
-            <Card className="shadow-none border-0 bg-transparent">
-              <CardHeader className="mb-4 p-0">
-                <CardTitle className="text-2xl font-bold mb-2">Sign In as a Provider</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                {step === 'phone' ? (
-                  <form onSubmit={handleSendOtp} className="space-y-6">
-                    {error && (
-                      <Alert variant="destructive">
-                        <AlertDescription>{error}</AlertDescription>
-                      </Alert>
-                    )}
-                    <div>
-                      <Label htmlFor="phone" className="mb-1 block text-base font-medium">Mobile Number</Label>
-                      <div className="flex items-center border-b border-border focus-within:border-primary">
-                        <span className="text-lg font-semibold text-foreground mr-2 select-none">+91</span>
-                        <Input
-                          id="phone"
-                          type="tel"
-                          value={phone}
-                          onChange={e => {
-                            const val = e.target.value.replace(/\D/g, '').slice(0, 10);
-                            setPhone(val);
-                          }}
-                          placeholder="Enter your Mobile"
-                          required
-                          maxLength={10}
-                          pattern="[6-9]{1}[0-9]{9}"
-                          className="border-0 focus:ring-0 focus:outline-none shadow-none px-0 bg-transparent"
-                          style={{ boxShadow: 'none', border: 'none', outline: 'none' }}
-                        />
-                      </div>
-                    </div>
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="agree"
-                        checked={agreed}
-                        onChange={e => setAgreed(e.target.checked)}
-                        className="mr-2 accent-primary"
-                        required
-                      />
-                      <label htmlFor="agree" className="text-sm text-muted-foreground">
-                        I agree to the{' '}
-                        <a href="/terms" target="_blank" className="text-primary underline">Terms and Conditions</a> &amp;{' '}
-                        <a href="/privacy" target="_blank" className="text-primary underline">Privacy Policy</a>
-                      </label>
-                    </div>
-                    <Button type="submit" className="w-full" disabled={loading || !agreed || phone.length !== 10}>
-                      {loading ? 'Sending OTP...' : 'Continue'}
-                    </Button>
-                  </form>
-                ) : (
-                  <form onSubmit={handleVerifyOtp} className="space-y-6">
-                    {error && (
-                      <Alert variant="destructive">
-                        <AlertDescription>{error}</AlertDescription>
-                      </Alert>
-                    )}
-                    <div>
-                      <Label htmlFor="otp" className="mb-1 block text-base font-medium">OTP</Label>
-                      <InputOTP id="otp" maxLength={6} value={otp} onChange={setOtp} autoFocus required>
-                        <InputOTPGroup>
-                          {[...Array(6)].map((_, idx) => (
-                            <InputOTPSlot key={idx} index={idx} />
-                          ))}
-                        </InputOTPGroup>
-                      </InputOTP>
-                      {otpTimer > 0 && (
-                        <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
-                          <Clock className="h-4 w-4" />
-                          <span>OTP expires in {formatTimer(otpTimer)}</span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex gap-2">
-                      <Button type="submit" className="flex-1" disabled={loading || otp.length !== 6}>
-                        {loading ? 'Verifying...' : 'Verify OTP'}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={handleResendOtp}
-                        disabled={!canResend || loading}
-                        className="flex items-center gap-2"
-                      >
-                        <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-                        Resend
-                      </Button>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={() => setStep('phone')}
-                      className="w-full"
-                      disabled={loading}
-                    >
-                      Back to Phone Number
-                    </Button>
-                  </form>
-                )}
-                <Button
-                  variant="outline"
-                  className="w-full flex items-center justify-center gap-2 mt-4"
-                  onClick={handleGoogleSignIn}
-                >
-                  <img src="/assets/google-icon.svg" alt="Google" className="w-5 h-5" />
-                  Continue with Google
-                </Button>
-              </CardContent>
-            </Card>
+    <div className="min-h-screen flex">
+      {/* Left Side - Promotional */}
+      <div className="hidden lg:flex lg:w-2/3 bg-gradient-to-br from-green-900 via-emerald-900 to-teal-900 relative overflow-hidden">
+        <div className="absolute inset-0 bg-black/20"></div>
+        
+        {/* Logo Overlay */}
+        <div className="absolute top-8 left-8 z-20">
+          <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center">
+            <Wrench className="h-4 w-4 text-green-600" />
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+        
+        <div className="relative z-10 flex flex-col justify-center px-12 py-16 text-white">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold mb-6 leading-tight">
+              Join <span className="text-green-300">Thousands</span> of providers who trust Sniket
+            </h1>
+            <div className="space-y-3">
+              <div className="flex items-center space-x-3">
+                <CheckCircle className="h-5 w-5 text-green-400 flex-shrink-0" />
+                <span className="text-base">Grow your business with our platform</span>
+              </div>
+              <div className="flex items-center space-x-3">
+                <CheckCircle className="h-5 w-5 text-green-400 flex-shrink-0" />
+                <span className="text-base">Access to thousands of customers</span>
+              </div>
+              <div className="flex items-center space-x-3">
+                <CheckCircle className="h-5 w-5 text-green-400 flex-shrink-0" />
+                <span className="text-base">Easy service management & payments</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Right Side - Login Form */}
+      <div className="w-full lg:w-1/3 flex items-center justify-center p-8">
+        <Card className="w-full max-w-md shadow-2xl border-0">
+          <CardContent className="p-8">
+            <div className="text-center mb-8">
+              <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Wrench className="h-4 w-4 text-green-600" />
+              </div>
+              <p className="text-sm text-gray-500 mb-2">Welcome to Sniket</p>
+              <h2 className="text-lg font-bold text-gray-900 mb-4">Sign in to your provider account</h2>
+            </div>
+
+            {error && (
+              <Alert variant="destructive" className="mb-6">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
+            {step === 'input' && (
+              <form onSubmit={handleContinue} className="space-y-6">
+                <div>
+                  <div className="relative">
+                    {isEmail ? (
+                      <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    ) : (
+                      <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    )}
+                                         <Input
+                       type={isEmail ? 'email' : 'tel'}
+                       value={emailOrPhone}
+                       onChange={(e) => handleInputChange(e.target.value)}
+                       placeholder="Enter your email or phone number"
+                       className="pl-10 h-10 text-sm"
+                       autoFocus
+                     />
+                  </div>
+                  <p className="text-sm text-gray-500 mt-2">
+                    {isEmail ? 'We\'ll send you a magic link' : 'We\'ll send you an OTP'}
+                  </p>
+                </div>
+
+                                 <Button 
+                   type="submit" 
+                   className="w-full h-10 text-sm" 
+                   disabled={loading || !emailOrPhone.trim()}
+                 >
+                   {loading ? 'Sending...' : 'Continue'}
+                   <ArrowRight className="ml-2 h-4 w-4" />
+                 </Button>
+              </form>
+            )}
+
+            {step === 'otp' && (
+              <form onSubmit={handleVerifyOtp} className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Enter OTP sent to +91 {emailOrPhone}
+                  </label>
+                                     <Input
+                     type="text"
+                     value={otp}
+                     onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                     placeholder="Enter 6-digit OTP"
+                     className="h-10 text-sm text-center tracking-widest"
+                     maxLength={6}
+                     autoFocus
+                   />
+                </div>
+
+                                 <Button 
+                   type="submit" 
+                   className="w-full h-10 text-sm" 
+                   disabled={loading || otp.length !== 6}
+                 >
+                   {loading ? 'Verifying...' : 'Verify OTP'}
+                 </Button>
+
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setStep('input')}
+                  className="w-full"
+                  disabled={loading}
+                >
+                  Back to Phone Number
+                </Button>
+              </form>
+            )}
+
+            {step === 'password' && (
+              <form onSubmit={handleEmailLogin} className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Enter password for {emailOrPhone}
+                  </label>
+                                     <Input
+                     type="password"
+                     value={password}
+                     onChange={(e) => setPassword(e.target.value)}
+                     placeholder="Enter your password"
+                     className="h-10 text-sm"
+                     autoFocus
+                   />
+                </div>
+
+                                 <Button 
+                   type="submit" 
+                   className="w-full h-10 text-sm" 
+                   disabled={loading || !password.trim()}
+                 >
+                   {loading ? 'Signing in...' : 'Sign In'}
+                 </Button>
+
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setStep('input')}
+                  className="w-full"
+                  disabled={loading}
+                >
+                  Back to Email
+                </Button>
+              </form>
+            )}
+
+            <div className="mt-8">
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-white px-2 text-gray-500">or</span>
+                </div>
+              </div>
+
+                             <Button
+                 variant="outline"
+                 className="w-full h-10 mt-4 flex items-center justify-center gap-3 text-sm"
+                 onClick={handleGoogleSignIn}
+               >
+                 <img src="/assets/google-icon.svg" alt="Google" className="w-4 h-4" />
+                 Continue with Google
+               </Button>
+            </div>
+
+            <div className="mt-8 text-center">
+              <p className="text-xs text-gray-500">
+                By continuing you agree to our{' '}
+                <a href="/privacy" className="text-green-600 hover:underline">privacy policy</a>
+                {' '}and{' '}
+                <a href="/terms" className="text-green-600 hover:underline">terms of use</a>
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
   );
 } 

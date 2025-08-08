@@ -9,6 +9,13 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        'chillax': ['Chillax', 'Inter', 'system-ui', 'sans-serif'],
+        'snonym': ['Snonym', 'Inter', 'system-ui', 'sans-serif'],
+        'sans': ['Inter', 'system-ui', 'sans-serif'],
+        'display': ['Chillax', 'Inter', 'system-ui', 'sans-serif'],
+        'body': ['Snonym', 'Inter', 'system-ui', 'sans-serif'],
+      },
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
         'gradient-conic':
@@ -59,6 +66,11 @@ const config: Config = {
           '3': 'hsl(var(--chart-3))',
           '4': 'hsl(var(--chart-4))',
           '5': 'hsl(var(--chart-5))',
+        },
+        brand: {
+          DEFAULT: '#601D8A',
+          light: '#7B2BA8',
+          dark: '#4A1566',
         },
       },
       keyframes: {

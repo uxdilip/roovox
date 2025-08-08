@@ -8,12 +8,12 @@ import { Toaster } from '@/components/ui/toaster';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Roovox - Professional Device Repair Services',
+  title: 'Sniket - Professional Device Repair Services',
   description: 'Expert device repair services for phones, laptops, and tablets. Same-day service, doorstep pickup, and genuine parts with warranty.',
   keywords: 'device repair, phone repair, laptop repair, screen replacement, battery replacement',
-  authors: [{ name: 'Roovox Team' }],
-  creator: 'Roovox',
-  publisher: 'Roovox',
+  authors: [{ name: 'Sniket Team' }],
+  creator: 'Sniket',
+  publisher: 'Sniket',
   robots: 'index, follow',
   themeColor: '#3B82F6',
   viewport: 'width=device-width, initial-scale=1, maximum-scale=1',
@@ -34,7 +34,7 @@ export default function RootLayout({
       <head>
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="Roovox" />
+        <meta name="apple-mobile-web-app-title" content="Sniket" />
         <meta name="format-detection" content="telephone=no" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="msapplication-config" content="/browserconfig.xml" />

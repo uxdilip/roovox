@@ -80,8 +80,31 @@ export function BookingForm({
     if (!providerServices || !Array.isArray(providerServices)) return null;
     
     return providerServices.find(s => {
-      const matchesIssue = s.issue === (issueObj.name || issueObj.id);
-      const matchesPartType = !s.partType || normalizePartType(s.partType) === normalizePartType(issueObj.partType);
+      // Use case-insensitive matching like in findProviderServicesWithSeries
+      const serviceIssue = s.issue?.toLowerCase().trim();
+      const selectedIssue = (issueObj.name || issueObj.id)?.toLowerCase().trim();
+      const matchesIssue = serviceIssue === selectedIssue;
+      
+      // For non-screen replacement issues, don't require part type matching
+      // Only screen replacement issues have part types (OEM/HQ)
+      const isScreenReplacement = selectedIssue.includes('screen replacement');
+      const matchesPartType = isScreenReplacement 
+        ? (!s.partType || normalizePartType(s.partType) === normalizePartType(issueObj.partType))
+        : true; // For non-screen issues, always match part type
+      
+      console.log('🔍 findProviderServiceMatch:', {
+        serviceIssue: s.issue,
+        selectedIssue: issueObj.name || issueObj.id,
+        servicePartType: s.partType,
+        selectedPartType: issueObj.partType,
+        normalizedServicePartType: normalizePartType(s.partType),
+        normalizedSelectedPartType: normalizePartType(issueObj.partType),
+        isScreenReplacement,
+        matchesIssue,
+        matchesPartType,
+        result: matchesIssue && matchesPartType
+      });
+      
       return matchesIssue && matchesPartType;
     });
   };

@@ -31,5 +31,7 @@ export const COLLECTIONS = {
   BUSINESS_SETUP: 'business_setup',
   SERVICES_OFFERED: 'services_offered',
   ISSUES: process.env.NEXT_PUBLIC_APPWRITE_ISSUES_COLLECTION_ID || 'issues',
-  CATEGORIES: process.env.NEXT_PUBLIC_APPWRITE_CATEGORIES_COLLECTION_ID || 'categories',
+  MODEL_SERIES: 'model_series',
+  CUSTOM_SERIES: 'custom_series',
+  CUSTOM_SERIES_SERVICES: 'custom_series_services',
 };

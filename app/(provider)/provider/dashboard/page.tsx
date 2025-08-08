@@ -67,27 +67,40 @@ export default function ProviderDashboardPage() {
     setLoadingOverview(true);
     const fetchData = async () => {
       try {
-        // 1. User profile
-        const userRes = await databases.listDocuments(
-          DATABASE_ID,
-          "User",
-          [Query.equal("user_id", user.id), Query.limit(1)]
-        );
+        // Fetch all data in parallel for maximum speed
+        const [userRes, providerRes, businessRes, bookingsRes] = await Promise.all([
+          // 1. User profile
+          databases.listDocuments(
+            DATABASE_ID,
+            "User",
+            [Query.equal("user_id", user.id), Query.limit(1)]
+          ),
+          // 2. Provider status
+          databases.listDocuments(
+            DATABASE_ID,
+            "providers",
+            [Query.equal("providerId", user.id), Query.limit(1)]
+          ),
+          // 3. Business setup
+          databases.listDocuments(
+            DATABASE_ID,
+            "business_setup",
+            [Query.equal("user_id", user.id), Query.limit(1)]
+          ),
+          // 4. Booking stats
+          databases.listDocuments(
+            DATABASE_ID,
+            "bookings",
+            [Query.equal("provider_id", user.id)]
+          )
+        ]);
+
         const userDoc = userRes.documents[0];
-        // 2. Provider status
-        const providerRes = await databases.listDocuments(
-          DATABASE_ID,
-          "providers",
-          [Query.equal("providerId", user.id), Query.limit(1)]
-        );
         const providerDoc = providerRes.documents[0];
-        // 3. Business setup
-        const businessRes = await databases.listDocuments(
-          DATABASE_ID,
-          "business_setup",
-          [Query.equal("user_id", user.id), Query.limit(1)]
-        );
         const businessDoc = businessRes.documents[0];
+        const bookings = bookingsRes.documents;
+
+        // Process business setup data
         let onboarding: any = {};
         try {
           onboarding = businessDoc ? JSON.parse(businessDoc.onboarding_data || '{}') : {};
@@ -104,19 +117,14 @@ export default function ProviderDashboardPage() {
             try { (onboarding as any).serviceSetup = JSON.parse((onboarding as any).serviceSetup); } catch {}
           }
         } catch { onboarding = {}; }
-        // 4. Booking stats
-        const bookingsRes = await databases.listDocuments(
-          DATABASE_ID,
-          "bookings",
-          [Query.equal("provider_id", user.id)]
-        );
-        const bookings = bookingsRes.documents;
+
         // Stats calculations
         const totalBookings = bookings.length;
         const completedBookings = bookings.filter(b => b.status === "completed");
         const totalRevenue = completedBookings.reduce((sum, b) => sum + (b.total_amount || 0), 0);
         const ratedBookings = bookings.filter(b => b.rating && b.rating > 0);
         const averageRating = ratedBookings.length > 0 ? (ratedBookings.reduce((sum, b) => sum + b.rating, 0) / ratedBookings.length) : null;
+
         if (isMounted) {
           setProfile(userDoc);
           setProviderStatus(providerDoc);
@@ -125,6 +133,7 @@ export default function ProviderDashboardPage() {
           setLoadingOverview(false);
         }
       } catch (error) {
+        console.error('Error fetching overview data:', error);
         setLoadingOverview(false);
       }
     };
@@ -150,124 +159,123 @@ export default function ProviderDashboardPage() {
 
         console.log("Found bookings:", bookingsResponse.documents.length);
 
-        // Fetch additional details for each booking
-        const bookingsWithDetails = await Promise.all(
-          bookingsResponse.documents.map(async (booking: any) => {
-            try {
-              // Fetch customer details - following the same pattern as customer dashboard
-              let customerName = "Unknown Customer";
+        // Extract unique customer IDs and device IDs for batch fetching
+        const uniqueCustomerIds = [...new Set(bookingsResponse.documents.map(b => b.customer_id))];
+        const uniqueDeviceIds = [...new Set(bookingsResponse.documents.map(b => b.device_id))];
+        const uniqueBookingIds = [...new Set(bookingsResponse.documents.map(b => b.$id))];
 
-              try {
-                // 1. Fetch customer details from customers collection first
-                let customerResponse;
-                try {
-                  customerResponse = await databases.listDocuments(
-                    process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
-                    COLLECTIONS.CUSTOMERS,
-                    [Query.equal("user_id", booking.customer_id), Query.limit(1)]
-                  );
-                } catch (customerError) {
-                  console.error("Error fetching customer data:", customerError);
-                }
+        // Batch fetch all customer data in parallel
+        const customerDataPromises = uniqueCustomerIds.map(async (customerId) => {
+          try {
+            // Try customers collection first, then User collection as fallback
+            const [customerResponse, userResponse] = await Promise.all([
+              databases.listDocuments(
+                process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+                COLLECTIONS.CUSTOMERS,
+                [Query.equal("user_id", customerId), Query.limit(1)]
+              ).catch(() => ({ documents: [] })),
+              databases.listDocuments(
+                process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+                'User',
+                [Query.equal("user_id", customerId), Query.limit(1)]
+              ).catch(() => ({ documents: [] }))
+            ]);
 
-                // 2. Fetch customer details from User collection as fallback
-                let userResponse;
-                try {
-                  userResponse = await databases.listDocuments(
-                    process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
-                    'User',
-                    [Query.equal("user_id", booking.customer_id), Query.limit(1)]
-                  );
-                } catch (userError) {
-                  console.error("Error fetching customer user data:", userError);
-                }
+            const customerFullName = customerResponse.documents[0]?.full_name || "";
+            const userName = userResponse.documents[0]?.name || "";
+            const customerName = customerFullName || userName || "Unknown Customer";
 
-                // 3. Set customer name with proper fallback logic
-                const customerFullName = customerResponse?.documents[0]?.full_name || "";
-                const userName = userResponse?.documents[0]?.name || "";
-                customerName = customerFullName || userName || "Unknown Customer";
+            return { customerId, customerName };
+          } catch (error) {
+            console.error("Error fetching customer data:", error);
+            return { customerId, customerName: "Unknown Customer" };
+          }
+        });
 
-              } catch (error) {
-                console.error("Error fetching customer details:", error);
-                customerName = "Unknown Customer";
-              }
+        // Batch fetch all device data in parallel
+        const deviceDataPromises = uniqueDeviceIds.map(async (deviceId) => {
+          try {
+            // Try Phones collection first, then Laptops collection as fallback
+            const deviceResponse = await databases.getDocument(
+              process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+              'Phones',
+              deviceId
+            ).catch(() => 
+              databases.getDocument(
+                process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+                'Laptops',
+                deviceId
+              ).catch(() => null)
+            );
 
-              // Fetch device details
-              let deviceBrand = "Unknown Device";
-              let deviceModel = "";
-              let deviceImage = "";
-              
-              try {
-                // Try to fetch from Phones collection first
-                let deviceResponse;
-                try {
-                  deviceResponse = await databases.getDocument(
-                    process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
-                    'Phones',
-                    booking.device_id
-                  );
-                } catch (phoneError) {
-                  // If not found in Phones, try Laptops collection
-                  try {
-                    deviceResponse = await databases.getDocument(
-                      process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
-                      'Laptops',
-                      booking.device_id
-                    );
-                  } catch (laptopError) {
-                    console.error("Device not found in either collection:", booking.device_id);
-                  }
-                }
-                
-                if (deviceResponse) {
-                  deviceBrand = deviceResponse.brand || "Unknown Brand";
-                  deviceModel = deviceResponse.model || "";
-                  deviceImage = deviceResponse.image_url || "";
-                }
-              } catch (error) {
-                console.error("Error fetching device details:", error);
-              }
-
-              // Fetch payment details
-              let paymentMethod = "Online"; // Default to Online
-              try {
-                const paymentsResponse = await databases.listDocuments(
-                  process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
-                  'payments',
-                  [Query.equal("booking_id", booking.$id)]
-                );
-                
-                if (paymentsResponse.documents.length > 0) {
-                  const payment = paymentsResponse.documents[0];
-                  paymentMethod = payment.payment_method === "COD" ? "COD" : "Online";
-                } else {
-                  // If no payment record found, determine based on payment_status
-                  // COD bookings typically have payment_status "pending" initially
-                  paymentMethod = booking.payment_status === "pending" ? "COD" : "Online";
-                }
-              } catch (error) {
-                console.error("Error fetching payment details:", error);
-                // Fallback logic
-                paymentMethod = booking.payment_status === "pending" ? "COD" : "Online";
-              }
-
+            if (deviceResponse) {
               return {
-                ...booking,
-                customer_name: customerName,
-                device_brand: deviceBrand,
-                device_model: deviceModel,
-                device_image: deviceImage,
-                device_display: `${deviceBrand} ${deviceModel}`.trim(),
-                payment_method: paymentMethod
+                deviceId,
+                deviceBrand: deviceResponse.brand || "Unknown Brand",
+                deviceModel: deviceResponse.model || "",
+                deviceImage: deviceResponse.image_url || ""
               };
-            } catch (error) {
-              console.error("Error processing booking:", error);
-              return booking;
             }
-          })
-        );
+            return { deviceId, deviceBrand: "Unknown Device", deviceModel: "", deviceImage: "" };
+          } catch (error) {
+            console.error("Error fetching device data:", error);
+            return { deviceId, deviceBrand: "Unknown Device", deviceModel: "", deviceImage: "" };
+          }
+        });
 
-        setBookings(bookingsWithDetails);
+        // Batch fetch all payment data in parallel
+        const paymentDataPromises = uniqueBookingIds.map(async (bookingId) => {
+          try {
+            const paymentsResponse = await databases.listDocuments(
+              process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+              'payments',
+              [Query.equal("booking_id", bookingId)]
+            );
+            
+            const payment = paymentsResponse.documents[0];
+            return {
+              bookingId,
+              paymentMethod: payment?.payment_method || "Online",
+              paymentStatus: payment?.status || "pending"
+            };
+          } catch (error) {
+            console.error("Error fetching payment data:", error);
+            return { bookingId, paymentMethod: "Online", paymentStatus: "pending" };
+          }
+        });
+
+        // Wait for all batch operations to complete
+        const [customerData, deviceData, paymentData] = await Promise.all([
+          Promise.all(customerDataPromises),
+          Promise.all(deviceDataPromises),
+          Promise.all(paymentDataPromises)
+        ]);
+
+        // Create lookup maps for fast access
+        const customerMap = new Map(customerData.map(c => [c.customerId, c.customerName]));
+        const deviceMap = new Map(deviceData.map(d => [d.deviceId, d]));
+        const paymentMap = new Map(paymentData.map(p => [p.bookingId, p]));
+
+        // Combine all data efficiently
+        const bookingsWithDetails = bookingsResponse.documents.map(booking => {
+          const customerName = customerMap.get(booking.customer_id) || "Unknown Customer";
+          const deviceInfo = deviceMap.get(booking.device_id) || { deviceBrand: "Unknown Device", deviceModel: "", deviceImage: "" };
+          const paymentInfo = paymentMap.get(booking.$id) || { paymentMethod: "Online", paymentStatus: "pending" };
+
+          return {
+            ...booking,
+            customer_name: customerName,
+            device_brand: deviceInfo.deviceBrand,
+            device_model: deviceInfo.deviceModel,
+            device_image: deviceInfo.deviceImage,
+            payment_method: paymentInfo.paymentMethod,
+            payment_status: paymentInfo.paymentStatus
+          };
+        });
+
+        if (isMounted) {
+          setBookings(bookingsWithDetails);
+        }
       } catch (error) {
         console.error("Error fetching bookings:", error);
       } finally {

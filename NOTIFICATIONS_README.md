@@ -1,6 +1,6 @@
-# Roovox Notification System
+# Sniket Notification System
 
-This document describes the email notification system implemented for the Roovox project using Resend.
+This document describes the email notification system implemented for the Sniket project using Resend.
 
 ## Overview
 
@@ -122,7 +122,7 @@ The notification system is integrated into the booking API at these points:
 
 All email templates use:
 - Responsive design
-- Professional styling with Roovox branding
+- Professional styling with Sniket branding
 - Clear call-to-action buttons
 - Mobile-friendly layout
 

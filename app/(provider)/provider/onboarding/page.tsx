@@ -31,7 +31,6 @@ import VerificationStep from '@/components/provider/onboarding/steps/Verificatio
 import PaymentInfoStep from '@/components/provider/onboarding/steps/PaymentStep';
 import FinishStep from '@/components/provider/onboarding/steps/FinishStep';
 import LocationAvailabilityStep from '@/components/provider/onboarding/steps/ServiceSetupStep';
-import ServiceSelectionStep from '@/components/provider/onboarding/steps/ServiceSelectionStep';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import ProviderRouteGuard from '@/components/provider/ProviderRouteGuard';
@@ -67,12 +66,11 @@ interface ProviderOnboardingFormData {
 
 type DeviceWithImage = Device & { image_url: string };
 
-const TOTAL_STEPS = 7;
+const TOTAL_STEPS = 6;
 const STEP_LABELS = [
   'Personal Details',
   'Business Setup',
   'Location & Availability',
-  'Service Selection',
   'Verification',
   'Payment Setup',
   'Finish'
@@ -113,14 +111,13 @@ export default function ProviderOnboardingWizard() {
         if (res.documents.length > 0) {
           const onboardingData = JSON.parse(res.documents[0].onboarding_data || '{}');
           setFormData(onboardingData);
-          // Determine last completed step
+          // Determine last completed step (adjusted for removed service selection step)
           let step = 1;
           if (onboardingData.personalDetails) step = 2;
           if (onboardingData.businessSetup) step = 3;
           if (onboardingData.serviceSetup) step = 4;
-          if (onboardingData.serviceSelection) step = 5;
-          if (onboardingData.verification) step = 6;
-          if (onboardingData.payment) step = 7;
+          if (onboardingData.verification) step = 5;
+          if (onboardingData.payment) step = 6;
           setCurrentStep(step);
         }
       } catch (err) {
@@ -144,13 +141,11 @@ export default function ProviderOnboardingWizard() {
     }
   }, [formData]);
 
-  // Onboarding step tracking
-
   // Navigation handlers
   const goNext = () => setCurrentStep((s) => Math.min(s + 1, TOTAL_STEPS));
   const goPrev = () => setCurrentStep((s) => Math.max(s - 1, 1));
 
-  // Step rendering
+  // Step rendering (updated to remove service selection step)
   const renderStep = () => {
     switch (currentStep) {
       case 1:
@@ -160,12 +155,10 @@ export default function ProviderOnboardingWizard() {
       case 3:
         return <LocationAvailabilityStep data={formData.serviceSetup ?? {}} setData={d => setFormData((f: any) => ({ ...f, serviceSetup: d }))} onNext={goNext} onPrev={goPrev} />;
       case 4:
-        return <ServiceSelectionStep data={formData.serviceSelection ?? {}} setData={d => setFormData((f: any) => ({ ...f, serviceSelection: d }))} onNext={goNext} onPrev={goPrev} />;
-      case 5:
         return <VerificationStep data={formData.verification ?? {}} setData={d => setFormData((f: any) => ({ ...f, verification: d }))} onNext={goNext} onPrev={goPrev} />;
-      case 6:
+      case 5:
         return <PaymentInfoStep data={formData.payment ?? {}} setData={d => setFormData((f: any) => ({ ...f, payment: d }))} onNext={goNext} onPrev={goPrev} />;
-      case 7:
+      case 6:
         // Passing data to finish step
         return <FinishStep data={formData ?? {}} onPrev={goPrev} />;
       default:

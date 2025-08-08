@@ -62,13 +62,23 @@ export default function CustomerDashboard() {
       if (!user) return;
 
       try {
-        // Fetch customer name from customers collection
-        const customerResponse = await databases.listDocuments(
-          process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
-          'customers',
-          [Query.equal('user_id', user.id), Query.limit(1)]
-        );
+        // Fetch customer name and bookings in parallel
+        const [customerResponse, bookingsResponse] = await Promise.all([
+          // Fetch customer name from customers collection
+          databases.listDocuments(
+            process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+            'customers',
+            [Query.equal('user_id', user.id), Query.limit(1)]
+          ),
+          // Fetch bookings for this customer
+          databases.listDocuments(
+            process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+            process.env.NEXT_PUBLIC_APPWRITE_BOOKINGS_COLLECTION_ID!,
+            [Query.equal("customer_id", user.id)]
+          )
+        ]);
 
+        // Set customer name
         if (customerResponse.documents.length > 0) {
           setCustomerName(customerResponse.documents[0].full_name || "Customer");
         } else {
@@ -86,164 +96,149 @@ export default function CustomerDashboard() {
           }
         }
 
-        // Fetch bookings for this customer
-        // Use the User document's $id as customer_id since that's how bookings are linked
-        const bookingsResponse = await databases.listDocuments(
-          process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
-          process.env.NEXT_PUBLIC_APPWRITE_BOOKINGS_COLLECTION_ID!,
-          [Query.equal("customer_id", user.id)]
-        );
+        // Extract unique provider IDs for batch fetching
+        const uniqueProviderIds = [...new Set(bookingsResponse.documents.map(b => b.provider_id))];
+        const uniqueDeviceIds = [...new Set(bookingsResponse.documents.map(b => b.device_id))];
 
-        const bookingsWithDetails = await Promise.all(
-          bookingsResponse.documents.map(async (booking: any) => {
-            // Fetch provider details - following the same pattern as ProviderSelector
-            let providerName = "Unknown Provider";
-            let providerRating = 0;
-            let providerTotalReviews = 0;
-
-            try {
-              // 1. Fetch provider's user details from User collection
-              let userResponse;
-              try {
-                userResponse = await databases.listDocuments(
-                  process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
-                  'User',
-                  [Query.equal("user_id", booking.provider_id), Query.limit(1)]
-                );
-              } catch (userError) {
-                console.error("Error fetching provider user data:", userError);
-              }
-
-              // 2. Fetch business setup data
-              let businessSetupResponse;
-              try {
-                businessSetupResponse = await databases.listDocuments(
-                  process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
-                  'business_setup',
-                  [Query.equal("user_id", booking.provider_id), Query.limit(1)]
-                );
-              } catch (businessError) {
-                console.error("Error fetching provider business setup:", businessError);
-              }
-
-              // 3. Fetch provider's bookings to calculate rating
-              let providerBookingsResponse;
-              try {
-                providerBookingsResponse = await databases.listDocuments(
-                  process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
-                  process.env.NEXT_PUBLIC_APPWRITE_BOOKINGS_COLLECTION_ID!,
-                  [Query.equal("provider_id", booking.provider_id)]
-                );
-              } catch (bookingsError) {
-                console.error("Error fetching provider bookings:", bookingsError);
-              }
-
-              // 4. Calculate provider rating from completed bookings
-              if (providerBookingsResponse?.documents) {
-                const providerBookings = providerBookingsResponse.documents;
-                const ratings = providerBookings
-                  .map((b: any) => b.rating)
-                  .filter((r: any) => typeof r === 'number' && r > 0);
-                
-                providerTotalReviews = ratings.length;
-                providerRating = ratings.length > 0 
-                  ? (ratings.reduce((sum: number, r: number) => sum + r, 0) / ratings.length)
-                  : 0;
-              }
-
-              // 5. Parse business setup data and get business name
-              let businessName = "";
-              if (businessSetupResponse && businessSetupResponse.documents && businessSetupResponse.documents.length > 0) {
-                try {
-                  const firstDocument = businessSetupResponse.documents[0];
-                  const onboardingData = JSON.parse(firstDocument.onboarding_data || '{}');
-                  businessName = onboardingData?.businessInfo?.businessName || "";
-                } catch (parseError) {
-                  console.error("Error parsing business setup onboarding data:", parseError);
-                }
-              }
-
-              // 6. Set provider name with proper fallback logic
-              const userName = userResponse?.documents[0]?.name || "";
-              providerName = businessName || userName || "Unknown Provider";
-
-            } catch (error) {
-              console.error("Error fetching provider details:", error);
-              providerName = "Unknown Provider";
-            }
-
-            // Fetch device details (from Phones or Laptops)
-            let deviceBrand = "Unknown Device";
-            let deviceModel = "";
-            let deviceImage = "";
-
-            try {
-              let deviceResponse;
-              try {
-                deviceResponse = await databases.getDocument(
-                  process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
-                  'Phones',
-                  booking.device_id
-                );
-              } catch (phoneError) {
-                try {
-                  deviceResponse = await databases.getDocument(
-                    process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
-                    'Laptops',
-                    booking.device_id
-                  );
-                } catch (laptopError) {
-                  console.error("Device not found in either Phones or Laptops collections");
-                  throw laptopError;
-                }
-              }
-
-              deviceBrand = deviceResponse.brand || "Unknown Brand";
-              deviceModel = deviceResponse.model || "";
-              deviceImage = deviceResponse.image_url || "";
-            } catch (error) {
-              console.error("Error fetching device:", error);
-            }
-
-            // Fetch payment details
-            let paymentMethod = "Unknown";
-            let paymentStatus = "pending";
-
-            try {
-              const paymentResponse = await databases.listDocuments(
+        // Batch fetch all provider data in parallel
+        const providerDataPromises = uniqueProviderIds.map(async (providerId) => {
+          try {
+            // Fetch provider data in parallel
+            const [userResponse, businessSetupResponse, providerBookingsResponse] = await Promise.all([
+              databases.listDocuments(
                 process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
-                process.env.NEXT_PUBLIC_APPWRITE_PAYMENTS_COLLECTION_ID!,
-                [Query.equal("booking_id", booking.$id)]
-              );
+                'User',
+                [Query.equal("user_id", providerId), Query.limit(1)]
+              ).catch(() => ({ documents: [] })),
+              databases.listDocuments(
+                process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+                'business_setup',
+                [Query.equal("user_id", providerId), Query.limit(1)]
+              ).catch(() => ({ documents: [] })),
+              databases.listDocuments(
+                process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+                process.env.NEXT_PUBLIC_APPWRITE_BOOKINGS_COLLECTION_ID!,
+                [Query.equal("provider_id", providerId)]
+              ).catch(() => ({ documents: [] }))
+            ]);
 
-              if (paymentResponse.documents.length > 0) {
-                paymentMethod = paymentResponse.documents[0].payment_method || "Unknown";
-                paymentStatus = paymentResponse.documents[0].status || "pending";
+            // Calculate provider rating
+            const providerBookings = providerBookingsResponse.documents;
+            const ratings = providerBookings
+              .map((b: any) => b.rating)
+              .filter((r: any) => typeof r === 'number' && r > 0);
+            
+            const providerTotalReviews = ratings.length;
+            const providerRating = ratings.length > 0 
+              ? (ratings.reduce((sum: number, r: number) => sum + r, 0) / ratings.length)
+              : 0;
+
+            // Parse business setup data and get business name
+            let businessName = "";
+            if (businessSetupResponse && businessSetupResponse.documents && businessSetupResponse.documents.length > 0) {
+              try {
+                const firstDocument = businessSetupResponse.documents[0];
+                const onboardingData = JSON.parse(firstDocument.onboarding_data || '{}');
+                businessName = onboardingData?.businessInfo?.businessName || "";
+              } catch (parseError) {
+                console.error("Error parsing business setup onboarding data:", parseError);
               }
-            } catch (error) {
-              console.error("Error fetching payment:", error);
             }
+
+            // Set provider name with proper fallback logic
+            const userName = userResponse?.documents[0]?.name || "";
+            const providerName = businessName || userName || "Unknown Provider";
 
             return {
-              ...booking,
-              provider: {
-                name: providerName,
-                rating: providerRating,
-                totalReviews: providerTotalReviews,
-                avatar: undefined
-              },
-              device: {
-                brand: deviceBrand,
-                model: deviceModel,
-                image_url: deviceImage
-              },
-              payment: {
-                payment_method: paymentMethod,
-                status: paymentStatus
-              }
+              providerId,
+              providerName,
+              providerRating,
+              providerTotalReviews
             };
-          })
-        );
+          } catch (error) {
+            console.error("Error fetching provider details:", error);
+            return {
+              providerId,
+              providerName: "Unknown Provider",
+              providerRating: 0,
+              providerTotalReviews: 0
+            };
+          }
+        });
+
+        // Batch fetch all device data in parallel
+        const deviceDataPromises = uniqueDeviceIds.map(async (deviceId) => {
+          try {
+            // Try Phones collection first, then Laptops collection as fallback
+            const deviceResponse = await databases.getDocument(
+              process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+              'Phones',
+              deviceId
+            ).catch(() => 
+              databases.getDocument(
+                process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+                'Laptops',
+                deviceId
+              ).catch(() => null)
+            );
+
+            if (deviceResponse) {
+              return {
+                deviceId,
+                deviceBrand: deviceResponse.brand || "Unknown Brand",
+                deviceModel: deviceResponse.model || "",
+                deviceImage: deviceResponse.image_url || ""
+              };
+            }
+            return { deviceId, deviceBrand: "Unknown Device", deviceModel: "", deviceImage: "" };
+          } catch (error) {
+            console.error("Error fetching device data:", error);
+            return { deviceId, deviceBrand: "Unknown Device", deviceModel: "", deviceImage: "" };
+          }
+        });
+
+        // Wait for all batch operations to complete
+        const [providerData, deviceData] = await Promise.all([
+          Promise.all(providerDataPromises),
+          Promise.all(deviceDataPromises)
+        ]);
+
+        // Create lookup maps for fast access
+        const providerMap = new Map(providerData.map(p => [p.providerId, p]));
+        const deviceMap = new Map(deviceData.map(d => [d.deviceId, d]));
+
+        // Combine all data efficiently
+        const bookingsWithDetails = bookingsResponse.documents.map(booking => {
+          const providerInfo = providerMap.get(booking.provider_id) || { 
+            providerName: "Unknown Provider", 
+            providerRating: 0, 
+            providerTotalReviews: 0 
+          };
+          const deviceInfo = deviceMap.get(booking.device_id) || { 
+            deviceBrand: "Unknown Device", 
+            deviceModel: "", 
+            deviceImage: "" 
+          };
+
+          return {
+            ...booking,
+            provider: {
+              name: providerInfo.providerName,
+              rating: providerInfo.providerRating,
+              totalReviews: providerInfo.providerTotalReviews,
+              avatar: undefined
+            },
+            device: {
+              brand: deviceInfo.deviceBrand,
+              model: deviceInfo.deviceModel,
+              image_url: deviceInfo.deviceImage
+            },
+            payment: {
+              payment_method: "Online", // Default for now
+              status: booking.payment_status || "pending"
+            }
+          };
+        });
 
         setBookings(bookingsWithDetails);
       } catch (error) {

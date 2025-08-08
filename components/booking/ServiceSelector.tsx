@@ -29,21 +29,33 @@ export function ServiceSelector({ device, onServiceSelect, onBack }: ServiceSele
     let categoryName = device.category === 'phone' ? 'Phone' : 'Laptop';
     const fetchIssues = async () => {
       setLoading(true);
-      const res = await databases.listDocuments(
-        DATABASE_ID,
-        COLLECTIONS.CATEGORIES,
-        []
-      );
-      const categories = res.documents;
-      const category = categories.find((c: any) => c.name.toLowerCase() === categoryName.toLowerCase());
-      if (!category) {
+      try {
+        console.log('🔍 Fetching issues for category:', categoryName);
+        const res = await databases.listDocuments(
+          DATABASE_ID,
+          'categories',
+          []
+        );
+        console.log('🔍 Categories found:', res.documents.length);
+        const categories = res.documents;
+        const category = categories.find((c: any) => c.name.toLowerCase() === categoryName.toLowerCase());
+        console.log('🔍 Found category:', category);
+        if (!category) {
+          console.log('❌ No category found for:', categoryName);
+          setIssues([]);
+          setLoading(false);
+          return;
+        }
+        console.log('🔍 Fetching issues for category ID:', category.$id);
+        const fetchedIssues = await getIssuesByCategory(category.$id);
+        console.log('🔍 Issues fetched:', fetchedIssues.length, fetchedIssues);
+        setIssues(fetchedIssues);
+      } catch (error) {
+        console.error('❌ Error fetching issues:', error);
         setIssues([]);
+      } finally {
         setLoading(false);
-        return;
       }
-      const fetchedIssues = await getIssuesByCategory(category.$id);
-      setIssues(fetchedIssues);
-      setLoading(false);
     };
     fetchIssues();
   }, [device.category]);
@@ -130,7 +142,16 @@ export function ServiceSelector({ device, onServiceSelect, onBack }: ServiceSele
       </div>
 
       {loading ? (
-        <div>Loading issues...</div>
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading issues...</p>
+          </div>
+        </div>
+      ) : issues.length === 0 ? (
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">No issues found for this device category.</p>
+        </div>
       ) : (
       <div className="grid grid-cols-1 gap-4">
           {services.map((service, idx) => (

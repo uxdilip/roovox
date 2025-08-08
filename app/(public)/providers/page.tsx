@@ -25,7 +25,7 @@ export default function ProvidersLandingPage() {
         <div className="text-center mb-16">
           <Badge variant="secondary" className="mb-4 text-lg px-4 py-2">🚀 Become a Provider</Badge>
           <h1 className="text-5xl md:text-6xl font-extrabold mb-6 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent drop-shadow-lg">
-            Grow Your Repair Business with Roovox
+            Grow Your Repair Business with Sniket
           </h1>
           <p className="text-xl text-muted-foreground mb-10 max-w-2xl mx-auto">
             Join our marketplace to connect with customers, manage bookings, and access powerful business tools.
@@ -118,7 +118,7 @@ export default function ProvidersLandingPage() {
         {/* Trust/testimonial section */}
         <div className="bg-white/90 rounded-xl shadow-lg p-8 text-center max-w-2xl mx-auto">
           <h3 className="text-2xl font-bold mb-2 text-blue-700">Trusted by Top Providers</h3>
-          <p className="text-lg text-gray-700 mb-4">“Roovox has helped me grow my business and reach more customers than ever before. The dashboard and booking tools are a game changer!”</p>
+          <p className="text-lg text-gray-700 mb-4">"Sniket has helped me grow my business and reach more customers than ever before. The dashboard and booking tools are a game changer!"</p>
           <div className="flex items-center justify-center space-x-3">
             <img src="https://randomuser.me/api/portraits/men/32.jpg" alt="Provider" className="w-12 h-12 rounded-full border-2 border-blue-500" />
             <div className="text-left">
