@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import dynamic from "next/dynamic";
 import { toast } from "sonner";
 import Link from "next/link";
+import ProviderCommissionTab from "@/components/provider/ProviderCommissionTab";
 
 const ServiceSetupStep = dynamic(() => import("@/components/provider/onboarding/steps/ServiceSetupStep"), { ssr: false });
 
@@ -262,12 +263,16 @@ export default function ProviderDashboardPage() {
           const deviceInfo = deviceMap.get(booking.device_id) || { deviceBrand: "Unknown Device", deviceModel: "", deviceImage: "" };
           const paymentInfo = paymentMap.get(booking.$id) || { paymentMethod: "Online", paymentStatus: "pending" };
 
+          // ✅ FIXED: Create device_display field
+          const deviceDisplay = `${deviceInfo.deviceBrand} ${deviceInfo.deviceModel}`.trim();
+
           return {
             ...booking,
             customer_name: customerName,
             device_brand: deviceInfo.deviceBrand,
             device_model: deviceInfo.deviceModel,
             device_image: deviceInfo.deviceImage,
+            device_display: deviceDisplay, // ✅ FIXED: Add device_display field
             payment_method: paymentInfo.paymentMethod,
             payment_status: paymentInfo.paymentStatus
           };
@@ -449,10 +454,19 @@ export default function ProviderDashboardPage() {
             update.status = "pending_cod_collection";
             console.log('Setting status to pending_cod_collection (COD + Doorstep)');
           } else {
-            // COD + Instore: Mark as completed and update payment status
+            // ✅ FIXED: COD + Instore: Mark as completed and create commission collection
             update.status = "completed";
             update.payment_status = "completed";
             console.log('Setting status to completed and payment_status to completed (COD + Instore)');
+            
+            // Create commission collection record
+            try {
+              await createCommissionCollection(booking.$id, booking.provider_id);
+              console.log('✅ Commission collection record created for booking:', booking.$id);
+            } catch (error) {
+              console.error('❌ Error creating commission collection:', error);
+              // Don't fail the booking completion if commission collection fails
+            }
           }
         } else {
           // Online payment: Just mark as completed
@@ -492,6 +506,35 @@ export default function ProviderDashboardPage() {
     console.log('Decline clicked for booking:', booking.$id);
     setBookingToDecline(booking);
     setDeclineModalOpen(true);
+  };
+
+  // ✅ NEW FUNCTION: Create commission collection record
+  const createCommissionCollection = async (bookingId: string, providerId: string) => {
+    try {
+      const response = await fetch('/api/payments/collect-cod-commission', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          booking_id: bookingId,
+          provider_id: providerId,
+          collection_method: 'upi' // Default to UPI
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to create commission collection');
+      }
+
+      console.log('✅ Commission collection created:', data.message);
+      return data;
+    } catch (error) {
+      console.error('❌ Error creating commission collection:', error);
+      throw error;
+    }
   };
 
   const handleDeclineSubmit = () => {
@@ -550,12 +593,13 @@ export default function ProviderDashboardPage() {
           </div>
         </div>
       )}
-      <Tabs value={tab} onValueChange={setTab} className="w-full">
-        <TabsList className="mb-6 w-full flex gap-2 bg-muted rounded-lg p-1">
-          <TabsTrigger value="overview" className="flex-1">Overview</TabsTrigger>
-          <TabsTrigger value="bookings" className="flex-1">Bookings</TabsTrigger>
-          <TabsTrigger value="services" className="flex-1">Services</TabsTrigger>
-              </TabsList>
+              <Tabs value={tab} onValueChange={setTab} className="w-full">
+          <TabsList className="mb-6 w-full flex gap-2 bg-muted rounded-lg p-1">
+            <TabsTrigger value="overview" className="flex-1">Overview</TabsTrigger>
+            <TabsTrigger value="bookings" className="flex-1">Bookings</TabsTrigger>
+            <TabsTrigger value="services" className="flex-1">Services</TabsTrigger>
+            <TabsTrigger value="commission" className="flex-1">Commission</TabsTrigger>
+          </TabsList>
         <AnimatePresence mode="wait">
           {tab === "overview" && (
             <TabsContent value="overview" forceMount>
@@ -916,6 +960,19 @@ export default function ProviderDashboardPage() {
                 <ProviderServicesPage />
               </motion.div>
               </TabsContent>
+          )}
+          {tab === "commission" && (
+            <TabsContent value="commission" forceMount>
+              <motion.div
+                key="commission"
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -16 }}
+                transition={{ duration: 0.25 }}
+              >
+                <ProviderCommissionTab />
+              </motion.div>
+            </TabsContent>
           )}
         </AnimatePresence>
             </Tabs>

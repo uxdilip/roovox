@@ -69,6 +69,12 @@ const navItems: NavItem[] = [
     description: "COD payment management"
   },
   {
+    title: "Commission Collection",
+    href: "/admin/commission-collection",
+    icon: DollarSign,
+    description: "Track COD commission collections"
+  },
+  {
     title: "Users",
     href: "/admin/users",
     icon: Users,
