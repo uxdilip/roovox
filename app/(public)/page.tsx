@@ -94,7 +94,7 @@ export default function HomePage() {
     },
     {
       icon: Shield,
-      title: '90-Day Warranty',
+      title: 'Warranty', // <-- Changed here
       description: 'All repairs backed by comprehensive warranty'
     },
     {
@@ -126,11 +126,10 @@ export default function HomePage() {
               📱 Professional Device Repair Services
             </Badge>
             <h1 className="text-5xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              Fix Your Device in Minutes, Not Days
+              From Leaks to Lights - Just Tap, We’ll Be Right
             </h1>
             <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-              Professional repair services for phones, laptops, and tablets. Expert technicians, 
-              doorstep service, and genuine parts with warranty included.
+              From quick fixes to big repairs, Sniket connects you with trusted local experts - so you spend less time searching and more time living.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button size="lg" asChild className="text-lg px-8">
@@ -142,23 +141,6 @@ export default function HomePage() {
                 <a href="#how-it-works" className="scroll-smooth">How It Works</a>
               </Button>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Stats Section */}
-      <section className="py-16 bg-gray-50">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            {stats.map((stat, index) => (
-              <div key={index} className="text-center">
-                <div className="flex justify-center mb-3">
-                  <stat.icon className="h-8 w-8 text-primary" />
-                </div>
-                <div className="text-3xl font-bold text-gray-900 mb-1">{stat.value}</div>
-                <div className="text-sm text-muted-foreground">{stat.label}</div>
-              </div>
-            ))}
           </div>
         </div>
       </section>
@@ -175,46 +157,77 @@ export default function HomePage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 max-w-6xl mx-auto">
             {/* Phone Repair Card */}
-            <Card className="relative overflow-hidden shadow-lg hover:shadow-2xl transition-shadow group">
-              <div className="h-48 w-full overflow-hidden">
+            <Card className="relative overflow-hidden shadow-lg hover:shadow-2xl transition-shadow group rounded-xl border border-gray-200 bg-white">
+              <div className="flex items-center justify-center h-48 w-full bg-gray-50">
                 <img
-                  src="https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=600&q=80"
+                  src="/assets/phone.png"
                   alt="Phone Repair"
-                  className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-300"
+                  className="object-contain h-36 w-auto rounded-lg transition-transform duration-300 group-hover:scale-105"
+                  style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}
                 />
               </div>
-                <CardHeader className="text-center">
+              <CardHeader className="text-center">
                 <CardTitle className="text-2xl font-semibold mt-4">Phone Repair</CardTitle>
-                <CardDescription className="text-base mt-2">Screen replacement, battery fixes, water damage repair</CardDescription>
+                <CardDescription className="text-base mt-2 text-gray-600">
+                  Screen replacement, battery fixes, water damage repair
+                </CardDescription>
               </CardHeader>
               <CardContent className="text-center pb-6">
-                <Button variant="outline" className="w-full" asChild>
+                <Button variant="outline" className="w-full font-medium" asChild>
                   <Link href="/book">Book Now</Link>
                 </Button>
               </CardContent>
             </Card>
 
             {/* Laptop Repair Card */}
-            <Card className="relative overflow-hidden shadow-lg hover:shadow-2xl transition-shadow group">
-              <div className="h-48 w-full overflow-hidden">
+            <Card className="relative overflow-hidden shadow-lg hover:shadow-2xl transition-shadow group rounded-xl border border-gray-200 bg-white">
+              <div className="flex items-center justify-center h-48 w-full bg-gray-50">
                 <img
-                  src="https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=600&q=80"
+                  src="/assets/laptop.png"
                   alt="Laptop Repair"
-                  className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-300"
+                  className="object-contain h-36 w-auto rounded-lg transition-transform duration-300 group-hover:scale-105"
+                  style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}
                 />
-                    </div>
+              </div>
               <CardHeader className="text-center">
                 <CardTitle className="text-2xl font-semibold mt-4">Laptop Repair</CardTitle>
-                <CardDescription className="text-base mt-2">Hardware fixes, software issues, performance optimization</CardDescription>
-                </CardHeader>
+                <CardDescription className="text-base mt-2 text-gray-600">
+                  Hardware fixes, software issues, performance optimization
+                </CardDescription>
+              </CardHeader>
               <CardContent className="text-center pb-6">
-                  <Button variant="outline" className="w-full" asChild>
-                    <Link href="/book">Book Now</Link>
-                  </Button>
-                </CardContent>
-              </Card>
+                <Button variant="outline" className="w-full font-medium" asChild>
+                  <Link href="/book">Book Now</Link>
+                </Button>
+              </CardContent>
+            </Card>
 
             {/* Add more service cards here if needed */}
+          </div>
+        </div>
+      </section>
+
+      {/* Impact Metrics (Stats) Section - redesigned with padding */}
+      <section className="py-20 bg-white">
+        <div className="container mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-12">
+          {/* Left: Text Content */}
+          <div className="md:w-1/2 w-full mb-10 md:mb-0 pr-0 md:pr-8">
+            <h2 className="text-5xl font-bold mb-8 text-gray-900 leading-tight">
+              Your Home,<br />Our Priority
+            </h2>
+            <p className="text-lg text-gray-700 mb-6">
+              Need help around the house? We connect you with trusted local experts for everything from repairs to cleaning—quick, reliable, and right from your neighborhood.<br />
+              Fast Fixes for Busy Lives.
+            </p>
+            <Button size="lg" className="mt-2 px-8 py-3 text-lg font-medium bg-gray-900 text-white hover:bg-gray-800">
+              Book Now
+            </Button>
+          </div>
+          {/* Right: Image Placeholder */}
+          <div className="md:w-1/2 w-full flex justify-center">
+            <div className="w-full max-w-md h-72 bg-gray-100 rounded-xl shadow-lg flex items-center justify-center">
+              {/* Image will be added here later */}
+            </div>
           </div>
         </div>
       </section>
@@ -239,6 +252,36 @@ export default function HomePage() {
                 </div>
                 <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
                 <p className="text-muted-foreground">{feature.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Explore More Services Section */}
+      <section className="py-20 bg-white">
+        <div className="container mx-auto px-4">
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-4xl font-bold">Upcoming Services</h2>
+            <Link href="/services" className="text-primary text-base font-medium hover:underline">
+              see all
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-8">
+            {/* Only show names for upcoming services */}
+            {[
+              { title: "Plumbing Assistance" },
+              { title: "Appliance Repair" },
+              { title: "Home Cleaning & Maintenance" },
+              { title: "Appliance Installation" },
+            ].map((service, idx) => (
+              <div key={idx} className="bg-gray-100 rounded-xl shadow p-4 flex flex-col items-center">
+                <div className="w-full h-36 mb-4 rounded-lg bg-gray-200 overflow-hidden flex items-center justify-center">
+                  {/* Add your service image here if needed */}
+                </div>
+                <div className="w-full text-left">
+                  <h3 className="text-lg font-semibold mb-1">{service.title}</h3>
+                </div>
               </div>
             ))}
           </div>
