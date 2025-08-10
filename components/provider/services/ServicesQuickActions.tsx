@@ -1,17 +1,17 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { Users, BarChart3, Plus } from "lucide-react";
+import { Users, BarChart3, Plus, Copy } from "lucide-react";
 
 interface ServicesQuickActionsProps {
-  onQuickSeries: () => void;
   onCustomSeries: () => void;
   onAddService: () => void;
+  onPlatformSeries: () => void;
 }
 
 export default function ServicesQuickActions({
-  onQuickSeries,
   onCustomSeries,
-  onAddService
+  onAddService,
+  onPlatformSeries
 }: ServicesQuickActionsProps) {
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-6">
@@ -20,23 +20,21 @@ export default function ServicesQuickActions({
         <p className="text-sm text-gray-600">Get started with common tasks</p>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <Button 
-          onClick={onQuickSeries} 
+          onClick={onPlatformSeries} 
           className="h-auto p-4 flex flex-col items-start gap-3 text-left bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-colors"
         >
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-green-50 rounded-lg">
-              <Users className="h-4 w-4 text-green-600" />
+            <div className="p-2 bg-indigo-50 rounded-lg">
+              <Copy className="h-4 w-4 text-indigo-600" />
             </div>
             <div>
-              <div className="font-medium text-gray-900">Quick Series</div>
-              <div className="text-sm text-gray-600">Popular device series</div>
+              <div className="font-medium text-gray-900">Platform Series</div>
+              <div className="text-sm text-gray-600">Use & customize templates</div>
             </div>
           </div>
         </Button>
-
-
 
         <Button 
           onClick={onCustomSeries} 

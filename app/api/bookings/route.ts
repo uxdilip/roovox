@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate part_quality
-    const validPartQualities = ['OEM', 'HQ', 'Standard', 'basic', 'standard', 'premium'];
+    const validPartQualities = ['oem', 'hq'];
     if (bookingData.part_quality && !validPartQualities.includes(bookingData.part_quality)) {
       return NextResponse.json({ error: 'Invalid part_quality value' }, { status: 400 });
     }
@@ -38,6 +38,12 @@ export async function POST(request: NextRequest) {
     const validLocationTypes = ['doorstep', 'provider_location'];
     if (bookingData.location_type && !validLocationTypes.includes(bookingData.location_type)) {
       return NextResponse.json({ error: 'Invalid location_type value' }, { status: 400 });
+    }
+
+    // Validate serviceMode
+    const validServiceModes = ['doorstep', 'instore'];
+    if (bookingData.serviceMode && !validServiceModes.includes(bookingData.serviceMode)) {
+      return NextResponse.json({ error: 'Invalid serviceMode value' }, { status: 400 });
     }
 
     const booking = await databases.createDocument(

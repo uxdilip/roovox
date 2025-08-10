@@ -1,9 +1,9 @@
 import resend from './resend';
-import { BookingConfirmationEmail } from '../components/emails/BookingConfirmationEmail';
-import { NewBookingNotificationEmail } from '../components/emails/NewBookingNotificationEmail';
-import { ServiceStartedEmail } from '../components/emails/ServiceStartedEmail';
-import { ServiceCompletedEmail } from '../components/emails/ServiceCompletedEmail';
-import { BookingCancelledEmail } from '../components/emails/BookingCancelledEmail';
+import BookingConfirmationEmail from '../components/emails/BookingConfirmationEmail';
+import NewBookingNotificationEmail from '../components/emails/NewBookingNotificationEmail';
+import ServiceStartedEmail from '../components/emails/ServiceStartedEmail';
+import ServiceCompletedEmail from '../components/emails/ServiceCompletedEmail';
+import BookingCancelledEmail from '../components/emails/BookingCancelledEmail';
 import { render } from '@react-email/components';
 
 
@@ -95,60 +95,68 @@ export class NotificationService {
 
   static async sendNewBookingNotificationToProvider(data: NotificationData) {
     try {
-      const emailHtml = await render(
-        NewBookingNotificationEmail({
-          providerName: data.providerName,
-          bookingId: data.bookingId,
-          customerName: data.customerName,
-          customerPhone: data.customerPhone,
-          serviceName: data.serviceName,
-          appointmentTime: data.appointmentTime,
-          totalAmount: data.totalAmount,
-          serviceLocation: data.serviceLocation,
-          deviceInfo: data.deviceInfo,
-          issueDescription: data.issueDescription,
-        })
-      );
-
+      // Create simple HTML email template
+      const emailHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>New Booking Request</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; text-align: center;">
+            <h1 style="color: #007bff; margin: 0;">🔧 Sniket</h1>
+          </div>
+          
+          <div style="padding: 20px;">
+            <h2 style="color: #28a745;">New Booking Request!</h2>
+            <p>Hi ${data.providerName},</p>
+            <p>You have received a new booking request. Please review the details below:</p>
+            
+            <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="margin-top: 0;">Booking Details</h3>
+              <p><strong>Booking ID:</strong> ${data.bookingId}</p>
+              <p><strong>Service:</strong> ${data.serviceName}</p>
+              <p><strong>Device:</strong> ${data.deviceInfo}</p>
+              <p><strong>Appointment:</strong> ${data.appointmentTime}</p>
+              <p><strong>Location:</strong> ${data.serviceLocation}</p>
+              <p><strong>Amount:</strong> ₹${data.totalAmount}</p>
+            </div>
+            
+            <div style="background-color: #e7f3ff; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="margin-top: 0;">Customer Information</h3>
+              <p><strong>Name:</strong> ${data.customerName}</p>
+              <p><strong>Phone:</strong> ${data.customerPhone}</p>
+            </div>
+            
+            <div style="background-color: #fff3cd; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="margin-top: 0;">Issue Description</h3>
+              <p>${data.issueDescription}</p>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <p>Please confirm this booking within 2 hours to avoid automatic cancellation.</p>
+              <a href="${process.env.NEXT_PUBLIC_APP_URL}/provider/bookings/${data.bookingId}" style="background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">View Booking Details</a>
+            </div>
+          </div>
+          
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; text-align: center; margin-top: 20px;">
+            <p style="margin: 0;">Thank you for being part of Sniket! 🚀</p>
+            <p style="margin: 5px 0 0 0;">Need help? Contact us at support@sniket.com</p>
+          </div>
+        </body>
+        </html>
+      `;
+      
       await this.sendEmail(
         data.providerEmail,
         `New Booking Request - ${data.bookingId}`,
         emailHtml
       );
     } catch (error: any) {
-      console.error('🔍 Detailed error in sendNewBookingNotificationToProvider:', {
-        error,
-        errorType: typeof error,
-        errorMessage: error.message,
-        errorString: error.toString(),
-        errorKeys: Object.keys(error),
-        errorValues: Object.values(error)
-      });
-      
-      // Better error message extraction
-      let errorMessage = 'Unknown error';
-      if (error && typeof error === 'object') {
-        if (error.message) {
-          errorMessage = error.message;
-        } else if (error.statusCode) {
-          errorMessage = `HTTP ${error.statusCode}: ${error.message || 'Request failed'}`;
-        } else if (error.code) {
-          errorMessage = `Code ${error.code}: ${error.message || 'Request failed'}`;
-        } else {
-          // Try to extract any useful information from the error object
-          const errorInfo = Object.entries(error)
-            .filter(([key, value]) => value && typeof value === 'string')
-            .map(([key, value]) => `${key}: ${value}`)
-            .join(', ');
-          if (errorInfo) {
-            errorMessage = errorInfo;
-          }
-        }
-      } else if (typeof error === 'string') {
-        errorMessage = error;
-      }
-      
-      throw new Error(`New booking notification failed: ${errorMessage}`);
+      console.error('🔍 Error in sendNewBookingNotificationToProvider:', error);
+      throw new Error(`New booking notification failed: ${error.message || error.toString() || 'Unknown error'}`);
     }
   }
 

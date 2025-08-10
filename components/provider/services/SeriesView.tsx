@@ -120,9 +120,13 @@ export default function SeriesView({
                 <h3 className="text-lg font-medium text-gray-900">
                   {seriesInfo.name}
                 </h3>
-                {isCustomSeries && (
+                {isCustomSeries ? (
                   <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-200">
                     Custom
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                    Platform
                   </Badge>
                 )}
               </div>

@@ -41,6 +41,8 @@ export function DeviceSelector({ onDeviceSelect }: DeviceSelectorProps) {
       'honor': '/assets/brand-logos/Honor.png',
       'nokia': '/assets/brand-logos/Nokia.png',
       'asus': '/assets/brand-logos/Asus.png',
+      'infinix': '/assets/brand-logos/infinix.png',
+      'iqoo': '/assets/brand-logos/iqoo.png',
       
       // Laptop brands
       'dell': '/assets/brand-logos/dell.png',

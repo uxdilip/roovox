@@ -13,10 +13,11 @@ import { Button } from "@/components/ui/button";
 import ServicesQuickActions from "./ServicesQuickActions";
 import ServiceFilters from "./ServiceFilters";
 import SeriesView from "./SeriesView";
+import PlatformSeriesSelector from './PlatformSeriesSelector';
 
 // Import modals
 import AddServiceModal from "./ServiceModals/AddServiceModal";
-import QuickSeriesModal from "./ServiceModals/QuickSeriesModal";
+
 import SeriesBulkUpdateModal from "./ServiceModals/SeriesBulkUpdateModal";
 import EditSeriesModal from "./ServiceModals/EditSeriesModal";
 import CustomSeriesModal from "./ServiceModals/CustomSeriesModal";
@@ -38,7 +39,7 @@ export default function ServicesDashboard() {
 
   // Modal states
   const [showAddModal, setShowAddModal] = useState(false);
-  const [showQuickSeriesModal, setShowQuickSeriesModal] = useState(false);
+  const [showPlatformSeriesModal, setShowPlatformSeriesModal] = useState(false);
   const [showSeriesBulkUpdateModal, setShowSeriesBulkUpdateModal] = useState(false);
   const [showEditSeriesModal, setShowEditSeriesModal] = useState(false);
   const [showCustomSeriesModal, setShowCustomSeriesModal] = useState(false);
@@ -48,6 +49,8 @@ export default function ServicesDashboard() {
   const [selectedSeriesForBulk, setSelectedSeriesForBulk] = useState<string>("");
   const [selectedSeriesForEdit, setSelectedSeriesForEdit] = useState<string>("");
   const [selectedSeriesForDelete, setSelectedSeriesForDelete] = useState<string>("");
+
+
 
   if (authLoading) {
     return (
@@ -295,6 +298,8 @@ export default function ServicesDashboard() {
     refreshData();
   };
 
+
+
   return (
     <div className="min-h-screen bg-gray-50/50">
       <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
@@ -314,7 +319,7 @@ export default function ServicesDashboard() {
 
         {/* Quick Actions */}
         <ServicesQuickActions
-          onQuickSeries={() => setShowQuickSeriesModal(true)}
+          onPlatformSeries={() => setShowPlatformSeriesModal(true)}
           onCustomSeries={() => setShowCustomSeriesModal(true)}
           onAddService={() => setShowAddModal(true)}
         />
@@ -386,12 +391,7 @@ export default function ServicesDashboard() {
           onSuccess={handleServiceUpdate}
         />
 
-        <QuickSeriesModal
-          open={showQuickSeriesModal}
-          onOpenChange={setShowQuickSeriesModal}
-          providerId={user.id}
-          onSuccess={handleServiceUpdate}
-        />
+
 
         <SeriesBulkUpdateModal
           open={showSeriesBulkUpdateModal}
@@ -424,6 +424,30 @@ export default function ServicesDashboard() {
           seriesData={seriesData[selectedSeriesForDelete]}
           onSuccess={handleServiceUpdate}
         />
+
+        {/* Platform Series Modal */}
+        {showPlatformSeriesModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
+              <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                <h2 className="text-xl font-semibold text-gray-900">Platform Series Templates</h2>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowPlatformSeriesModal(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  ✕
+                </Button>
+              </div>
+              <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+                        <PlatformSeriesSelector
+          deviceType="phone"
+        />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
