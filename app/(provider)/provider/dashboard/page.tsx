@@ -295,23 +295,28 @@ export default function ProviderDashboardPage() {
   const bookingsByTab = useMemo(() => {
     let filtered = bookings;
     if (bookingsTab === "upcoming") {
-      filtered = filtered.filter(b => ["pending", "confirmed", "in_progress", "pending_cod_collection"].includes(b.status));
+      filtered = filtered.filter(b => ["pending", "confirmed", "in_progress"].includes(b.status));
     } else if (bookingsTab === "completed") {
       filtered = filtered.filter(b => b.status === "completed");
     } else if (bookingsTab === "cancelled") {
       filtered = filtered.filter(b => b.status === "cancelled");
     }
+
+    // Apply search filter
+    if (searchTerm.trim()) {
+      const query = searchTerm.toLowerCase();
+      filtered = filtered.filter(b => 
+        (b.device_display || b.device || "").toLowerCase().includes(query) ||
+        (b.customer_name || "").toLowerCase().includes(query) ||
+        (b.issues || []).some((issue: string) => issue.toLowerCase().includes(query))
+      );
+    }
+
+    // Apply status filter
     if (statusFilter !== "all") {
       filtered = filtered.filter(b => b.status === statusFilter);
     }
-    if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(b =>
-        (b.device || b.device_id || "").toLowerCase().includes(term) ||
-        (customerName(b) || "").toLowerCase().includes(term) ||
-        (issuesString(b) || "").toLowerCase().includes(term)
-      );
-    }
+
     return filtered;
   }, [bookings, bookingsTab, searchTerm, statusFilter]);
 
@@ -450,14 +455,15 @@ export default function ProviderDashboardPage() {
         // Check if this is a COD booking
         if (booking.payment_status === "pending") {
           if (booking.location_type === "doorstep") {
-            // COD + Doorstep: Set to pending_cod_collection for pickup
-            update.status = "pending_cod_collection";
-            console.log('Setting status to pending_cod_collection (COD + Doorstep)');
+            // COD + Doorstep: Mark as completed directly (platform handles verification)
+            update.status = "completed";
+            update.payment_status = "completed";
+            console.log('🔍 [BOOKING-ACTION] COD + Doorstep: Marking as completed (platform handles COD verification)');
           } else {
             // ✅ FIXED: COD + Instore: Mark as completed and create commission collection
             update.status = "completed";
             update.payment_status = "completed";
-            console.log('Setting status to completed and payment_status to completed (COD + Instore)');
+            console.log('🔍 [BOOKING-ACTION] COD + Instore: Setting status to completed and payment_status to completed');
             
             // Create commission collection record
             try {
@@ -471,13 +477,8 @@ export default function ProviderDashboardPage() {
         } else {
           // Online payment: Just mark as completed
           update.status = "completed";
-          console.log('Setting status to completed (Online payment)');
+          console.log('🔍 [BOOKING-ACTION] Online payment: Setting status to completed');
         }
-      } else if (action === "confirm_cod") {
-        // Confirm COD collection for doorstep bookings
-        update.status = "completed";
-        update.payment_status = "completed";
-        console.log('Confirming COD collection and marking as completed');
       }
       update.updated_at = new Date().toISOString();
       console.log('Updating booking with:', update);
@@ -720,7 +721,7 @@ export default function ProviderDashboardPage() {
                     <ShadTabs value={bookingsTab} onValueChange={setBookingsTab} className="w-full">
                       <ShadTabsList className="mb-4 w-full flex gap-2 bg-muted rounded-lg p-1">
                         <ShadTabsTrigger value="upcoming" className="flex-1">
-                          Upcoming ({bookings.filter(b => ["pending", "confirmed", "in_progress", "pending_cod_collection"].includes(b.status)).length})
+                          Upcoming ({bookings.filter(b => ["pending", "confirmed", "in_progress"].includes(b.status)).length})
                         </ShadTabsTrigger>
                         <ShadTabsTrigger value="completed" className="flex-1">
                           Completed ({bookings.filter(b => b.status === "completed").length})
@@ -793,14 +794,8 @@ export default function ProviderDashboardPage() {
                                       {booking.status === "in_progress" && (
                                         <Button size="sm" variant="default" onClick={() => handleBookingAction(booking, "complete")}>Mark as Completed</Button>
                                       )}
-                                      {/* pending_cod_collection: Confirm COD collection */}
+                                      {/* pending_cod_collection: No actions */}
                                       {booking.status === "pending_cod_collection" && (
-                                        <Button size="sm" variant="default" onClick={() => handleBookingAction(booking, "confirm_cod")}>
-                                          Confirm COD Collection
-                                        </Button>
-                                      )}
-                                      {/* completed/cancelled: No actions */}
-                                      {(booking.status === "completed" || booking.status === "cancelled") && (
                                         <span className="text-xs text-muted-foreground">No actions</span>
                                       )}
                                       <Button size="sm" variant="outline" asChild>

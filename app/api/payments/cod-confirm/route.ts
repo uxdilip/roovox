@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { databases, DATABASE_ID } from '@/lib/appwrite';
+import { NotificationService } from '@/lib/notification-service';
+import { buildNotificationData } from '@/lib/notification-helpers';
 
 export async function POST(req: NextRequest) {
   try {
@@ -74,6 +76,32 @@ export async function POST(req: NextRequest) {
     } catch (error: any) {
       console.error('[COD-CONFIRM] Error creating payment document:', error);
       return NextResponse.json({ success: false, error: 'Failed to create payment record: ' + error.message }, { status: 500 });
+    }
+
+    // Send notifications asynchronously (don't block the response)
+    try {
+      console.log('🔔 Starting notification process for COD booking...');
+      const notificationData = await buildNotificationData(booking);
+      console.log('📧 Notification data built:', {
+        customerEmail: notificationData.customerEmail,
+        providerEmail: notificationData.providerEmail,
+        bookingId: notificationData.bookingId
+      });
+
+      // Send new booking notification to provider
+      console.log('📤 Sending provider notification...');
+      NotificationService.sendNewBookingNotificationToProvider(notificationData)
+        .then(() => console.log('✅ Provider notification sent successfully'))
+        .catch(error => console.error('❌ Failed to send provider notification:', error));
+
+      // Since this is COD, booking is already confirmed, send confirmation to customer
+      console.log('📤 Sending customer confirmation...');
+      NotificationService.sendBookingConfirmationToCustomer(notificationData)
+        .then(() => console.log('✅ Customer confirmation sent successfully'))
+        .catch(error => console.error('❌ Failed to send customer confirmation:', error));
+    } catch (error) {
+      console.error('❌ Failed to send notifications:', error);
+      // Don't fail the COD confirmation if notifications fail
     }
 
     console.log('🎉 [COD-CONFIRM] COD booking and payment created successfully');

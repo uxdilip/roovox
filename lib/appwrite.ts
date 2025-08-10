@@ -20,10 +20,11 @@ export const COLLECTIONS = {
   USERS: process.env.NEXT_PUBLIC_APPWRITE_USERS_COLLECTION_ID || 'user',
   PROVIDERS: process.env.NEXT_PUBLIC_APPWRITE_PROVIDERS_COLLECTION_ID || 'providers',
   CUSTOMERS: process.env.NEXT_PUBLIC_APPWRITE_CUSTOMERS_COLLECTION_ID || 'customers',
-  DEVICES: process.env.NEXT_PUBLIC_APPWRITE_DEVICES_COLLECTION_ID || 'devices',
+  // Use the collections that actually exist
+  DEVICES: process.env.NEXT_PUBLIC_APPWRITE_DEVICES_COLLECTION_ID || 'phones', // Use phones as default
   PHONES: process.env.NEXT_PUBLIC_APPWRITE_PHONES_COLLECTION_ID || 'phones',
   LAPTOPS: process.env.NEXT_PUBLIC_APPWRITE_LAPTOPS_COLLECTION_ID || 'laptops',
-  SERVICES: process.env.NEXT_PUBLIC_APPWRITE_SERVICES_COLLECTION_ID || 'services',
+  SERVICES: process.env.NEXT_PUBLIC_APPWRITE_SERVICES_COLLECTION_ID || 'custom_series_services', // Use custom_series_services as default
   BOOKINGS: process.env.NEXT_PUBLIC_APPWRITE_BOOKINGS_COLLECTION_ID || 'bookings',
   MESSAGES: process.env.NEXT_PUBLIC_APPWRITE_MESSAGES_COLLECTION_ID || 'messages',
   PAYMENTS: process.env.NEXT_PUBLIC_APPWRITE_PAYMENTS_COLLECTION_ID || 'payments',

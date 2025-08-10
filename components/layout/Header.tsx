@@ -25,7 +25,9 @@ import {
   Search,
   Bell,
   Home,
-  Wrench
+  Wrench,
+  Menu,
+  X
 } from 'lucide-react';
 
 import { useLocation } from '@/contexts/LocationContext';
@@ -41,6 +43,7 @@ export function Header() {
   const [locationModalOpen, setLocationModalOpen] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [isLoadingName, setIsLoadingName] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Smart logo navigation based on user role
   const getLogoHref = () => {
@@ -88,6 +91,11 @@ export function Header() {
 
   const handleLogout = () => {
     logout();
+    setMobileMenuOpen(false);
+  };
+
+  const closeMobileMenu = () => {
+    setMobileMenuOpen(false);
   };
 
   return (
@@ -100,8 +108,8 @@ export function Header() {
             <Logo href={getLogoHref()} size="md" />
           </div>
 
-          {/* Center Section - Navigation or Search */}
-          <div className="flex-1 flex justify-center px-4">
+          {/* Center Section - Navigation or Search (Hidden on mobile) */}
+          <div className="hidden md:flex flex-1 justify-center px-4">
             {user ? (
               // Logged in users see search bar
               <div className="w-full max-w-2xl">
@@ -123,11 +131,11 @@ export function Header() {
           </div>
 
           {/* Right Section */}
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2 md:space-x-3">
             
-            {/* Location Selector */}
+            {/* Location Selector - Hidden on mobile */}
             <button
-              className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              className="hidden sm:flex items-center space-x-2 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
               onClick={() => setLocationModalOpen(true)}
             >
               <MapPin className="h-4 w-4 text-primary" />
@@ -139,35 +147,32 @@ export function Header() {
             {isLoading ? (
               <div className="flex items-center space-x-2">
                 <div className="w-8 h-8 bg-gray-200 rounded-full animate-pulse" />
-                <div className="w-20 h-4 bg-gray-200 rounded animate-pulse" />
+                <div className="hidden sm:block w-20 h-4 bg-gray-200 rounded animate-pulse" />
               </div>
             ) : user ? (
               // Logged in user menu
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-2 md:space-x-3">
                 
-                {/* Notifications */}
-                <Button variant="ghost" size="sm">
+                {/* Notifications - Hidden on mobile */}
+                <Button variant="ghost" size="sm" className="hidden sm:flex">
                   <Bell className="h-4 w-4" />
                 </Button>
 
-                {/* User Menu */}
+                {/* User Menu - Hidden on mobile */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="flex items-center space-x-2 hover:bg-gray-100">
+                    <Button variant="ghost" className="hidden md:flex items-center space-x-2 hover:bg-gray-100">
                       <Avatar className="h-8 w-8">
                         <AvatarImage src="" alt={displayName} />
                         <AvatarFallback className="bg-primary/10 text-primary">
                           {isLoadingName ? '...' : displayName.charAt(0).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
-                      <div className="hidden sm:flex flex-col items-start">
+                      <div className="hidden lg:flex flex-col items-start">
                         <span className="text-sm font-medium text-gray-900">
                           {isLoadingName ? 'Loading...' : displayName}
                         </span>
                         <div className="flex items-center gap-1">
-                          <span className="text-xs text-gray-500 capitalize">
-                            {activeRole}
-                          </span>
                           <Badge variant="outline" className="text-xs">
                             {activeRole === 'provider' ? 'Provider' : 'Customer'}
                           </Badge>
@@ -215,8 +220,8 @@ export function Header() {
                 </DropdownMenu>
               </div>
             ) : (
-              // Non-logged in user buttons (Zomato/Urban Company pattern)
-              <div className="flex items-center space-x-2">
+              // Non-logged in user buttons (Hidden on mobile)
+              <div className="hidden md:flex items-center space-x-2">
                 <Button variant="ghost" onClick={() => router.push('/login')}>
                   Sign In
                 </Button>
@@ -225,8 +230,145 @@ export function Header() {
                 </Button>
               </div>
             )}
+
+            {/* Mobile Menu Toggle */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="md:hidden"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            >
+              {mobileMenuOpen ? (
+                <X className="h-5 w-5" />
+              ) : (
+                <Menu className="h-5 w-5" />
+              )}
+            </Button>
           </div>
         </div>
+
+        {/* Mobile Search Bar - Show below header on mobile */}
+        {user && (
+          <div className="md:hidden pb-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search for services..."
+                className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Mobile Menu */}
+        {mobileMenuOpen && (
+          <div className="md:hidden border-t bg-white">
+            <div className="py-4 space-y-4">
+              {/* Location Selector */}
+              <button
+                className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors w-full"
+                onClick={() => {
+                  setLocationModalOpen(true);
+                  closeMobileMenu();
+                }}
+              >
+                <MapPin className="h-4 w-4 text-primary" />
+                <span>{location?.city || 'Select Location'}</span>
+                <ChevronDown className="h-3 w-3 text-gray-400 ml-auto" />
+              </button>
+
+              {user ? (
+                // Logged in user mobile menu
+                <div className="space-y-2">
+                  {/* Notifications */}
+                  <Button variant="ghost" className="w-full justify-start">
+                    <Bell className="h-4 w-4 mr-3" />
+                    Notifications
+                  </Button>
+
+                  {/* User Info */}
+                  <div className="px-4 py-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src="" alt={displayName} />
+                        <AvatarFallback className="bg-primary/10 text-primary">
+                          {isLoadingName ? '...' : displayName.charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">
+                          {isLoadingName ? 'Loading...' : displayName}
+                        </p>
+                        <p className="text-xs text-gray-500 capitalize">
+                          {activeRole}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Navigation Links */}
+                  <div className="space-y-1">
+                    {activeRole === 'customer' && (
+                      <Link
+                        href="/customer/dashboard"
+                        className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                        onClick={closeMobileMenu}
+                      >
+                        <Home className="h-4 w-4 mr-3" />
+                        Dashboard
+                      </Link>
+                    )}
+                    
+                    {activeRole === 'provider' && (
+                      <Link
+                        href="/provider/dashboard"
+                        className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                        onClick={closeMobileMenu}
+                      >
+                        <Home className="h-4 w-4 mr-3" />
+                        Dashboard
+                      </Link>
+                    )}
+
+                    {/* Logout */}
+                    <button
+                      onClick={handleLogout}
+                      className="flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors w-full"
+                    >
+                      <LogOut className="h-4 w-4 mr-3" />
+                      Logout
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                // Non-logged in user mobile menu
+                <div className="space-y-2">
+                  <Button 
+                    variant="ghost" 
+                    className="w-full justify-start"
+                    onClick={() => {
+                      router.push('/login');
+                      closeMobileMenu();
+                    }}
+                  >
+                    Sign In
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start"
+                    onClick={() => {
+                      router.push('/providers');
+                      closeMobileMenu();
+                    }}
+                  >
+                    Become a Provider
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Location Modal */}

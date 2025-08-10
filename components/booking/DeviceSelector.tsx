@@ -21,39 +21,63 @@ export function DeviceSelector({ onDeviceSelect }: DeviceSelectorProps) {
   const [selectedBrand, setSelectedBrand] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Function to get device image URL
-  const getDeviceImage = (brand: string, model: string, category: string) => {
-    const brandLower = brand.toLowerCase();
-    const modelLower = model.toLowerCase().replace(/[^a-z0-9]/g, '');
+  // Brand logo mapping function
+  const getBrandLogo = (brand: string): string => {
+    // Map brand names to their logo files (matching exact filenames in assets)
+    const brandLogos: { [key: string]: string } = {
+      // Phone brands
+      'apple': '/assets/brand-logos/apple.png',
+      'samsung': '/assets/brand-logos/samsung.png',
+      'xiaomi': '/assets/brand-logos/mi.png',
+      'mi': '/assets/brand-logos/mi.png',
+      'oneplus': '/assets/brand-logos/oneplus.png',
+      'vivo': '/assets/brand-logos/vivo.png',
+      'oppo': '/assets/brand-logos/oppo.png',
+      'realme': '/assets/brand-logos/realme.png',
+      'nothing': '/assets/brand-logos/Nothing.png',
+      'google': '/assets/brand-logos/google.png',
+      'motorola': '/assets/brand-logos/motorola.png',
+      'poco': '/assets/brand-logos/poco.jpg',
+      'honor': '/assets/brand-logos/Honor.png',
+      'nokia': '/assets/brand-logos/Nokia.png',
+      'asus': '/assets/brand-logos/Asus.png',
+      
+      // Laptop brands
+      'dell': '/assets/brand-logos/dell.png',
+      'hp': '/assets/brand-logos/hp.png',
+      'lenovo': '/assets/brand-logos/lenovo.png',
+      'acer': '/assets/brand-logos/acer.png',
+      'msi': '/assets/brand-logos/msi.svg',
+      'razer': '/assets/brand-logos/razer.svg',
+      'alienware': '/assets/brand-logos/alienware.svg',
+      
+      // Handle potential case variations
+      'Dell': '/assets/brand-logos/dell.png',
+      'HP': '/assets/brand-logos/hp.png',
+      'Lenovo': '/assets/brand-logos/lenovo.png',
+      'Acer': '/assets/brand-logos/acer.png',
+      'MSI': '/assets/brand-logos/msi.svg',
+      'Razer': '/assets/brand-logos/razer.svg',
+      'Alienware': '/assets/brand-logos/alienware.svg',
+      'ASUS': '/assets/brand-logos/Asus.png'
+    };
     
+    // First try exact match, then lowercase match, then fallback
+    return brandLogos[brand] || brandLogos[brand.toLowerCase()] || '/assets/brand-placeholder.svg';
+  };
+
+  // Function to get device image URL - uses single model image for phones, existing logic for laptops
+  const getDeviceImage = (brand: string, model: string, category: string) => {
+    // For phones, use single model image
     if (category === 'phone') {
-      if (brandLower === 'apple') {
-        if (modelLower.includes('iphone15promax')) return 'https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-15-pro-finish-select-202309-6-7inch-natural_titanium?wid=5120&hei=2880&fmt=p-jpg&qlt=80&.v=1693009283804';
-        if (modelLower.includes('iphone15pro')) return 'https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-15-pro-finish-select-202309-6-1inch-natural_titanium?wid=5120&hei=2880&fmt=p-jpg&qlt=80&.v=1693009283804';
-        if (modelLower.includes('iphone15')) return 'https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-15-finish-select-202309-6-1inch-blue?wid=5120&hei=2880&fmt=p-jpg&qlt=80&.v=1693009283804';
-        if (modelLower.includes('iphone14promax')) return 'https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-14-pro-finish-select-202209-6-7inch-deep-purple?wid=5120&hei=2880&fmt=p-jpg&qlt=80&.v=1663704191891';
-        if (modelLower.includes('iphone14pro')) return 'https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-14-pro-finish-select-202209-6-1inch-deep-purple?wid=5120&hei=2880&fmt=p-jpg&qlt=80&.v=1663704191891';
-        if (modelLower.includes('iphone14')) return 'https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-14-finish-select-202209-6-1inch-blue?wid=5120&hei=2880&fmt=p-jpg&qlt=80&.v=1661950402798';
-        if (modelLower.includes('iphone13promax')) return 'https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-13-pro-max-sierra-blue-select?wid=5120&hei=2880&fmt=p-jpg&qlt=80&.v=1631652956000';
-        if (modelLower.includes('iphone13pro')) return 'https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-13-pro-alpine-green-select?wid=5120&hei=2880&fmt=p-jpg&qlt=80&.v=1644969385495';
-        if (modelLower.includes('iphone13')) return 'https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-13-pink-select?wid=5120&hei=2880&fmt=p-jpg&qlt=80&.v=1631652956000';
-        if (modelLower.includes('iphone12promax')) return 'https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-12-pro-max-pacific-blue?wid=5120&hei=2880&fmt=p-jpg&qlt=80&.v=1603298667000';
-        if (modelLower.includes('iphone12pro')) return 'https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-12-pro-graphite-hero?wid=5120&hei=2880&fmt=p-jpg&qlt=80&.v=1603298667000';
-        if (modelLower.includes('iphone12')) return 'https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-12-black-select?wid=5120&hei=2880&fmt=p-jpg&qlt=80&.v=1603298667000';
-      } else if (brandLower === 'samsung') {
-        if (modelLower.includes('galaxys24ultra')) return 'https://images.samsung.com/is/image/samsung/p6pim/latin/2308/gallery/latin-galaxy-s24-s928-sm-s928bzgcgto-534866-sm-s928bzgcgto-thumb-537243926';
-        if (modelLower.includes('galaxys24')) return 'https://images.samsung.com/is/image/samsung/p6pim/latin/2308/gallery/latin-galaxy-s24-s921-sm-s921bzgcgto-534866-sm-s921bzgcgto-thumb-537243926';
-        if (modelLower.includes('galaxys23ultra')) return 'https://images.samsung.com/is/image/samsung/p6pim/latin/2302/gallery/latin-galaxy-s23-s918-sm-s918bzgcgto-534866-sm-s918bzgcgto-thumb-537243926';
-        if (modelLower.includes('galaxys23')) return 'https://images.samsung.com/is/image/samsung/p6pim/latin/2302/gallery/latin-galaxy-s23-s911-sm-s911bzgcgto-534866-sm-s911bzgcgto-thumb-537243926';
-        if (modelLower.includes('galaxys22ultra')) return 'https://images.samsung.com/is/image/samsung/p6pim/latin/2202/gallery/latin-galaxy-s22-s908-sm-s908bzgcgto-534866-sm-s908bzgcgto-thumb-537243926';
-        if (modelLower.includes('galaxys22')) return 'https://images.samsung.com/is/image/samsung/p6pim/latin/2202/gallery/latin-galaxy-s22-s901-sm-s901bzgcgto-534866-sm-s901bzgcgto-thumb-537243926';
-      } else if (brandLower === 'google') {
-        if (modelLower.includes('pixel8pro')) return 'https://lh3.googleusercontent.com/3TSaKxXck2ALBIht9-sqHkHHpV1hLYa7FjiqO18JqQNshyZQDEjJc0-M5XKwc_4uOPG4j9YVEmn0txM5eVOq5TA=rw-e365-w1440';
-        if (modelLower.includes('pixel8')) return 'https://lh3.googleusercontent.com/3TSaKxXck2ALBIht9-sqHkHHpV1hLYa7FjiqO18JqQNshyZQDEjJc0-M5XKwc_4uOPG4j9YVEmn0txM5eVOq5TA=rw-e365-w1440';
-        if (modelLower.includes('pixel7pro')) return 'https://lh3.googleusercontent.com/3TSaKxXck2ALBIht9-sqHkHHpV1hLYa7FjiqO18JqQNshyZQDEjJc0-M5XKwc_4uOPG4j9YVEmn0txM5eVOq5TA=rw-e365-w1440';
-        if (modelLower.includes('pixel7')) return 'https://lh3.googleusercontent.com/3TSaKxXck2ALBIht9-sqHkHHpV1hLYa7FjiqO18JqQNshyZQDEjJc0-M5XKwc_4uOPG4j9YVEmn0txM5eVOq5TA=rw-e365-w1440';
-      }
-    } else if (category === 'laptop') {
+      return '/assets/model-image.jpg';
+    }
+    
+    // For laptops, keep existing logic
+    if (category === 'laptop') {
+      const brandLower = brand.toLowerCase();
+      const modelLower = model.toLowerCase().replace(/[^a-z0-9]/g, '');
+      
       if (brandLower === 'apple') {
         if (modelLower.includes('macbookpro16')) return 'https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/mbp16-spacegray-select-202310?wid=904&hei=840&fmt=jpeg&qlt=90&.v=1697311054290';
         if (modelLower.includes('macbookpro14')) return 'https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/mbp14-spacegray-select-202310?wid=904&hei=840&fmt=jpeg&qlt=90&.v=1697311054290';
@@ -71,18 +95,16 @@ export function DeviceSelector({ onDeviceSelect }: DeviceSelectorProps) {
         if (modelLower.includes('envy14')) return 'https://ssl-product-images.www8-hp.com/digmedialib/prodimg/lowres/c08132951.png';
         if (modelLower.includes('pavilion15')) return 'https://ssl-product-images.www8-hp.com/digmedialib/prodimg/lowres/c08132951.png';
       } else if (brandLower === 'lenovo') {
-        if (modelLower.includes('thinkpadx1carbon')) return 'https://www.lenovo.com/medias/lenovo-laptop-thinkpad-x1-carbon-gen-11-14-intel-hero.png?context=bWFzdGVyfHJvb3R8MzQ1OTY2fGltYWdlL3BuZ3xoNWEvaGYwLzEzMjU1MTc1ODUwMzU4LnBuZ3wzZWI3ZTFmOTQ3Njg0ZWM4ZjRjY2M1NzFkZGNjYzFjYzA5ZWM4YzA1YzA1YzA1YzA1YzA1YzA1YzA1YzA1YzA1';
-        if (modelLower.includes('thinkpadx1yoga')) return 'https://www.lenovo.com/medias/lenovo-laptop-thinkpad-x1-yoga-gen-8-14-intel-hero.png?context=bWFzdGVyfHJvb3R8MzQ1OTY2fGltYWdlL3BuZ3xoNWEvaGYwLzEzMjU1MTc1ODUwMzU4LnBuZ3wzZWI3ZTFmOTQ3Njg0ZWM4ZjRjY2M1NzFkZGNjYzFjYzA5ZWM4YzA1YzA1YzA1YzA1YzA1YzA1YzA1YzA1YzA1YzA1';
+        if (modelLower.includes('thinkpadx1carbon')) return 'https://www.lenovo.com/medias/lenovo-laptop-thinkpad-x1-carbon-gen-11-14-intel-hero.png?context=bWFzdGVyfHJvb3R8MzQ1OTY2fGltYWdlL3BuZ3xoNWEvaGYwLzEzMjU1MTc1ODUwMzU4LnBuZ3wzZWI3ZTFmOTQ3Njg0ZWM4ZjRjY2M1NzFkZGNjYzFjYzA5ZWM4YzA1YzA1YzA1YzA1YzA1YzA1YzA1YzA1YzA1YzA1YzA1';
+        if (modelLower.includes('thinkpadx1yoga')) return 'https://www.lenovo.com/medias/lenovo-laptop-thinkpad-x1-yoga-gen-8-14-intel-hero.png?context=bWFzdGVyfHJvb3R8MzQ1OTY2fGltYWdlL3BuZ3xoNWEvaGYwLzEzMjU1MTc1ODUwMzU4LnBuZ3wzZWI3ZTFmOTQ3Njg0ZWM4ZjRjY2M1NzFkZGNjYzFjYzA5ZWM4YzA1YzA1YzA1YzA1YzA1YzA1YzA1YzA1YzA1YzA1YzA1';
         if (modelLower.includes('thinkpadt14')) return 'https://www.lenovo.com/medias/lenovo-laptop-thinkpad-t14-gen-4-14-intel-hero.png?context=bWFzdGVyfHJvb3R8MzQ1OTY2fGltYWdlL3BuZ3xoNWEvaGYwLzEzMjU1MTc1ODUwMzU4LnBuZ3wzZWI3ZTFmOTQ3Njg0ZWM4ZjRjY2M1NzFkZGNjYzFjYzA5ZWM4YzA1YzA1YzA1YzA1YzA1YzA1YzA1YzA1YzA1';
-        if (modelLower.includes('yoga9i')) return 'https://www.lenovo.com/medias/lenovo-laptop-yoga-9i-gen-8-14-intel-hero.png?context=bWFzdGVyfHJvb3R8MzQ1OTY2fGltYWdlL3BuZ3xoNWEvaGYwLzEzMjU1MTc1ODUwMzU4LnBuZ3wzZWI3ZTFmOTQ3Njg0ZWM4ZjRjY2M1NzFkZGNjYzFjYzA5ZWM4YzA1YzA1YzA1YzA1YzA1YzA1YzA1YzA1YzA1';
+        if (modelLower.includes('yoga9i')) return 'https://www.lenovo.com/medias/lenovo-laptop-thinkpad-x1-yoga-gen-8-14-intel-hero.png?context=bWFzdGVyfHJvb3R8MzQ1OTY2fGltYWdlL3BuZ3xoNWEvaGYwLzEzMjU1MTc1ODUwMzU4LnBuZ3wzZWI3ZTFmOTQ3Njg0ZWM4ZjRjY2M1NzFkZGNjYzFjYzA5ZWM4YzA1YzA1YzA1YzA1YzA1YzA1YzA1YzA1YzA1';
         if (modelLower.includes('ideapad5')) return 'https://www.lenovo.com/medias/lenovo-laptop-ideapad-5-15-amd-hero.png?context=bWFzdGVyfHJvb3R8MzQ1OTY2fGltYWdlL3BuZ3xoNWEvaGYwLzEzMjU1MTc1ODUwMzU4LnBuZ3wzZWI3ZTFmOTQ3Njg0ZWM4ZjRjY2M1NzFkZGNjYzFjYzA5ZWM4YzA1YzA1YzA1YzA1YzA1YzA1YzA1YzA1YzA1';
       }
     }
     
-    // Default fallback image
-    return category === 'phone' 
-      ? 'https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-15-finish-select-202309-6-1inch-blue?wid=5120&hei=2880&fmt=p-jpg&qlt=80&.v=1693009283804'
-      : 'https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/mbp14-spacegray-select-202310?wid=904&hei=840&fmt=jpeg&qlt=90&.v=1697311054290';
+    // Default fallback image for laptops
+    return 'https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/mbp14-spacegray-select-202310?wid=904&hei=840&fmt=jpeg&qlt=90&.v=1697311054290';
   };
 
   // Remove mock data for demonstration
@@ -129,7 +151,7 @@ export function DeviceSelector({ onDeviceSelect }: DeviceSelectorProps) {
           {[1, 2].map((i) => (
             <Card key={i} className="animate-pulse">
               <CardContent className="p-6">
-                <div className="h-20 bg-gray-200 rounded"></div>
+                <div className="h-20 bg-white rounded border"></div>
               </CardContent>
             </Card>
           ))}
@@ -156,7 +178,7 @@ export function DeviceSelector({ onDeviceSelect }: DeviceSelectorProps) {
                 onClick={() => setSelectedCategory(category.id as 'phone' | 'laptop')}
               >
                 <CardContent className="p-6 text-center">
-                  <div className="relative w-full h-32 bg-gray-100 rounded-lg overflow-hidden mb-4">
+                  <div className="relative w-full h-32 bg-white rounded-lg overflow-hidden mb-4 border">
                     <Image
                       src={category.id === 'phone' 
                         ? 'https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-15-finish-select-202309-6-1inch-blue?wid=5120&hei=2880&fmt=p-jpg&qlt=80&.v=1693009283804'
@@ -179,7 +201,7 @@ export function DeviceSelector({ onDeviceSelect }: DeviceSelectorProps) {
       {selectedCategory && !selectedBrand && (
         <div className="space-y-8">
           {/* Modern Breadcrumbs (no highlight) */}
-          <nav className="mb-6 bg-gray-50/80 rounded-xl px-6 py-3 shadow-sm flex items-center" aria-label="Breadcrumb">
+          <nav className="mb-6 bg-white/80 rounded-xl px-6 py-3 shadow-sm flex items-center border" aria-label="Breadcrumb">
             <ol className="flex items-center text-base font-medium text-gray-500 gap-2 md:gap-3">
               <li>
                 <Link href="/" className="hover:text-primary transition-colors">Home</Link>
@@ -212,16 +234,16 @@ export function DeviceSelector({ onDeviceSelect }: DeviceSelectorProps) {
                   style={{ minHeight: 120 }}
               >
                   <CardContent className="p-6 flex flex-col items-center justify-center">
-                    <div className="relative w-20 h-12 bg-gray-100 rounded-lg overflow-hidden mb-3 flex items-center justify-center">
+                    <div className="relative w-20 h-12 rounded-lg overflow-hidden mb-3 flex items-center justify-center">
                     <Image
-                        src={`/assets/brand-logos/${brand.toLowerCase().replace(/\s/g, '-')}.svg`}
+                        src={getBrandLogo(brand)}
                       alt={brand}
                         width={80}
                         height={48}
                         className="object-contain h-12 mx-auto"
                         onError={(e) => {
                           e.currentTarget.onerror = null;
-                          e.currentTarget.src = '/assets/brand-placeholder.png';
+                          e.currentTarget.src = '/assets/brand-placeholder.svg';
                         }}
                     />
                   </div>
@@ -280,7 +302,7 @@ export function DeviceSelector({ onDeviceSelect }: DeviceSelectorProps) {
                 onClick={() => onDeviceSelect(model)}
               >
                 <CardContent className="p-6 text-center">
-                  <div className="relative w-full h-32 bg-gray-100 rounded-lg overflow-hidden mb-4">
+                  <div className="relative w-full h-32 bg-white rounded-lg overflow-hidden mb-4 border">
                       <Image
                       src={getDeviceImage(model.brand, model.model, model.category)}
                       alt={model.model}

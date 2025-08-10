@@ -55,23 +55,33 @@ export async function POST(request: NextRequest) {
       }
     );
 
-    // Send notifications asynchronously (don't block the response)
-    try {
-      const notificationData = await buildNotificationData(booking);
-      
-      // Send new booking notification to provider
-      NotificationService.sendNewBookingNotificationToProvider(notificationData)
-        .catch(error => console.error('Failed to send provider notification:', error));
-      
-      // If booking is confirmed, send confirmation to customer
-      if (bookingData.status === 'confirmed') {
-        NotificationService.sendBookingConfirmationToCustomer(notificationData)
-          .catch(error => console.error('Failed to send customer confirmation:', error));
+          // Send notifications asynchronously (don't block the response)
+      try {
+        console.log('🔔 Starting notification process for new booking...');
+        const notificationData = await buildNotificationData(booking);
+        console.log('📧 Notification data built:', {
+          customerEmail: notificationData.customerEmail,
+          providerEmail: notificationData.providerEmail,
+          bookingId: notificationData.bookingId
+        });
+
+        // Send new booking notification to provider
+        console.log('📤 Sending provider notification...');
+        NotificationService.sendNewBookingNotificationToProvider(notificationData)
+          .then(() => console.log('✅ Provider notification sent successfully'))
+          .catch(error => console.error('❌ Failed to send provider notification:', error));
+
+        // If booking is confirmed, send confirmation to customer
+        if (bookingData.status === 'confirmed') {
+          console.log('📤 Sending customer confirmation...');
+          NotificationService.sendBookingConfirmationToCustomer(notificationData)
+            .then(() => console.log('✅ Customer confirmation sent successfully'))
+            .catch(error => console.error('❌ Failed to send customer confirmation:', error));
+        }
+      } catch (error) {
+        console.error('❌ Failed to send notifications:', error);
+        // Don't fail the booking creation if notifications fail
       }
-    } catch (error) {
-      console.error('Failed to send notifications:', error);
-      // Don't fail the booking creation if notifications fail
-    }
 
     return NextResponse.json({ success: true, booking });
   } catch (error: any) {

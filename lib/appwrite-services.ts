@@ -1003,6 +1003,10 @@ export const getBrandsByCategory = async (category: 'phone' | 'laptop'): Promise
       { key: 'Nothing', label: 'Nothing' },
       { key: 'Google', label: 'Google' },
       { key: 'Motorola', label: 'Motorola' },
+      { key: 'Poco', label: 'Poco' },
+      { key: 'Honor', label: 'Honor' },
+      { key: 'Nokia', label: 'Nokia' },
+      { key: 'Asus', label: 'Asus' },
     ] : [
       { key: 'Apple', label: 'Apple' },
       { key: 'Dell', label: 'Dell' },
@@ -1029,6 +1033,12 @@ export const getBrandsByCategory = async (category: 'phone' | 'laptop'): Promise
       { key: 'Oppo', label: 'Oppo' },
       { key: 'Vivo', label: 'Vivo' },
       { key: 'Nothing', label: 'Nothing' },
+      { key: 'Google', label: 'Google' },
+      { key: 'Motorola', label: 'Motorola' },
+      { key: 'Poco', label: 'Poco' },
+      { key: 'Honor', label: 'Honor' },
+      { key: 'Nokia', label: 'Nokia' },
+      { key: 'Asus', label: 'Asus' },
     ] : [
       { key: 'Apple', label: 'Apple' },
       { key: 'Dell', label: 'Dell' },

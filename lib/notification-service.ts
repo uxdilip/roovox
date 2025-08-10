@@ -36,18 +36,32 @@ export class NotificationService {
       }
 
       const { data, error } = await resend.emails.send({
-        from: 'onboarding@resend.dev',
+        from: process.env.RESEND_FROM_EMAIL || 'notifications@sniket.com', // Use environment variable or fallback
         to: [to],
         subject,
         html: htmlContent,
       });
 
       if (error) {
+        // Log the error structure for debugging
+        console.error('🔍 Resend error structure:', {
+          error,
+          errorType: typeof error,
+          errorKeys: Object.keys(error),
+          errorValues: Object.values(error)
+        });
         throw error;
       }
 
       return data;
     } catch (error: any) {
+      // Log the caught error structure for debugging
+      console.error('🔍 Caught error in sendEmail:', {
+        error,
+        errorType: typeof error,
+        errorKeys: Object.keys(error),
+        errorValues: Object.values(error)
+      });
       throw error;
     }
   }
@@ -74,8 +88,8 @@ export class NotificationService {
         emailHtml
       );
 
-    } catch (error) {
-      throw new Error(`Booking confirmation failed: ${error.message}`);
+    } catch (error: any) {
+      throw new Error(`Booking confirmation failed: ${error.message || error.toString() || 'Unknown error'}`);
     }
   }
 
@@ -102,7 +116,39 @@ export class NotificationService {
         emailHtml
       );
     } catch (error: any) {
-      throw new Error(`New booking notification failed: ${error.message}`);
+      console.error('🔍 Detailed error in sendNewBookingNotificationToProvider:', {
+        error,
+        errorType: typeof error,
+        errorMessage: error.message,
+        errorString: error.toString(),
+        errorKeys: Object.keys(error),
+        errorValues: Object.values(error)
+      });
+      
+      // Better error message extraction
+      let errorMessage = 'Unknown error';
+      if (error && typeof error === 'object') {
+        if (error.message) {
+          errorMessage = error.message;
+        } else if (error.statusCode) {
+          errorMessage = `HTTP ${error.statusCode}: ${error.message || 'Request failed'}`;
+        } else if (error.code) {
+          errorMessage = `Code ${error.code}: ${error.message || 'Request failed'}`;
+        } else {
+          // Try to extract any useful information from the error object
+          const errorInfo = Object.entries(error)
+            .filter(([key, value]) => value && typeof value === 'string')
+            .map(([key, value]) => `${key}: ${value}`)
+            .join(', ');
+          if (errorInfo) {
+            errorMessage = errorInfo;
+          }
+        }
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      
+      throw new Error(`New booking notification failed: ${errorMessage}`);
     }
   }
 
@@ -123,8 +169,8 @@ export class NotificationService {
         emailHtml
       );
 
-    } catch (error) {
-      throw new Error(`Service started notification failed: ${error.message}`);
+    } catch (error: any) {
+      throw new Error(`Service started notification failed: ${error.message || error.toString() || 'Unknown error'}`);
     }
   }
 
@@ -145,8 +191,8 @@ export class NotificationService {
         emailHtml
       );
 
-    } catch (error) {
-      throw new Error(`Service completed notification failed: ${error.message}`);
+    } catch (error: any) {
+      throw new Error(`Service completed notification failed: ${error.message || error.toString() || 'Unknown error'}`);
     }
   }
 
@@ -168,8 +214,8 @@ export class NotificationService {
         emailHtml
       );
 
-    } catch (error) {
-      throw new Error(`Booking cancelled notification failed: ${error.message}`);
+    } catch (error: any) {
+      throw new Error(`Booking cancelled notification failed: ${error.message || error.toString() || 'Unknown error'}`);
     }
   }
 } 
