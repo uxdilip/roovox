@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
       total: PHONE_DATA.length,
       created: results.filter(r => r.status === 'created').length,
       skipped: results.filter(r => r.status === 'skipped').length,
-      errors: errors.length,
+      errorCount: errors.length,
       results,
       errors
     };
