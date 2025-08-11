@@ -90,7 +90,11 @@ export default function QuickSeriesSetup({ providerId, onSuccess, onCancel }: Qu
         [Query.equal("category_id", category.$id)]
       );
 
-      setIssues(issuesRes.documents as IssueData[]);
+      setIssues(issuesRes.documents.map(doc => ({
+        $id: doc.$id,
+        name: doc.name || '',
+        type: doc.type || ''
+      })));
       
       // Initialize pricing for all issues
       const initialPricing: Record<string, { price: number; warranty: string }> = {};
