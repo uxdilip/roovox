@@ -73,7 +73,7 @@ export const NewBookingNotificationEmail = ({
 
             <Section style={customerInfo}>
               <Text style={sectionTitle}>Customer Information</Text>
-              <Text style={customerName}>{customerName}</Text>
+              <Text style={customerNameStyle}>{customerName}</Text>
               <Text style={customerContact}>📞 {customerPhone}</Text>
             </Section>
 
@@ -192,7 +192,7 @@ const sectionTitle = {
   marginBottom: '12px',
 };
 
-const customerName = {
+const customerNameStyle = {
   fontSize: '16px',
   fontWeight: 'bold',
   color: '#1f2937',
