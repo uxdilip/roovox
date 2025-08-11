@@ -5,13 +5,12 @@ import { Users, BarChart3, Plus, Copy } from "lucide-react";
 interface ServicesQuickActionsProps {
   onCustomSeries: () => void;
   onAddService: () => void;
-  onPlatformSeries: () => void;
+  // onPlatformSeries: () => void; // Temporarily hidden
 }
 
 export default function ServicesQuickActions({
   onCustomSeries,
-  onAddService,
-  onPlatformSeries
+  onAddService
 }: ServicesQuickActionsProps) {
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-6">
@@ -21,7 +20,8 @@ export default function ServicesQuickActions({
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <Button 
+        {/* Platform Series temporarily hidden - will fix later */}
+        {/* <Button 
           onClick={onPlatformSeries} 
           className="h-auto p-4 flex flex-col items-start gap-3 text-left bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-colors"
         >
@@ -34,7 +34,7 @@ export default function ServicesQuickActions({
               <div className="text-sm text-gray-600">Use & customize templates</div>
             </div>
           </div>
-        </Button>
+        </Button> */}
 
         <Button 
           onClick={onCustomSeries} 
