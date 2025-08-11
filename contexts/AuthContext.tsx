@@ -5,6 +5,7 @@ import { account, databases, DATABASE_ID, COLLECTIONS } from '@/lib/appwrite';
 import { ID } from 'appwrite';
 import { User } from '@/types';
 import { createUserDocument, getUserByUserId, updateUserActiveRole, addProviderRoleToUser } from '@/lib/appwrite-services';
+import { detectUserRoles, getRedirectPath, getCrossRoleMessage } from '@/lib/role-detection';
 import { useRouter } from 'next/navigation';
 import { useLocation } from './LocationContext';
 import { Query } from 'appwrite';
@@ -26,6 +27,7 @@ interface AuthContextType {
   activeRole: 'customer' | 'provider';
   setActiveRole: (role: 'customer' | 'provider') => Promise<void>;
   refreshSession: () => Promise<void>;
+  refreshUserData: () => Promise<void>;
   showLocationPrompt: boolean;
   setShowLocationPrompt: React.Dispatch<React.SetStateAction<boolean>>;
   // New rate limiting methods
@@ -147,12 +149,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
           const activeRole = mergedRoles.includes('provider') ? 'provider' : 'customer';
           const location = (locationContext.location || {}) as any;
+          
+          // Check if user needs phone onboarding (Google OAuth users)
+          const userPhone = session.phone || '';
+          const isProviderLogin = typeof window !== 'undefined' && localStorage.getItem('loginAsProvider') === '1';
+          
+          // Use role detection to determine if user needs onboarding
+          const roleResult = await detectUserRoles(session.$id, isProviderLogin, userPhone);
+          const needsPhoneOnboarding = roleResult.needsPhoneOnboarding;
+          const needsProviderOnboarding = roleResult.needsProviderOnboarding;
+          
           // Location context loaded
           const userData: User = {
             id: session.$id,
             name: session.name || 'User',
             email: session.email || `user_${session.$id}@noemail.local`,
-            phone: session.phone || '',
+            phone: userPhone,
             role: activeRole as 'customer' | 'provider',
             address: {
               street: '',
@@ -166,6 +178,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(userData);
           setRoles(mergedRoles);
           setActiveRoleState(activeRole as 'customer' | 'provider');
+          
+          // Check if user needs to be redirected to onboarding
+          if (needsPhoneOnboarding && !isProviderLogin && typeof window !== 'undefined') {
+            const currentPath = window.location.pathname;
+            if (currentPath !== '/customer/onboarding') {
+              console.log('🔄 Google OAuth user needs phone onboarding, redirecting...');
+              router.push('/customer/onboarding');
+            }
+          }
+          
+          // Check if provider needs to be redirected to onboarding
+          if (needsProviderOnboarding && isProviderLogin && typeof window !== 'undefined') {
+            const currentPath = window.location.pathname;
+            if (currentPath !== '/provider/onboarding') {
+              console.log('🔄 Google OAuth provider needs onboarding, redirecting...');
+              router.push('/provider/onboarding');
+            }
+          }
+          
           if (location?.city) {
             setLocation(location);
             setShowLocationPrompt(false);
@@ -375,7 +406,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await checkAuth();
     } catch (error) {
       console.error('Error refreshing session:', error);
-      await logout();
+      // Don't automatically logout on session update failure
+      // Just try to refresh the auth state
+      try {
+        await checkAuth();
+      } catch (checkAuthError) {
+        console.error('Error in checkAuth after session update failure:', checkAuthError);
+        // Only logout if checkAuth also fails
+        if (checkAuthError instanceof Error && checkAuthError.message.includes('session')) {
+          await logout();
+        }
+      }
+    }
+  };
+
+  const refreshUserData = async () => {
+    try {
+      await checkAuth();
+    } catch (error) {
+      console.error('Error refreshing user data:', error);
     }
   };
 
@@ -390,6 +439,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       activeRole,
       setActiveRole,
       refreshSession,
+      refreshUserData,
       showLocationPrompt,
       setShowLocationPrompt,
       canRequestOtp,

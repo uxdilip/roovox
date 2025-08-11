@@ -1478,6 +1478,43 @@ export const createCustomerProfile = async (customerData: {
         updateData
       );
       
+      // Also update the user's name and phone in the User collection
+      try {
+        console.log('🔄 Updating user name and phone in User collection...');
+        
+        // First find the User document by user_id
+        const userResponse = await databases.listDocuments(
+          DATABASE_ID,
+          'User',
+          [Query.equal('user_id', customerData.user_id), Query.limit(1)]
+        );
+        
+        if (userResponse.documents.length > 0) {
+          const userDocId = userResponse.documents[0].$id;
+          const userUpdateData: any = {
+            name: customerData.full_name
+          };
+          
+          // If this is a Google OAuth user providing phone number, update phone too
+          if (customerData.phone && customerData.phone.trim() !== '') {
+            userUpdateData.phone = customerData.phone;
+          }
+          
+          await databases.updateDocument(
+            DATABASE_ID,
+            'User',
+            userDocId,
+            userUpdateData
+          );
+          console.log('✅ User name and phone updated in User collection');
+        } else {
+          console.log('⚠️ User document not found in User collection');
+        }
+      } catch (userUpdateError) {
+        console.error('⚠️ Failed to update user name and phone:', userUpdateError);
+        // Don't throw error here as customer profile was updated successfully
+      }
+      
       console.log('✅ Customer profile updated:', updatedDoc.$id);
       return updatedDoc;
     } else {
@@ -1503,20 +1540,40 @@ export const createCustomerProfile = async (customerData: {
       
       console.log('✅ New customer profile created:', newDoc.$id);
       
-      // Also update the user's name in the User collection
+      // Also update the user's name and phone in the User collection
       try {
-        console.log('🔄 Updating user name in User collection...');
-        await databases.updateDocument(
+        console.log('🔄 Updating user name and phone in User collection...');
+        
+        // First find the User document by user_id
+        const userResponse = await databases.listDocuments(
           DATABASE_ID,
           'User',
-          customerData.user_id,
-          {
-            name: customerData.full_name
-          }
+          [Query.equal('user_id', customerData.user_id), Query.limit(1)]
         );
-        console.log('✅ User name updated in User collection');
+        
+        if (userResponse.documents.length > 0) {
+          const userDocId = userResponse.documents[0].$id;
+          const updateData: any = {
+            name: customerData.full_name
+          };
+          
+          // If this is a Google OAuth user providing phone number, update phone too
+          if (customerData.phone && customerData.phone.trim() !== '') {
+            updateData.phone = customerData.phone;
+          }
+          
+          await databases.updateDocument(
+            DATABASE_ID,
+            'User',
+            userDocId,
+            updateData
+          );
+          console.log('✅ User name and phone updated in User collection');
+        } else {
+          console.log('⚠️ User document not found in User collection');
+        }
       } catch (userUpdateError) {
-        console.error('⚠️ Failed to update user name:', userUpdateError);
+        console.error('⚠️ Failed to update user name and phone:', userUpdateError);
         // Don't throw error here as customer profile was created successfully
       }
       

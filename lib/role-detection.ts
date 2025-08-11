@@ -6,9 +6,11 @@ export interface RoleDetectionResult {
   provider: any | null;
   customer: any | null;
   isProviderLogin: boolean;
+  needsPhoneOnboarding: boolean; // For customers who need phone
+  needsProviderOnboarding: boolean; // For providers who need onboarding
 }
 
-export const detectUserRoles = async (userId: string, isProviderLogin: boolean = false): Promise<RoleDetectionResult> => {
+export const detectUserRoles = async (userId: string, isProviderLogin: boolean = false, userPhone?: string): Promise<RoleDetectionResult> => {
   try {
     // Check both provider and customer profiles
     const [provider, customer] = await Promise.all([
@@ -16,12 +18,22 @@ export const detectUserRoles = async (userId: string, isProviderLogin: boolean =
       getCustomerByUserId(userId).catch(() => null)
     ]);
 
+    // Check if user needs phone onboarding (Google OAuth customers who don't have phone)
+    const needsPhoneOnboarding = !userPhone || userPhone.trim() === '';
+    
+    // Check if provider needs onboarding (new provider or incomplete onboarding)
+    const needsProviderOnboarding = isProviderLogin && (!provider || 
+      !provider.business_name || 
+      provider.business_name === 'Your Business');
+
     return {
       hasProvider: !!provider,
       hasCustomer: !!customer,
       provider,
       customer,
-      isProviderLogin
+      isProviderLogin,
+      needsPhoneOnboarding,
+      needsProviderOnboarding
     };
   } catch (error) {
     console.error('Error detecting user roles:', error);
@@ -30,13 +42,25 @@ export const detectUserRoles = async (userId: string, isProviderLogin: boolean =
       hasCustomer: false,
       provider: null,
       customer: null,
-      isProviderLogin
+      isProviderLogin: false,
+      needsPhoneOnboarding: true,
+      needsProviderOnboarding: false
     };
   }
 };
 
 export const getRedirectPath = (roleResult: RoleDetectionResult): string => {
-  const { hasProvider, hasCustomer, isProviderLogin, provider } = roleResult;
+  const { hasProvider, hasCustomer, isProviderLogin, provider, needsPhoneOnboarding, needsProviderOnboarding } = roleResult;
+
+  // Provider login - check if onboarding is needed
+  if (isProviderLogin && needsProviderOnboarding) {
+    return '/provider/onboarding';
+  }
+
+  // Customer login - check if phone onboarding is needed (Google OAuth without phone)
+  if (!isProviderLogin && needsPhoneOnboarding) {
+    return '/customer/onboarding';
+  }
 
   if (hasProvider && hasCustomer) {
     // User has both roles - prioritize based on login context

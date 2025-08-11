@@ -34,7 +34,7 @@ const FinishStep: React.FC<FinishStepProps> = ({ data, onPrev }) => {
   const [onboardingData, setOnboardingData] = useState<any>(null);
   const [dataLoading, setDataLoading] = useState(true);
   const router = useRouter();
-  const { user, refreshSession } = useAuth();
+  const { user, refreshUserData } = useAuth();
   const { toast } = useToast();
 
   // Load onboarding data from database
@@ -239,6 +239,8 @@ const FinishStep: React.FC<FinishStepProps> = ({ data, onPrev }) => {
         console.log('✅ Provider role added to user document');
       } catch (error) {
         console.error('❌ Error adding provider role to user document:', error);
+        // Don't fail the onboarding if role addition fails
+        // The role will be added when the user document is updated above
       }
       
       // Save business details to business_setup collection
@@ -272,13 +274,13 @@ const FinishStep: React.FC<FinishStepProps> = ({ data, onPrev }) => {
       setSubmitted(true);
       console.debug('[DEBUG] Onboarding submitted, setSubmitted(true)');
       
-      // Refresh AuthContext/session so dashboard sees provider role
-      if (refreshSession) {
+      // Refresh AuthContext so dashboard sees provider role
+      if (refreshUserData) {
         try {
-          await refreshSession();
-          console.debug('[DEBUG] Called refreshSession after onboarding');
+          await refreshUserData();
+          console.debug('[DEBUG] Called refreshUserData after onboarding');
         } catch (e) {
-          console.error('[DEBUG] Error calling refreshSession:', e);
+          console.error('[DEBUG] Error calling refreshUserData:', e);
         }
       }
     } catch (err) {
@@ -297,19 +299,40 @@ const FinishStep: React.FC<FinishStepProps> = ({ data, onPrev }) => {
   useEffect(() => {
     if (submitted) {
       console.log('🔍 Debug: Onboarding submitted, starting redirect to dashboard...');
-      const timeout = setTimeout(() => {
-        console.log('🔍 Debug: Redirecting to /provider/dashboard');
-        router.push('/provider/dashboard');
-        
-        // Fallback redirect after 3 seconds if the first one doesn't work
-        setTimeout(() => {
-          console.log('🔍 Debug: Fallback redirect to /provider/dashboard');
-          router.replace('/provider/dashboard');
-        }, 3000);
-      }, 1000); // Reduced from 2000ms to 1000ms
+      
+      // Wait a bit longer to ensure all database operations complete
+      const timeout = setTimeout(async () => {
+        try {
+          // Double-check that the user has the provider role before redirecting
+          console.log('🔍 Debug: Verifying provider role before redirect...');
+          
+          // Refresh user data one more time to ensure roles are updated
+          if (refreshUserData) {
+            await refreshUserData();
+            console.log('🔍 Debug: Final refreshUserData completed');
+          }
+          
+          // Small delay to ensure AuthContext is updated
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          console.log('🔍 Debug: Redirecting to /provider/dashboard');
+          router.push('/provider/dashboard');
+          
+          // Fallback redirect after 5 seconds if the first one doesn't work
+          setTimeout(() => {
+            console.log('🔍 Debug: Fallback redirect to /provider/dashboard');
+            router.replace('/provider/dashboard');
+          }, 5000);
+        } catch (error) {
+          console.error('🔍 Debug: Error during redirect process:', error);
+          // Still try to redirect even if there's an error
+          router.push('/provider/dashboard');
+        }
+      }, 2000); // Increased to 2 seconds to ensure database operations complete
+      
       return () => clearTimeout(timeout);
     }
-  }, [submitted, router]);
+  }, [submitted, router, refreshUserData]);
 
   if (submitted) {
     return (
