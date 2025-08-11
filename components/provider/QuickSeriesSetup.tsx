@@ -142,30 +142,42 @@ export default function QuickSeriesSetup({ providerId, onSuccess, onCancel }: Qu
           // Create both OEM and HQ pricing for screen issues
           await createServiceOfferedWithSeries({
             providerId,
+            deviceType: selectedSeries.device_type,
+            brand: selectedSeries.brand,
+            model: null,
             series_id: selectedSeries.$id,
             issue: issue.$id,
             partType: 'OEM',
             price: issuePricing.price,
-            warranty: issuePricing.warranty
+            warranty: issuePricing.warranty,
+            created_at: new Date().toISOString()
           });
 
           await createServiceOfferedWithSeries({
             providerId,
+            deviceType: selectedSeries.device_type,
+            brand: selectedSeries.brand,
+            model: null,
             series_id: selectedSeries.$id,
             issue: issue.$id,
             partType: 'HQ',
             price: Math.round(issuePricing.price * 0.8), // 20% less for HQ
-            warranty: '3 months'
+            warranty: '3 months',
+            created_at: new Date().toISOString()
           });
         } else {
           // Create single pricing for non-screen issues
           await createServiceOfferedWithSeries({
             providerId,
+            deviceType: selectedSeries.device_type,
+            brand: selectedSeries.brand,
+            model: null,
             series_id: selectedSeries.$id,
             issue: issue.$id,
             partType: null,
             price: issuePricing.price,
-            warranty: issuePricing.warranty
+            warranty: issuePricing.warranty,
+            created_at: new Date().toISOString()
           });
         }
       });
