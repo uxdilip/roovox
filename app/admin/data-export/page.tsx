@@ -54,7 +54,7 @@ export default function DataExportPage() {
         title: "Export Failed",
         description: "There was an error exporting the data. Please try again.",
         variant: "destructive",
-        icon: <AlertCircle className="h-4 w-4" />,
+        // icon property not supported in this toast implementation
       });
     } finally {
       setIsExporting(null);
