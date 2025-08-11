@@ -45,7 +45,7 @@ export default function DataExportPage() {
       toast({
         title: "Export Successful",
         description: `${type === 'all' ? 'All devices' : type} have been exported to CSV.`,
-        icon: <CheckCircle className="h-4 w-4" />,
+        // icon property not supported in this toast implementation
       });
       
     } catch (error) {
