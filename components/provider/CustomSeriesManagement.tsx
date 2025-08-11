@@ -418,10 +418,10 @@ export default function CustomSeriesManagement({ providerId }: CustomSeriesManag
                  <div className="text-muted-foreground mb-4">
                    No pricing set for this series yet
                  </div>
-                 <Button 
-                   onClick={() => handleAddPricing(selectedSeries)}
-                   className="bg-blue-600 hover:bg-blue-700"
-                 >
+                                   <Button 
+                    onClick={() => selectedSeries && handleAddPricing(selectedSeries)}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
                    <Plus className="h-4 w-4 mr-2" />
                    Add Pricing
                  </Button>
