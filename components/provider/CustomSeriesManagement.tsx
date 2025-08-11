@@ -291,11 +291,10 @@ export default function CustomSeriesManagement({ providerId }: CustomSeriesManag
                   <div>
                     <Label className="text-sm font-medium">Models:</Label>
                                        <div className="flex flex-wrap gap-1 mt-1">
-                     {series.models.slice(0, 5).map((modelString, index) => {
-                       const [brand, model] = modelString.split(':');
+                     {series.models.slice(0, 5).map((modelObj, index) => {
                        return (
                          <Badge key={index} variant="secondary" className="text-xs">
-                           {brand} {model}
+                           {modelObj.brand} {modelObj.model}
                          </Badge>
                        );
                      })}
@@ -367,11 +366,10 @@ export default function CustomSeriesManagement({ providerId }: CustomSeriesManag
               <div>
                 <Label className="text-sm font-medium">Models:</Label>
                                <div className="text-sm text-muted-foreground mt-1 max-h-20 overflow-y-auto">
-                 {selectedSeries?.models.map((modelString, index) => {
-                   const [brand, model] = modelString.split(':');
+                 {selectedSeries?.models.map((modelObj, index) => {
                    return (
                      <div key={index}>
-                       {brand} {model}
+                       {modelObj.brand} {modelObj.model}
                      </div>
                    );
                  })}
