@@ -197,7 +197,7 @@ const customerName = {
   fontWeight: 'bold',
   color: '#1f2937',
   marginBottom: '8px',
-};
+} as const;
 
 const customerContact = {
   fontSize: '14px',
