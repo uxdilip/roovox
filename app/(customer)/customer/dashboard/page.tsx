@@ -222,6 +222,27 @@ export default function CustomerDashboard() {
 
           return {
             ...booking,
+            // Ensure all required Booking interface properties are present
+            customer_id: booking.customer_id || '',
+            provider_id: booking.provider_id || '',
+            device_id: booking.device_id || '',
+            service_id: booking.service_id || '',
+            issue_description: booking.issue_description || '',
+            selected_issues: booking.selected_issues || '',
+            part_quality: booking.part_quality || null,
+            status: booking.status || 'pending',
+            appointment_time: booking.appointment_time || '',
+            total_amount: booking.total_amount || 0,
+            payment_status: booking.payment_status || 'pending',
+            location_type: booking.location_type || '',
+            customer_address: booking.customer_address || '',
+            rating: booking.rating || null,
+            review: booking.review || '',
+            warranty: booking.warranty || '',
+            serviceMode: booking.serviceMode || '',
+            created_at: booking.created_at || '',
+            updated_at: booking.updated_at || '',
+            cancellation_reason: booking.cancellation_reason || '',
             provider: {
               name: providerInfo.providerName,
               rating: providerInfo.providerRating,

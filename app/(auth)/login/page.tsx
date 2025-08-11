@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,7 @@ import { CheckCircle, Mail, Phone, ArrowRight } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { detectUserRoles, getRedirectPath, getCrossRoleMessage } from '@/lib/role-detection';
 import { account } from '@/lib/appwrite';
+import { createGoogleOAuthSession, GOOGLE_OAUTH_ENABLED, getOAuthUrls } from '@/lib/appwrite';
 
 export default function CustomerLoginPage() {
   const [emailOrPhone, setEmailOrPhone] = useState('');
@@ -23,6 +24,17 @@ export default function CustomerLoginPage() {
 
   const { loginWithPhoneOtp, canRequestOtp } = useAuth();
   const router = useRouter();
+
+  // Check for OAuth errors in URL parameters
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const oauthError = urlParams.get('error');
+      if (oauthError === 'oauth') {
+        setError('Google sign-in failed. Please try using phone number or email instead.');
+      }
+    }
+  }, []);
 
   // Detect if input is email or phone
   const detectInputType = (value: string) => {
@@ -125,11 +137,15 @@ export default function CustomerLoginPage() {
     }
   };
 
-  const handleGoogleSignIn = () => {
+  const handleGoogleSignIn = async () => {
     if (typeof window !== 'undefined') {
-      const successUrl = window.location.origin + '/';
-      const failureUrl = window.location.origin + '/login?error=oauth';
-      account.createOAuth2Session('google' as any, successUrl, failureUrl);
+      try {
+        const { successUrl, failureUrl } = getOAuthUrls('/customer/dashboard');
+        await createGoogleOAuthSession(successUrl, failureUrl);
+      } catch (error: any) {
+        console.error('Google OAuth error:', error);
+        setError(error.message || 'Google sign-in is not available at the moment. Please use phone number or email instead.');
+      }
     }
   };
 
@@ -304,14 +320,22 @@ export default function CustomerLoginPage() {
                 </div>
               </div>
 
-                             <Button
-                 variant="outline"
-                 className="w-full h-10 mt-4 flex items-center justify-center gap-3 text-sm"
-                 onClick={handleGoogleSignIn}
-               >
-                 <img src="/assets/google-icon.svg" alt="Google" className="w-4 h-4" />
-                 Continue with Google
-               </Button>
+              {GOOGLE_OAUTH_ENABLED ? (
+                <Button
+                  variant="outline"
+                  className="w-full h-10 mt-4 flex items-center justify-center gap-3 text-sm"
+                  onClick={handleGoogleSignIn}
+                >
+                  <img src="/assets/brand-logos/google.png" alt="Google" className="w-4 h-4" />
+                  Continue with Google
+                </Button>
+              ) : (
+                <div className="mt-4 text-center">
+                  <p className="text-sm text-gray-500">
+                    Google sign-in is currently unavailable
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="mt-8 text-center">

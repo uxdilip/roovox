@@ -13,7 +13,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { Clock, RefreshCw } from 'lucide-react';
-import { account } from '@/lib/appwrite';
+import { account, databases, DATABASE_ID, COLLECTIONS } from '@/lib/appwrite';
+import { createGoogleOAuthSession, GOOGLE_OAUTH_ENABLED, getOAuthUrls } from '@/lib/appwrite';
 
 interface LoginModalProps {
   open: boolean;
@@ -193,11 +194,15 @@ export default function LoginModal({ open, onOpenChange, returnUrl }: LoginModal
     }
   };
 
-  const handleGoogleSignIn = () => {
+  const handleGoogleSignIn = async () => {
     if (typeof window !== 'undefined') {
-      const successUrl = window.location.origin + '/';
-      const failureUrl = window.location.origin + '/login?error=oauth';
-      account.createOAuth2Session('google' as any, successUrl, failureUrl);
+      try {
+        const { successUrl, failureUrl } = getOAuthUrls('/customer/dashboard');
+        await createGoogleOAuthSession(successUrl, failureUrl);
+      } catch (error: any) {
+        console.error('Google OAuth error:', error);
+        setError(error.message || 'Google sign-in is not available at the moment. Please use phone number instead.');
+      }
     }
   };
 
@@ -326,14 +331,16 @@ export default function LoginModal({ open, onOpenChange, returnUrl }: LoginModal
                       </Button>
                     </form>
                   )}
-                  <Button
-                    variant="outline"
-                    className="w-full flex items-center justify-center gap-2 mt-4"
-                    onClick={handleGoogleSignIn}
-                  >
-                    <img src="/assets/google-icon.svg" alt="Google" className="w-5 h-5" />
-                    Continue with Google
-                  </Button>
+                  {GOOGLE_OAUTH_ENABLED && (
+                    <Button
+                      variant="outline"
+                      className="w-full flex items-center justify-center gap-2 mt-4"
+                      onClick={handleGoogleSignIn}
+                    >
+                      <img src="/assets/brand-logos/google.png" alt="Google" className="w-5 h-5" />
+                      Continue with Google
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             </div>

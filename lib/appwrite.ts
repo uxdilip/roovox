@@ -2,8 +2,6 @@ import { Client, Account, Databases, Storage, Functions } from 'appwrite';
 
 const client = new Client();
 
-
-
 client
   .setEndpoint(process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT || 'https://fra.cloud.appwrite.io/v1')
   .setProject(process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID || '687398a90012d5a8d92f');
@@ -16,6 +14,49 @@ export const functions = new Functions(client);
 export { client };
 
 export const DATABASE_ID = process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID || '687399d400185ad33867';
+
+// OAuth Configuration
+export const GOOGLE_OAUTH_ENABLED = process.env.NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED === 'true';
+
+// OAuth utility functions
+export const createGoogleOAuthSession = async (successUrl: string, failureUrl: string) => {
+  console.log('🔐 Attempting Google OAuth...', {
+    enabled: GOOGLE_OAUTH_ENABLED,
+    successUrl,
+    failureUrl,
+    endpoint: process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT,
+    projectId: process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID,
+    appUrl: process.env.NEXT_PUBLIC_APP_URL
+  });
+
+  if (!GOOGLE_OAUTH_ENABLED) {
+    throw new Error('Google OAuth is not enabled. Please contact support.');
+  }
+  
+  try {
+    const result = await account.createOAuth2Session('google' as any, successUrl, failureUrl);
+    console.log('✅ Google OAuth session created successfully:', result);
+    return result;
+  } catch (error) {
+    console.error('❌ Google OAuth error:', error);
+    if (error instanceof Error) {
+      throw new Error(`Google OAuth failed: ${error.message}`);
+    }
+    throw new Error('Google sign-in is not available at the moment. Please try using phone number or email instead.');
+  }
+};
+
+// Helper function to get the correct OAuth URLs
+export const getOAuthUrls = (path: string = '') => {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const fullPath = path.startsWith('/') ? path : `/${path}`;
+  
+  return {
+    successUrl: `${baseUrl}${fullPath}`,
+    failureUrl: `${baseUrl}/login?error=oauth`
+  };
+};
+
 export const COLLECTIONS = {
   USERS: process.env.NEXT_PUBLIC_APPWRITE_USERS_COLLECTION_ID || 'user',
   PROVIDERS: process.env.NEXT_PUBLIC_APPWRITE_PROVIDERS_COLLECTION_ID || 'providers',

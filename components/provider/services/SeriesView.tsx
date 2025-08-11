@@ -15,6 +15,7 @@ interface SeriesViewProps {
   services: any[];
   issueMap: Record<string, string>;
   seriesData: Record<string, any>;
+  refreshing?: boolean;
   onBulkUpdate: (seriesId: string) => void;
   onEditSeries: (seriesId: string) => void;
   onDeleteSeries: (seriesId: string) => void;
@@ -24,6 +25,7 @@ export default function SeriesView({
   services,
   issueMap,
   seriesData,
+  refreshing = false,
   onBulkUpdate,
   onEditSeries,
   onDeleteSeries
@@ -46,6 +48,8 @@ export default function SeriesView({
     }
     seriesGroups[seriesId].push(service);
   });
+
+
 
   const renderSeriesGroup = (seriesId: string, services: any[]) => {
     const isCustomSeries = seriesId.startsWith('custom_') || seriesData[seriesId]?.isCustom;
@@ -174,6 +178,29 @@ export default function SeriesView({
       </div>
     );
   };
+
+  // Show loading overlay when refreshing
+  if (refreshing) {
+    return (
+      <div className="relative">
+        <div className="opacity-50 pointer-events-none">
+          {/* Render the actual content but dimmed */}
+          {Object.entries(seriesGroups).map(([seriesId, services]) => 
+            renderSeriesGroup(seriesId, services)
+          )}
+        </div>
+        <div className="absolute inset-0 bg-white/80 flex items-center justify-center z-10">
+          <div className="text-center">
+            <div className="w-16 h-16 mx-auto mb-4 bg-blue-100 rounded-full flex items-center justify-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Updating Services...</h3>
+            <p className="text-gray-600">Please wait while we refresh your data</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (Object.keys(seriesGroups).length === 0) {
     return (

@@ -27,6 +27,7 @@ export default function ServicesDashboard() {
   const { user, isLoading: authLoading } = useAuth();
   const [services, setServices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [seriesData, setSeriesData] = useState<Record<string, any>>({});
   const [issueIdToName, setIssueIdToName] = useState<Record<string, string>>({});
@@ -223,7 +224,7 @@ export default function ServicesDashboard() {
 
   const handleServiceUpdate = () => {
     // Refresh services and series data after any update
-    setLoading(true);
+    setRefreshing(true);
     
     const refreshData = async () => {
       try {
@@ -282,11 +283,11 @@ export default function ServicesDashboard() {
         
         setServices(allServices);
         setSeriesData(seriesMap);
-        setLoading(false);
+        setRefreshing(false);
         toast({ title: "Success", description: "Services updated successfully!" });
       } catch (error) {
         console.error('Error refreshing data:', error);
-        setLoading(false);
+        setRefreshing(false);
         toast({ 
           title: "Error", 
           description: "Failed to refresh data", 
@@ -376,6 +377,7 @@ export default function ServicesDashboard() {
               services={sortedServices}
               issueMap={issueIdToName}
               seriesData={seriesData}
+              refreshing={refreshing}
               onBulkUpdate={handleBulkUpdate}
               onEditSeries={handleEditSeries}
               onDeleteSeries={handleDeleteSeries}
