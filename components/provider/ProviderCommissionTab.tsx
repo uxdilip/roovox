@@ -531,7 +531,7 @@ export default function ProviderCommissionTab() {
                       </div>
                       <div>
                         <p className="text-sm text-gray-600">Service Date</p>
-                        <p className="font-medium">{formatDateTime(commission.booking_details?.service_date)}</p>
+                        <p className="font-medium">{commission.booking_details?.service_date ? formatDateTime(commission.booking_details.service_date) : 'N/A'}</p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-600">Collection Method</p>
