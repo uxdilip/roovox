@@ -14,7 +14,7 @@ export default function TestOAuthPage() {
     setStatus('Testing Google OAuth...');
     
     try {
-      const { successUrl, failureUrl } = getOAuthUrls('/customer/dashboard');
+      const { successUrl, failureUrl } = getOAuthUrls('/customer/my-bookings');
       
       console.log('🔐 Testing Google OAuth with:', {
         enabled: GOOGLE_OAUTH_ENABLED,

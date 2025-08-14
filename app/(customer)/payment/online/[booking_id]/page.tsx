@@ -93,7 +93,7 @@ export default function OnlinePaymentPage() {
             const verifyData = await verifyRes.json();
             if (verifyData.success) {
               toast.success("Payment successful!");
-              router.push("/customer/dashboard");
+              router.push("/customer/my-bookings");
             } else {
               toast.error("Payment verification failed");
             }

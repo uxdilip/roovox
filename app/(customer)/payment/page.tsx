@@ -166,7 +166,7 @@ export default function PaymentOptionsPage() {
                   sessionStorage.removeItem(sessionKey);
                 }
                 toast.success("Payment successful!");
-                router.push("/customer/dashboard");
+                router.push("/customer/my-bookings");
               } else {
                 console.error('Payment verification failed:', verifyData.error);
                 toast.error("Payment verification failed: " + (verifyData.error || 'Unknown error'));
@@ -216,7 +216,7 @@ export default function PaymentOptionsPage() {
             sessionStorage.removeItem(sessionKey);
           }
           toast.success("Booking confirmed for Pay After Service!");
-          router.push("/customer/dashboard");
+          router.push("/customer/my-bookings");
         } else {
           toast.error(data.error || "Failed to confirm booking");
         }

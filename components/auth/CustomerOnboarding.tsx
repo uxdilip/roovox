@@ -64,9 +64,9 @@ export default function CustomerOnboarding({ open, onOpenChange, userPhone }: Cu
         address: ''
       });
 
-      // Close modal and redirect to dashboard
+      // Close modal and redirect to my-bookings
       onOpenChange(false);
-      router.push('/customer/dashboard');
+      router.push('/customer/my-bookings');
       
     } catch (err: any) {
       setError(err.message || 'Failed to create customer profile. Please try again.');

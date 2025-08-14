@@ -197,7 +197,7 @@ export default function LoginModal({ open, onOpenChange, returnUrl }: LoginModal
   const handleGoogleSignIn = async () => {
     if (typeof window !== 'undefined') {
       try {
-        const { successUrl, failureUrl } = getOAuthUrls('/customer/dashboard');
+        const { successUrl, failureUrl } = getOAuthUrls('/customer/my-bookings');
         await createGoogleOAuthSession(successUrl, failureUrl);
       } catch (error: any) {
         console.error('Google OAuth error:', error);

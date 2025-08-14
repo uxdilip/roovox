@@ -27,7 +27,8 @@ import {
   Home,
   Wrench,
   Menu,
-  X
+  X,
+  Calendar
 } from 'lucide-react';
 
 import { useLocation } from '@/contexts/LocationContext';
@@ -48,7 +49,7 @@ export function Header() {
   // Smart logo navigation based on user role
   const getLogoHref = () => {
     if (!user) return '/'; // Public home for non-authenticated users
-    return activeRole === 'provider' ? '/provider/dashboard' : '/customer/dashboard';
+    return activeRole === 'provider' ? '/provider/dashboard' : '/'; // Customers go to home page
   };
 
   // Fetch role-specific display name
@@ -195,9 +196,9 @@ export function Header() {
                     {/* Role-specific menu items */}
                     {activeRole === 'customer' && (
                       <DropdownMenuItem asChild>
-                        <Link href="/customer/dashboard" className="flex items-center">
-                          <Home className="mr-2 h-4 w-4" />
-                          Dashboard
+                        <Link href="/customer/my-bookings" className="flex items-center">
+                          <Calendar className="mr-2 h-4 w-4" />
+                          My Bookings
                         </Link>
                       </DropdownMenuItem>
                     )}
@@ -311,12 +312,12 @@ export function Header() {
                   <div className="space-y-1">
                     {activeRole === 'customer' && (
                       <Link
-                        href="/customer/dashboard"
+                        href="/customer/my-bookings"
                         className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
                         onClick={closeMobileMenu}
                       >
-                        <Home className="h-4 w-4 mr-3" />
-                        Dashboard
+                        <Calendar className="h-4 w-4 mr-3" />
+                        My Bookings
                       </Link>
                     )}
                     

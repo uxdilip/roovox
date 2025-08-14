@@ -18,8 +18,11 @@ export const detectUserRoles = async (userId: string, isProviderLogin: boolean =
       getCustomerByUserId(userId).catch(() => null)
     ]);
 
-    // Check if user needs phone onboarding (Google OAuth customers who don't have phone)
-    const needsPhoneOnboarding = !userPhone || userPhone.trim() === '';
+    // Check if customer needs onboarding - they need onboarding if:
+    // 1. They don't have a customer profile in the database, OR
+    // 2. They don't have a phone number (Google OAuth users without phone)
+    // If they have a customer profile, they've completed onboarding regardless of phone
+    const needsPhoneOnboarding = !customer && (!userPhone || userPhone.trim() === '');
     
     // Check if provider needs onboarding (new provider or incomplete onboarding)
     const needsProviderOnboarding = isProviderLogin && (!provider || 
@@ -64,7 +67,7 @@ export const getRedirectPath = (roleResult: RoleDetectionResult): string => {
 
   if (hasProvider && hasCustomer) {
     // User has both roles - prioritize based on login context
-    return isProviderLogin ? '/provider/dashboard' : '/customer/dashboard';
+    return isProviderLogin ? '/provider/dashboard' : '/'; // Let customers stay on home page
   } else if (hasProvider) {
     // User is provider only
     if (isProviderLogin) {
@@ -81,11 +84,11 @@ export const getRedirectPath = (roleResult: RoleDetectionResult): string => {
   } else if (hasCustomer) {
     // User is customer only
     if (!isProviderLogin) {
-      // Customer login - proceed normally
-      return '/customer/dashboard';
+      // Customer login - let them stay on home page, they can access my-bookings from menu
+      return '/';
     } else {
       // Provider login but user is customer
-      return '/customer/dashboard';
+      return '/'; // Let them stay on home page
     }
   } else {
     // New user - redirect based on login context

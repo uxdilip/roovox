@@ -40,15 +40,15 @@ export function Footer() {
             <ul className="space-y-2">
               <li className="flex items-center space-x-2">
                 <Mail className="h-4 w-4 text-blue-400" />
-                <span className="text-gray-400">support@sniket.com</span>
+                <span className="text-gray-400">sniketofficial@gmail.com</span>
               </li>
               <li className="flex items-center space-x-2">
                 <Phone className="h-4 w-4 text-blue-400" />
-                <span className="text-gray-400">+1 (555) 123-4567</span>
+                <span className="text-gray-400">+91 9380720916</span>
               </li>
               <li className="flex items-center space-x-2">
                 <MapPin className="h-4 w-4 text-blue-400" />
-                <span className="text-gray-400">San Francisco, CA</span>
+                <span className="text-gray-400">Kharar, Punjab, India</span>
               </li>
             </ul>
           </div>

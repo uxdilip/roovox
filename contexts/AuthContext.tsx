@@ -12,8 +12,8 @@ import { Query } from 'appwrite';
 
 // Rate limiting and security constants
 const RATE_LIMIT = {
-  OTP_REQUESTS: 3, // per phone per hour
-  OTP_ATTEMPTS: 5,  // per OTP
+  OTP_REQUESTS: 10, // per phone per hour
+  OTP_ATTEMPTS: 10,  // per OTP
   OTP_EXPIRY: 300  // 5 minutes in seconds
 };
 

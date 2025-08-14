@@ -312,6 +312,11 @@ html, body {
   .text-body-sm {
     @apply font-body text-sm font-normal leading-relaxed;
   }
+  
+  /* Smooth scrolling */
+  .scroll-smooth {
+    scroll-behavior: smooth;
+  }
 }
 
 /* Leaflet Map Styles */

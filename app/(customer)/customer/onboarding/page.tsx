@@ -116,7 +116,7 @@ export default function CustomerOnboardingPage() {
       await refreshUserData();
       
       // Redirect to dashboard
-      router.push('/customer/dashboard');
+              router.push('/customer/my-bookings');
       
     } catch (err: any) {
       console.error('❌ Error creating customer profile:', err);
