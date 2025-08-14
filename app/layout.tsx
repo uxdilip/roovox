@@ -19,15 +19,9 @@ export const metadata: Metadata = {
   viewport: 'width=device-width, initial-scale=1, maximum-scale=1',
   manifest: '/manifest.json',
   icons: {
-    icon: [
-      { url: '/icon.png', sizes: '32x32', type: 'image/png' },
-      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
-      { url: '/icon-512.png', sizes: '512x512', type: 'image/png' },
-    ],
-    apple: [
-      { url: '/apple-icon.png', sizes: '180x180', type: 'image/png' },
-    ],
-    shortcut: '/icon.png',
+    icon: '/favicon.ico',
+    apple: '/apple-touch-icon.png',
+    shortcut: '/favicon.ico',
   },
   openGraph: {
     title: 'Sniket - Professional Device Repair Services',
@@ -36,9 +30,9 @@ export const metadata: Metadata = {
     siteName: 'Sniket',
     images: [
       {
-        url: '/icon-512.png',
-        width: 512,
-        height: 512,
+        url: '/apple-touch-icon.png',
+        width: 180,
+        height: 180,
         alt: 'Sniket Logo',
       },
     ],
@@ -49,7 +43,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Sniket - Professional Device Repair Services',
     description: 'Expert device repair services for phones, laptops, and tablets. Same-day service, doorstep pickup, and genuine parts with warranty.',
-    images: ['/icon-512.png'],
+    images: ['/apple-touch-icon.png'],
   },
   alternates: {
     canonical: 'https://sniket.com',
