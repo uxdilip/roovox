@@ -10,17 +10,49 @@ const inter = Inter({ subsets: ['latin'] });
 export const metadata: Metadata = {
   title: 'Sniket - Professional Device Repair Services',
   description: 'Expert device repair services for phones, laptops, and tablets. Same-day service, doorstep pickup, and genuine parts with warranty.',
-  keywords: 'device repair, phone repair, laptop repair, screen replacement, battery replacement',
+  keywords: 'device repair, phone repair, laptop repair, screen replacement, battery replacement, mobile repair, computer repair, electronics repair',
   authors: [{ name: 'Sniket Team' }],
   creator: 'Sniket',
   publisher: 'Sniket',
   robots: 'index, follow',
-  themeColor: '#3B82F6',
+  themeColor: '#667eea',
   viewport: 'width=device-width, initial-scale=1, maximum-scale=1',
   manifest: '/manifest.json',
   icons: {
-    icon: '/favicon.ico',
-    apple: '/apple-touch-icon.png',
+    icon: [
+      { url: '/icon.png', sizes: '32x32', type: 'image/png' },
+      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+    ],
+    apple: [
+      { url: '/apple-icon.png', sizes: '180x180', type: 'image/png' },
+    ],
+    shortcut: '/icon.png',
+  },
+  openGraph: {
+    title: 'Sniket - Professional Device Repair Services',
+    description: 'Expert device repair services for phones, laptops, and tablets. Same-day service, doorstep pickup, and genuine parts with warranty.',
+    url: 'https://sniket.com',
+    siteName: 'Sniket',
+    images: [
+      {
+        url: '/icon-512.png',
+        width: 512,
+        height: 512,
+        alt: 'Sniket Logo',
+      },
+    ],
+    locale: 'en_US',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Sniket - Professional Device Repair Services',
+    description: 'Expert device repair services for phones, laptops, and tablets. Same-day service, doorstep pickup, and genuine parts with warranty.',
+    images: ['/icon-512.png'],
+  },
+  alternates: {
+    canonical: 'https://sniket.com',
   },
 };
 

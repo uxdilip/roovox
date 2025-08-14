@@ -1,14 +1,25 @@
 {
   "name": "Sniket - Device Repair Services",
   "short_name": "Sniket",
-  "description": "Professional device repair services for phones, laptops, and tablets",
-  "theme_color": "#3B82F6",
-  "background_color": "#ffffff",
-  "display": "standalone",
-  "orientation": "portrait",
-  "scope": "/",
+  "description": "Professional device repair services for phones, laptops, and electronics. Book repair services online with certified technicians.",
   "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#667eea",
+  "orientation": "portrait-primary",
   "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "32x32",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/apple-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
     {
       "src": "/icon-192.png",
       "sizes": "192x192",
@@ -22,5 +33,7 @@
       "purpose": "any maskable"
     }
   ],
-  "splash_pages": null
+  "categories": ["business", "productivity", "utilities"],
+  "lang": "en",
+  "dir": "ltr"
 }
