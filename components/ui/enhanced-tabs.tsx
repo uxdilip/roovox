@@ -12,14 +12,21 @@ interface EnhancedTabsProps {
   }[];
   defaultValue?: string;
   className?: string;
+  onTabChange?: (value: string) => void;
 }
 
 export const EnhancedTabs = ({
   tabs,
   defaultValue,
   className,
+  onTabChange,
 }: EnhancedTabsProps) => {
   const [activeTab, setActiveTab] = useState(defaultValue || tabs[0]?.value);
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    onTabChange?.(value);
+  };
 
   return (
     <div className={cn("w-full", className)}>
@@ -29,7 +36,7 @@ export const EnhancedTabs = ({
           {tabs.map((tab) => (
             <button
               key={tab.value}
-              onClick={() => setActiveTab(tab.value)}
+              onClick={() => handleTabChange(tab.value)}
               className={cn(
                 "relative py-4 sm:py-6 px-3 sm:px-4 text-sm sm:text-base font-medium transition-colors duration-200 whitespace-nowrap",
                 activeTab === tab.value
