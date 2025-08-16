@@ -2239,15 +2239,22 @@ export const findProviderServicesWithSeries = async (
       );
       
               // Filter custom series that include this specific brand:model
-      // FIXED: All models now stored consistently, so simple filtering works for everything!
+      // RESTORED: Dual-format handling works for Platform Series, Custom Series, and Individual Services!
         const matchingCustomSeries = customSeriesRes.documents.filter((series: any) => {
           if (!series.models || !Array.isArray(series.models)) return false;
         
         // Check if this model is in the series models array
-        // FIXED: All models now stored in same format (just model name), so simple comparison
-        return series.models.some((modelString: string) => 
-          modelString === model  // Simple direct comparison - no more format complexity!
-        );
+        // RESTORED: Dual-format handling for all series types
+        return series.models.some((modelString: string) => {
+          if (modelString.includes(':')) {
+            // Format 1: "Brand:Model" (for Custom Series)
+            const [seriesBrand, seriesModel] = modelString.split(':');
+            return seriesBrand === brand && seriesModel === model;
+          } else {
+            // Format 2: "Model" (for Platform Series and Individual Services)
+            return modelString === model;
+          }
+        });
         });
         
       console.log('🔍 Found matching custom series (including Platform Series):', matchingCustomSeries.length);
