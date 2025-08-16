@@ -183,7 +183,8 @@ export default function AddServiceModal({
     
     setLoading(true);
     try {
-      const isScreen = issues.find(i => i.$id === form.issue)?.type === 'screen';
+      const selectedIssue = issues.find(i => i.$id === form.issue);
+      const isScreen = selectedIssue?.type === 'screen';
       await databases.createDocument(
         DATABASE_ID,
         "services_offered",
@@ -193,7 +194,7 @@ export default function AddServiceModal({
           deviceType: form.deviceType,
           brand: form.brand,
           model: form.model,
-          issue: form.issue,
+          issue: selectedIssue?.name || form.issue, // Store issue name instead of ID
           price: Number(form.price),
           partType: isScreen ? form.partType : '',
           warranty: isScreen ? form.warranty : '',

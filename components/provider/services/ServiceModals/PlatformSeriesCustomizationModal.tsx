@@ -253,26 +253,12 @@ export default function PlatformSeriesCustomizationModal({
       setDeviceType(platformSeries.device_type || 'phone');
       
       // Initialize with all models from platform series
+      // FIXED: Use the actual brand from the platform series template
       const initialModels = platformSeries.models.map((modelString: string): DeviceModel => {
-        // Handle different possible formats
-        if (modelString.includes(':')) {
-          const [brand, model] = modelString.split(':');
-          return { brand: brand || 'Unknown', model: model || modelString };
-        } else {
-          // Try to extract brand from space-separated format
-          const words = modelString.split(' ');
-          const commonBrands = ['Samsung', 'Xiaomi', 'Redmi', 'Vivo', 'Realme', 'OPPO', 'OnePlus', 'Apple', 'iPhone', 'Honor', 'Nothing', 'POCO', 'Motorola', 'Lenovo', 'Nokia', 'Asus', 'Dell', 'HP', 'MSI', 'Razer', 'Alienware'];
-          
-          for (const brand of commonBrands) {
-            if (modelString.toLowerCase().startsWith(brand.toLowerCase())) {
-              const model = modelString.substring(brand.length).trim();
-              return { brand, model: model || modelString };
-            }
-          }
-          
-          // If no common brand found, use first word as brand
-          return { brand: words[0] || 'Unknown', model: words.slice(1).join(' ') || modelString };
-        }
+        return {
+          brand: platformSeries.brand,  // Use the actual brand from template
+          model: modelString  // Keep the full model name as is
+        };
       });
       
       setSelectedModels(initialModels);
@@ -609,79 +595,118 @@ export default function PlatformSeriesCustomizationModal({
                </div>
 
                {pricing.length > 0 ? (
-                 <div className="space-y-4">
-                   {pricing.map((priceData, index) => (
-                     <Card key={index}>
-                       <CardHeader>
-                         <CardTitle className="text-base">{priceData.issue}</CardTitle>
-                       </CardHeader>
-                       <CardContent>
-                         {priceData.issue === 'Screen Replacement' ? (
-                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                             {/* OEM Parts */}
-                             <div>
-                               <Label>OEM Parts</Label>
-                               <div className="space-y-2">
-                                 <div>
-                                   <Label className="text-sm text-muted-foreground">Price (₹)</Label>
-                                   <Input
-                                     type="number"
-                                     value={priceData.oem || ''}
-                                     onChange={(e) => updatePricing(index, 'oem', e.target.value ? Number(e.target.value) : null)}
-                                     placeholder="Enter price"
-                                   />
-                                 </div>
-                                 <div>
-                                   <Label className="text-sm text-muted-foreground">Warranty (months)</Label>
-                                   <Input
-                                     type="number"
-                                     value={priceData.oemWarranty || ''}
-                                     onChange={(e) => updatePricing(index, 'oemWarranty', e.target.value ? Number(e.target.value) : null)}
-                                     placeholder="Enter warranty"
-                                   />
+                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                   {/* Left Side: Pricing Inputs */}
+                   <div className="lg:col-span-2 space-y-4">
+                     {pricing.map((priceData, index) => (
+                       <Card key={index}>
+                         <CardHeader>
+                           <CardTitle className="text-base">{priceData.issue}</CardTitle>
+                         </CardHeader>
+                         <CardContent>
+                           {priceData.issue === 'Screen Replacement' ? (
+                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                               {/* OEM Parts */}
+                               <div>
+                                 <Label>OEM Parts</Label>
+                                 <div className="space-y-2">
+                                   <div>
+                                     <Label className="text-sm text-muted-foreground">Price (₹)</Label>
+                                     <Input
+                                       type="number"
+                                       value={priceData.oem || ''}
+                                       onChange={(e) => updatePricing(index, 'oem', e.target.value ? Number(e.target.value) : null)}
+                                       placeholder="Enter price"
+                                     />
+                                   </div>
+                                   <div>
+                                     <Label className="text-sm text-muted-foreground">Warranty (months)</Label>
+                                     <Input
+                                       type="number"
+                                       value={priceData.oemWarranty || ''}
+                                       onChange={(e) => updatePricing(index, 'oemWarranty', e.target.value ? Number(e.target.value) : null)}
+                                       placeholder="Enter warranty"
+                                     />
+                                   </div>
                                  </div>
                                </div>
-                             </div>
 
-                             {/* High Quality Parts */}
-                             <div>
-                               <Label>High Quality Parts</Label>
-                               <div className="space-y-2">
-                                 <div>
-                                   <Label className="text-sm text-muted-foreground">Price (₹)</Label>
-                                   <Input
-                                     type="number"
-                                     value={priceData.hq || ''}
-                                     onChange={(e) => updatePricing(index, 'hq', e.target.value ? Number(e.target.value) : null)}
-                                     placeholder="Enter price"
-                                   />
-                                 </div>
-                                 <div>
-                                   <Label className="text-sm text-muted-foreground">Warranty (months)</Label>
-                                   <Input
-                                     type="number"
-                                     value={priceData.hqWarranty || ''}
-                                     onChange={(e) => updatePricing(index, 'hqWarranty', e.target.value ? Number(e.target.value) : null)}
-                                     placeholder="Enter warranty"
-                                   />
-                                 </div>
-                               </div>
+                                                                                               {/* High Quality Parts */}
+                                <div>
+                                  <Label>High Quality Parts</Label>
+                                  <div className="space-y-2">
+                                    <div>
+                                      <Label className="text-sm text-muted-foreground">Price (₹)</Label>
+                                      <Input
+                                        type="number"
+                                        value={priceData.hq || ''}
+                                        onChange={(e) => updatePricing(index, 'hq', e.target.value ? Number(e.target.value) : null)}
+                                        placeholder="Enter price"
+                                      />
+                                    </div>
+                                    <div>
+                                      <Label className="text-sm text-muted-foreground">Warranty (months)</Label>
+                                      <Input
+                                        type="number"
+                                        value={priceData.hqWarranty || ''}
+                                        onChange={(e) => updatePricing(index, 'hqWarranty', e.target.value ? Number(e.target.value) : null)}
+                                        placeholder="Enter warranty"
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
                              </div>
+                           ) : (
+                             <div>
+                               <Label>Price (₹)</Label>
+                               <Input
+                                 type="number"
+                                 value={priceData.oem || ''}
+                                 onChange={(e) => updatePricing(index, 'oem', e.target.value ? Number(e.target.value) : null)}
+                                 placeholder="Enter price"
+                               />
+                             </div>
+                           )}
+                         </CardContent>
+                       </Card>
+                     ))}
+                   </div>
+
+                   {/* Right Side: Market Prices */}
+                   <div className="lg:col-span-1">
+                     <Card className="bg-amber-50 border-amber-200">
+                       <CardHeader className="pb-3">
+                         <CardTitle className="text-base text-amber-800">Market Prices</CardTitle>
+                         <p className="text-xs text-amber-600">Reference Only</p>
+                       </CardHeader>
+                       <CardContent className="pt-0">
+                         {platformSeries?.market_prices ? (
+                           <div className="space-y-3">
+                             {Object.entries(JSON.parse(platformSeries.market_prices)).map(([service, price]) => (
+                               <div key={service} className="flex justify-between items-center py-2 border-b border-amber-200 last:border-b-0">
+                                 <span className="text-sm font-medium text-amber-800 capitalize">
+                                   {service.replace(/_/g, ' ')}
+                                 </span>
+                                 <span className="text-sm font-semibold text-amber-900">
+                                   ₹{price?.toLocaleString()}
+                                 </span>
+                               </div>
+                             ))}
                            </div>
                          ) : (
-                           <div>
-                             <Label>Price (₹)</Label>
-                             <Input
-                               type="number"
-                               value={priceData.oem || ''}
-                               onChange={(e) => updatePricing(index, 'oem', e.target.value ? Number(e.target.value) : null)}
-                               placeholder="Enter price"
-                             />
+                           <div className="text-center py-4">
+                             <p className="text-sm text-amber-600">Market prices not available</p>
                            </div>
                          )}
+                         
+                         <div className="mt-4 p-3 bg-amber-100 rounded-md border-l-4 border-amber-400">
+                           <p className="text-xs text-amber-800">
+                             <strong>Note:</strong> These are current market prices for reference. You can set your own prices on the left.
+                           </p>
+                         </div>
                        </CardContent>
                      </Card>
-                   ))}
+                   </div>
                  </div>
                ) : (
                  <div className="text-center py-8">

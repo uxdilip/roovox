@@ -1667,6 +1667,9 @@ export const getModelSeries = async (brand?: string, deviceType?: 'phone' | 'lap
       queries.push(Query.equal('device_type', deviceType));
     }
     
+    // Add high limit to get all series
+    queries.push(Query.limit(1000));
+    
     const response = await databases.listDocuments(
       DATABASE_ID,
       COLLECTIONS.MODEL_SERIES,
@@ -2112,7 +2115,7 @@ export const findProviderServicesWithSeries = async (
   issueNames: string[]
 ): Promise<any[]> => {
   try {
-    // Step 1: Get the device's series information
+    // Step 1: Get the device's series information (for backward compatibility)
     let deviceSeries = null;
     try {
       // Get device from phones or laptops collection
@@ -2139,10 +2142,11 @@ export const findProviderServicesWithSeries = async (
       // Series not found, continue with individual model lookup
     }
 
-    // Step 2: Look for series-based pricing first
+    // Step 2: Look for series-based pricing first (both SERVICES_OFFERED and custom_series_services)
     let seriesServices: any[] = [];
     if (deviceSeries) {
       try {
+        // Look in SERVICES_OFFERED collection for direct series-based pricing
         const seriesServicesRes = await databases.listDocuments(
           DATABASE_ID,
           COLLECTIONS.SERVICES_OFFERED,
@@ -2160,15 +2164,74 @@ export const findProviderServicesWithSeries = async (
             issueName.toLowerCase().trim() === serviceIssue
           );
         });
+
+        // ALSO look in custom_series_services for platform series customizations
+        // Get all platform series customizations that include this device
+        const platformSeriesCustomizationsRes = await databases.listDocuments(
+          DATABASE_ID,
+          'custom_series',
+          [
+            Query.equal('deviceType', deviceType),
+            Query.search('description', `[Platform Series: ${deviceSeries.$id}]`)
+          ]
+        );
+
+        console.log('🔍 Found platform series customizations:', platformSeriesCustomizationsRes.documents.length);
+
+        // For each platform series customization, get its services
+        for (const customization of platformSeriesCustomizationsRes.documents) {
+          try {
+            const platformServicesRes = await databases.listDocuments(
+              DATABASE_ID,
+              'custom_series_services',
+              [
+                Query.equal('customSeriesId', customization.$id)
+              ]
+            );
+
+            console.log('🔍 Platform series services found:', platformServicesRes.documents.length);
+
+            // Filter services by issue names and transform to match expected format
+            const filteredPlatformServices = platformServicesRes.documents.filter((doc: any) => {
+              const serviceIssue = doc.issue?.toLowerCase().trim();
+              return issueNames.some(issueName => 
+                issueName.toLowerCase().trim() === serviceIssue
+              );
+            });
+
+            // Transform platform series services to match regular service format
+            const transformedPlatformServices = filteredPlatformServices.map(service => ({
+              ...service,
+              $id: service.$id,
+              providerId: service.providerId,
+              deviceType: deviceType,
+              brand: brand,
+              model: model,
+              issue: service.issue,
+              price: service.price,
+              partType: service.partType,
+              warranty: service.warranty,
+              created_at: service.created_at,
+              pricingType: 'platform_series_customization',
+              seriesName: customization.name,
+              customSeriesId: customization.$id
+            }));
+
+            seriesServices.push(...transformedPlatformServices);
+          } catch (error) {
+            console.error('Error fetching platform series services:', error);
+            // Continue with other customizations
+          }
+        }
       } catch (error) {
         // Error fetching series services, continue with model lookup
       }
     }
 
-    // Step 3: Look for custom series that include this model
+    // Step 3: Look for custom series that include this model (including Platform Series!)
     let customSeriesServices: any[] = [];
     try {
-      // Get all custom series
+      // Get all custom series (including Platform Series customizations)
       const customSeriesRes = await databases.listDocuments(
         DATABASE_ID,
         COLLECTIONS.CUSTOM_SERIES,
@@ -2176,15 +2239,18 @@ export const findProviderServicesWithSeries = async (
       );
       
               // Filter custom series that include this specific brand:model
+      // FIXED: All models now stored consistently, so simple filtering works for everything!
         const matchingCustomSeries = customSeriesRes.documents.filter((series: any) => {
           if (!series.models || !Array.isArray(series.models)) return false;
-          return series.models.some((modelString: string) => {
-            const [seriesBrand, seriesModel] = modelString.split(':');
-            return seriesBrand === brand && seriesModel === model;
-          });
+        
+        // Check if this model is in the series models array
+        // FIXED: All models now stored in same format (just model name), so simple comparison
+        return series.models.some((modelString: string) => 
+          modelString === model  // Simple direct comparison - no more format complexity!
+        );
         });
         
-        console.log('🔍 Found matching custom series:', matchingCustomSeries.length);
+      console.log('🔍 Found matching custom series (including Platform Series):', matchingCustomSeries.length);
         
         // Get services for matching custom series
         for (const customSeries of matchingCustomSeries) {
@@ -2225,7 +2291,7 @@ export const findProviderServicesWithSeries = async (
             partType: service.partType,
             warranty: service.warranty,
             created_at: service.created_at,
-            pricingType: 'custom_series',
+          pricingType: customSeries.description && customSeries.description.includes('[Platform Series:') ? 'platform_series' : 'custom_series',
             seriesName: customSeries.name,
             customSeriesId: customSeries.$id
           }));
@@ -2275,12 +2341,12 @@ export const findProviderServicesWithSeries = async (
       });
     });
     
-    // Override with custom series services (medium priority)
+  // Override with custom series services (medium priority) - now includes Platform Series!
     customSeriesServices.forEach(service => {
       const key = `${service.providerId}-${service.issue}-${service.partType}`;
       mergedServices.set(key, {
         ...service,
-        pricingType: 'custom_series',
+      pricingType: service.pricingType, // 'custom_series' or 'platform_series'
         seriesName: service.seriesName
       });
     });
@@ -2714,8 +2780,9 @@ export const createPlatformSeriesCustomization = async (customizationData: {
 }) => {
   try {
     // Convert models array to string array for storage
+    // FIXED: Store the FULL model names to match Platform Series template format
     const modelsAsStrings = customizationData.models.map(model => 
-      `${model.brand}:${model.model}`
+      model.model  // Store the full model name (e.g., "Galaxy A04", not just "A04")
     );
     
     // Store platform series info in the description to maintain the relationship
@@ -2770,10 +2837,11 @@ export const updatePlatformSeriesCustomization = async (
 ) => {
   try {
     // Convert models array to string array for storage if models are provided
+    // FIXED: Store the FULL model names to match Platform Series template format
     const updateData: any = { ...updates };
     if (updates.models) {
       updateData.models = updates.models.map(model => 
-        `${model.brand}:${model.model}`
+        model.model  // Store the full model name (e.g., "Galaxy A04", not just "A04")
       );
     }
     
@@ -2825,223 +2893,482 @@ export const deletePlatformSeriesCustomization = async (customizationId: string)
 
 
 
-// Function to populate platform series with your cluster data
+// Function to populate platform series with brand-wise data
 export const populatePlatformSeries = async (): Promise<void> => {
   try {
-    console.log('Starting platform series population with cluster data...');
+    console.log('Starting platform series population with brand-wise data...');
 
-    // Check if platform series already exist
-    const existingSeries = await getModelSeries();
-    if (existingSeries.length > 0) {
-      console.log('Platform series already exist, skipping population');
-      return;
+    // First, delete all existing platform series
+    console.log('Deleting all existing platform series...');
+    const existingSeriesResponse = await getModelSeries();
+    const existingSeries = existingSeriesResponse || [];
+    
+    for (const series of existingSeries) {
+      try {
+        await databases.deleteDocument(
+          DATABASE_ID,
+          COLLECTIONS.MODEL_SERIES,
+          series.$id
+        );
+        console.log(`Deleted existing series: ${series.name}`);
+      } catch (error) {
+        console.error(`Error deleting series ${series.name}:`, error);
+      }
     }
 
-    // Platform series data based on your clusters
-    const platformSeriesData = [
-      // Budget & Entry Level Series
+    // Now add new brand-wise platform series
+    const newPlatformSeries = [
       {
-        name: "Budget Entry Level Series",
-        brand: "Multi-Brand",
-        device_type: "phone" as const,
-        description: "Affordable phones with LCD displays, basic features for budget-conscious users",
-        models: [
-          "Samsung A04", "Samsung A04e", "Samsung A05", "Samsung A05s", "Samsung A10s", "Samsung A12", "Samsung F04",
-          "Xiaomi Redmi 3S", "Xiaomi Redmi 4", "Xiaomi Redmi 4A", "Xiaomi Redmi 5A", "Xiaomi Redmi 6A", "Xiaomi Redmi 7A", "Xiaomi Redmi 8A", "Xiaomi Redmi 8A Dual", "Xiaomi Redmi 9A", "Xiaomi Redmi 9i", "Xiaomi Redmi A1", "Xiaomi Redmi A1 Plus", "Xiaomi Redmi A2", "Xiaomi Redmi A2 Plus", "Xiaomi Redmi 12C", "Xiaomi Redmi 13C", "Xiaomi Redmi 13C 5G",
-          "Vivo Y02", "Vivo Y02A", "Vivo Y02s", "Vivo Y02T", "Vivo Y11 2023", "Vivo Y12", "Vivo Y12 2023", "Vivo Y12s", "Vivo Y15 2019", "Vivo Y15c", "Vivo Y16", "Vivo Y17",
-          "Realme C11", "Realme C21", "Realme C25",
-          "OPPO A1K", "OPPO A3s", "OPPO A5", "OPPO A5s", "OPPO A7", "OPPO A12", "OPPO A15"
-        ]
+        name: "Entry Core",
+        brand: "Nothing",
+        models: ["Phone (1)"],
+        description: "Nothing Phone entry level devices",
+        device_type: "phone"
       },
-
-      // Lower Mid LCD Group
       {
-        name: "Lower Mid-Range LCD Series",
-        brand: "Multi-Brand",
-        device_type: "phone" as const,
-        description: "Lower mid-range phones with LCD displays, improved performance over budget models",
-        models: [
-          "Samsung M13 5G", "Samsung A13", "Samsung A14", "Samsung A14 5G", "Samsung F14 5G",
-          "Xiaomi Redmi 5", "Xiaomi Redmi 6 Pro", "Xiaomi Redmi Y1", "Xiaomi Redmi Y2", "Xiaomi Redmi Y3", "Xiaomi Redmi 7", "Xiaomi Redmi 8", "Xiaomi Redmi 9", "Xiaomi Redmi 9 Prime", "Xiaomi Redmi 9 Power", "Xiaomi Redmi 10 Prime", "Xiaomi Redmi 11 Prime 5G", "Xiaomi Redmi 12", "Xiaomi Redmi 12 5G",
-          "Vivo Y19", "Vivo Y20", "Vivo Y21", "Vivo Y21 2021", "Vivo Y22 2022", "Vivo Y22s", "Vivo Y27", "Vivo Y27 5G", "Vivo Y27s", "Vivo Y30 5G", "Vivo Y33s",
-          "OPPO A31", "OPPO A32", "OPPO A33", "OPPO A36", "OPPO A37", "OPPO A52", "OPPO A53", "OPPO A54"
-        ]
+        name: "Mainstream",
+        brand: "Nothing",
+        models: ["Phone (2)"],
+        description: "Nothing Phone mainstream devices",
+        device_type: "phone"
       },
-
-      // Mainstream LCD/AMOLED Group
       {
-        name: "Mainstream LCD/AMOLED Series",
-        brand: "Multi-Brand",
-        device_type: "phone" as const,
-        description: "Mainstream phones with LCD or AMOLED displays, balanced performance and features",
-        models: [
-          "Samsung M20", "Samsung M21", "Samsung M23 5G", "Samsung M30", "Samsung M30s", "Samsung A20", "Samsung A20s", "Samsung A21s", "Samsung A22", "Samsung A22 5G", "Samsung A23", "Samsung A24",
-          "Xiaomi Redmi Note 3", "Xiaomi Redmi Note 4", "Xiaomi Redmi Note 5", "Xiaomi Redmi Note 5 Pro", "Xiaomi Redmi Note 6 Pro", "Xiaomi Redmi Note 7", "Xiaomi Redmi Note 7S", "Xiaomi Redmi Note 7 Pro", "Xiaomi Redmi Note 8", "Xiaomi Redmi Note 8 Pro",
-          "Vivo V3", "Vivo V5", "Vivo V5 Plus", "Vivo V5s", "Vivo V7", "Vivo V7 Plus", "Vivo V9", "Vivo V9 Pro", "Vivo V9 Youth", "Vivo V11", "Vivo V11 Pro",
-          "Realme 7", "Realme 8", "Realme 9", "Realme 9i", "Realme Narzo 20",
-          "OPPO A71", "OPPO A72", "OPPO A74", "OPPO A76"
-        ]
+        name: "ROG Performance",
+        brand: "Asus",
+        models: ["ROG Phone 5", "ROG Phone 6"],
+        description: "Asus ROG gaming phones with high performance",
+        device_type: "phone"
       },
-
-      // Mid AMOLED Group
       {
-        name: "Mid-Range AMOLED Series",
-        brand: "Multi-Brand",
-        device_type: "phone" as const,
-        description: "Mid-range phones with AMOLED displays, enhanced visual experience",
-        models: [
-          "Samsung A30", "Samsung A30s", "Samsung A31", "Samsung A32", "Samsung M32", "Samsung M34 5G",
-          "Xiaomi Redmi Note 9", "Xiaomi Redmi Note 9 Pro", "Xiaomi Redmi Note 9 Pro Max", "Xiaomi Redmi Note 10", "Xiaomi Redmi Note 10S",
-          "Vivo V15", "Vivo V15 Pro", "Vivo V17", "Vivo V17 Pro",
-          "Realme 10", "Realme 10 Pro", "Realme GT Master",
-          "OPPO F7", "OPPO F9", "OPPO F11", "OPPO F11 Pro", "OPPO F15"
-        ]
+        name: "ROG Ultra",
+        brand: "Asus",
+        models: ["ROG Phone 7", "ROG Phone 8"],
+        description: "Asus ROG ultra gaming phones",
+        device_type: "phone"
       },
-
-      // Upper Mid AMOLED Group
       {
-        name: "Upper Mid-Range AMOLED Series",
-        brand: "Multi-Brand",
-        device_type: "phone" as const,
-        description: "Upper mid-range phones with AMOLED displays, premium features at accessible prices",
-        models: [
-          "Samsung A50", "Samsung A50s", "Samsung A51", "Samsung A52", "Samsung M40", "Samsung M51", "Samsung M54",
-          "Xiaomi Redmi Note 10 Pro", "Xiaomi Redmi Note 10 Pro Max", "Xiaomi Redmi Note 11", "Xiaomi Redmi Note 11S", "Xiaomi Redmi Note 11 SE",
-          "Vivo V19", "Vivo V20", "Vivo V20 SE", "Vivo V20 Pro",
-          "Realme GT Neo 2",
-          "OnePlus Nord", "OnePlus Nord CE", "OnePlus Nord 2", "OnePlus Nord 2T",
-          "OPPO F17", "OPPO F17 Pro", "OPPO F19 Pro"
-        ]
+        name: "ZenFone Compact",
+        brand: "Asus",
+        models: ["ZenFone 8", "ZenFone 9"],
+        description: "Asus ZenFone compact devices",
+        device_type: "phone"
       },
-
-      // Premium Standard AMOLED Group
       {
-        name: "Premium Standard AMOLED Series",
-        brand: "Multi-Brand",
-        device_type: "phone" as const,
-        description: "Premium phones with AMOLED displays, flagship-level features and performance",
-        models: [
-          "Samsung A70", "Samsung A70s", "Samsung A71", "Samsung M62", "Samsung F41", "Samsung F62",
-          "Xiaomi Redmi Note 11 Pro", "Xiaomi Redmi Note 11 Pro Plus 5G", "Xiaomi Redmi Note 11S 5G", "Xiaomi Redmi Note 12", "Xiaomi Redmi Note 12s", "Xiaomi Redmi Note 12 Pro", "Xiaomi Redmi Note 12 Pro Plus 5G", "Xiaomi Redmi Note 12 Pro Speed Edition", "Xiaomi Redmi Note 12T Pro", "Xiaomi Redmi Note 13 5G",
-          "Vivo V21", "Vivo V21e", "Vivo V21s", "Vivo V23", "Vivo V23e", "Vivo V23 Pro", "Vivo V25", "Vivo V25 Pro", "Vivo V27", "Vivo V27 Pro", "Vivo V29", "Vivo V29 Pro", "Vivo V30", "Vivo V30e",
-          "Realme GT Neo 3",
-          "OnePlus Nord 3", "OnePlus Nord CE 3"
-        ]
+        name: "ZenFone Flagship",
+        brand: "Asus",
+        models: ["ZenFone 10", "ZenFone 11"],
+        description: "Asus ZenFone flagship devices",
+        device_type: "phone"
       },
-
-      // Premium Flagship Standard Group
       {
-        name: "Premium Flagship Standard Series",
-        brand: "Multi-Brand",
-        device_type: "phone" as const,
-        description: "Premium flagship phones with cutting-edge features and performance",
-        models: [
-          "Samsung S21", "Samsung A73 5G",
-          "Xiaomi 12X", "Xiaomi 12T", "Xiaomi 12 Pro", "Xiaomi Mi 13",
-          "Vivo X80", "Vivo X90",
-          "Realme GT 2 Pro",
-          "OnePlus 9", "OnePlus 9RT", "OnePlus 9R", "OnePlus 10R", "OnePlus 11R",
-          "OPPO Reno 8 Pro", "OPPO Reno 10 Pro", "OPPO F21 Pro"
-        ]
+        name: "Smart Series",
+        brand: "Infinix",
+        models: ["Smart 6 HD", "Smart 6 Plus", "Smart 7", "Smart 7 HD", "Smart 8", "Smart 8 HD"],
+        description: "Infinix Smart series entry devices",
+        device_type: "phone"
       },
-
-      // Ultra Flagship (Isolated)
       {
-        name: "Ultra Flagship Series",
+        name: "Hot Entry",
+        brand: "Infinix",
+        models: ["Hot 11 2022", "Hot 20i", "Hot 20 Play"],
+        description: "Infinix Hot series entry level",
+        device_type: "phone"
+      },
+      {
+        name: "Hot Main",
+        brand: "Infinix",
+        models: ["Hot 20 4G", "Hot 20S", "Hot 20 5G", "Hot 30", "Hot 30 Play", "Hot 40", "Hot 12 Pro"],
+        description: "Infinix Hot series main devices",
+        device_type: "phone"
+      },
+      {
+        name: "Note Main",
+        brand: "Infinix",
+        models: ["Note 10", "Note 12i 2022", "Note 12 G96", "Note 12 2023"],
+        description: "Infinix Note series main devices",
+        device_type: "phone"
+      },
+      {
+        name: "Note Premium",
+        brand: "Infinix",
+        models: ["Note 12 5G", "Note 12 Pro 4G", "Note 12 VIP"],
+        description: "Infinix Note series premium devices",
+        device_type: "phone"
+      },
+      {
+        name: "Flagship",
+        brand: "Infinix",
+        models: ["Zero 5G 2023"],
+        description: "Infinix flagship devices",
+        device_type: "phone"
+      },
+      {
+        name: "Entry/Budget",
+        brand: "iQOO",
+        models: ["U1x", "U3x 4G", "U5", "U5e", "U5x"],
+        description: "iQOO entry and budget devices",
+        device_type: "phone"
+      },
+      {
+        name: "Value",
+        brand: "iQOO",
+        models: ["Z9 Lite 5G"],
+        description: "iQOO value devices",
+        device_type: "phone"
+      },
+      {
+        name: "Neo Series",
+        brand: "iQOO",
+        models: ["Neo 6 5G", "Neo 7 5G", "Z8"],
+        description: "iQOO Neo series devices",
+        device_type: "phone"
+      },
+      {
+        name: "Flagship",
+        brand: "iQOO",
+        models: ["5 Pro", "7 5G", "7 Legend 5G", "9 SE 5G", "10"],
+        description: "iQOO flagship devices",
+        device_type: "phone"
+      },
+      {
+        name: "Old LCD",
+        brand: "Apple",
+        models: ["iPhone 5", "iPhone 5c", "iPhone 5s", "iPhone 6", "iPhone 6 Plus", "iPhone 6S", "iPhone 6S Plus", "iPhone SE 1st Generation", "iPhone SE 2020", "iPhone SE 2022", "iPhone 7", "iPhone 7 Plus", "iPhone 8", "iPhone 8 Plus"],
+        description: "Apple iPhone devices with LCD displays",
+        device_type: "phone"
+      },
+      {
+        name: "X to 11",
+        brand: "Apple",
+        models: ["iPhone X", "iPhone XR", "iPhone XS", "iPhone XS Max", "iPhone 11", "iPhone 11 Pro", "iPhone 11 Pro Max"],
+        description: "Apple iPhone X to 11 series",
+        device_type: "phone"
+      },
+      {
+        name: "12–13 Series",
+        brand: "Apple",
+        models: ["iPhone 12", "iPhone 12 Mini", "iPhone 12 Pro", "iPhone 12 Pro Max", "iPhone 13", "iPhone 13 Mini", "iPhone 13 Pro", "iPhone 13 Pro Max"],
+        description: "Apple iPhone 12 and 13 series",
+        device_type: "phone"
+      },
+      {
+        name: "14–15 Series",
+        brand: "Apple",
+        models: ["iPhone 14", "iPhone 14 Plus", "iPhone 14 Pro", "iPhone 14 Pro Max", "iPhone 15", "iPhone 15 Plus", "iPhone 15 Pro", "iPhone 15 Pro Max"],
+        description: "Apple iPhone 14 and 15 series",
+        device_type: "phone"
+      },
+      {
+        name: "Budget LCD",
         brand: "Samsung",
-        device_type: "phone" as const,
-        description: "Ultra-premium flagship phones with the latest technology and features",
-        models: ["Samsung S22 Ultra", "Samsung S23 Ultra", "Samsung S24 Ultra"]
+        models: ["Galaxy A04", "Galaxy A04e", "Galaxy A05", "Galaxy A05s", "Galaxy A10s", "Galaxy A12", "Galaxy F04"],
+        description: "Samsung Galaxy budget devices with LCD displays",
+        device_type: "phone"
       },
-
-      // Foldable/Unique (Isolated)
       {
-        name: "Foldable & Unique Series",
+        name: "Core A/M/F",
         brand: "Samsung",
-        device_type: "phone" as const,
-        description: "Innovative foldable phones and unique form factors",
-        models: ["Samsung Z Fold3", "Samsung Z Fold4", "Samsung Z Fold5", "Samsung Z Fold6", "Samsung Z Flip3", "Samsung Z Flip4", "Samsung Z Flip5", "Samsung Z Flip6"]
+        models: ["Galaxy A13", "Galaxy A14", "Galaxy A14 5G", "Galaxy M13 5G", "Galaxy F14 5G", "Galaxy M11", "Galaxy M12", "Galaxy F12", "Galaxy M01 Core", "Galaxy M10"],
+        description: "Samsung Galaxy core A, M, and F series",
+        device_type: "phone"
       },
-
-      // Apple Budget LCD Group
       {
-        name: "Apple Budget LCD Series",
-        brand: "Apple",
-        device_type: "phone" as const,
-        description: "Affordable Apple iPhones with LCD displays, great for entry-level Apple users",
-        models: ["iPhone 5", "iPhone 5c", "iPhone 5s", "iPhone 6", "iPhone 6 Plus", "iPhone 6S", "iPhone 6S Plus", "iPhone SE 1st Gen", "iPhone 7", "iPhone 7 Plus", "iPhone 8", "iPhone 8 Plus", "iPhone SE 2020", "iPhone SE 2022"]
+        name: "Mainstream LCD/AMOLED",
+        brand: "Samsung",
+        models: ["Galaxy M20", "Galaxy M21", "Galaxy M23 5G", "Galaxy M30", "Galaxy M30s", "Galaxy M31", "Galaxy A20", "Galaxy A20s", "Galaxy A21s", "Galaxy A22", "Galaxy A22 5G", "Galaxy A23", "Galaxy A24", "Galaxy A30", "Galaxy A30s", "Galaxy A31", "Galaxy A32", "Galaxy M32", "Galaxy M34 5G", "Galaxy M40"],
+        description: "Samsung Galaxy mainstream devices with LCD/AMOLED displays",
+        device_type: "phone"
       },
-
-      // Apple X to 11 OLED Group
       {
-        name: "Apple X to 11 OLED Series",
-        brand: "Apple",
-        device_type: "phone" as const,
-        description: "Apple iPhones with OLED displays, introducing modern design and features",
-        models: ["iPhone X", "iPhone XR", "iPhone XS", "iPhone XS Max", "iPhone 11", "iPhone 11 Pro", "iPhone 11 Pro Max"]
+        name: "Upper Mid A/M",
+        brand: "Samsung",
+        models: ["Galaxy A50", "Galaxy A50s", "Galaxy A51", "Galaxy A52", "Galaxy A70", "Galaxy A70s", "Galaxy A71", "Galaxy M51", "Galaxy M54", "Galaxy M62", "Galaxy F41", "Galaxy F62"],
+        description: "Samsung Galaxy upper mid-range A and M series",
+        device_type: "phone"
       },
-
-      // Apple 12–14 Series Group
       {
-        name: "Apple 12-14 Series",
-        brand: "Apple",
-        device_type: "phone" as const,
-        description: "Modern Apple iPhones with advanced features, 5G support, and improved cameras",
-        models: ["iPhone 12", "iPhone 12 Mini", "iPhone 12 Pro", "iPhone 12 Pro Max", "iPhone 13", "iPhone 13 Mini", "iPhone 13 Pro", "iPhone 13 Pro Max", "iPhone 14", "iPhone 14 Plus", "iPhone 14 Pro", "iPhone 14 Pro Max"]
+        name: "Legacy/Flagship",
+        brand: "Samsung",
+        models: ["Galaxy S8", "Galaxy S8 Plus", "Galaxy S9", "Galaxy S9 Plus", "Galaxy S10", "Galaxy S10 Plus", "Galaxy Note 9", "Galaxy Note 10 Lite", "Galaxy S20 FE 2022", "Galaxy S21 FE 5G", "Galaxy S22 5G", "Galaxy S22 Ultra 5G", "Galaxy Xcover 6 Pro", "Galaxy Wide 5", "Galaxy J4 Plus", "Galaxy J6", "Galaxy J6 Plus", "Galaxy J7 2016", "Galaxy J7 Max", "Galaxy J7 Prime", "Galaxy J7 Pro", "Galaxy J8"],
+        description: "Samsung Galaxy legacy and flagship devices",
+        device_type: "phone"
       },
-
-      // Apple 15 Series Group
       {
-        name: "Apple 15 Series",
-        brand: "Apple",
-        device_type: "phone" as const,
-        description: "Latest Apple iPhones with cutting-edge technology and premium features",
-        models: ["iPhone 15", "iPhone 15 Plus", "iPhone 15 Pro"]
-      },
-
-      // Apple Ultra Flagship (Isolated)
-      {
-        name: "Apple Ultra Flagship Series",
-        brand: "Apple",
-        device_type: "phone" as const,
-        description: "Ultra-premium Apple iPhones with the most advanced features and performance",
-        models: ["iPhone 15 Pro Max"]
-      },
-
-      // Xiaomi Flagship/Gaming (Isolated)
-      {
-        name: "Xiaomi Flagship & Gaming Series",
+        name: "Entry A/Number",
         brand: "Xiaomi",
-        device_type: "phone" as const,
-        description: "Xiaomi flagship phones and gaming-focused devices with high performance",
-        models: ["K20 Pro", "K30 5G Extreme", "K60", "Black Shark 4 Pro"]
+        models: ["Redmi 3S", "Redmi 3S Prime", "Redmi 4", "Redmi 4A", "Redmi 5A", "Redmi 6A", "Redmi 7A", "Redmi 8A", "Redmi 8A Dual", "Redmi 9A", "Redmi 9i", "Redmi A1", "Redmi A1 Plus", "Redmi A2", "Redmi A2 Plus", "Redmi 12C", "Redmi 13C", "Redmi 13C 5G", "Redmi 12", "Redmi 12 5G", "Redmi 10 Prime", "Redmi 11 Prime 5G", "Redmi 9", "Redmi 9 Prime", "Redmi 9 Power", "Redmi 7", "Redmi 6 Pro", "Redmi 5", "Redmi 5A", "Redmi 4"],
+        description: "Xiaomi Redmi entry level A and number series",
+        device_type: "phone"
       },
-
-      // Older Flagship (Isolated)
       {
-        name: "Classic Flagship Series",
-        brand: "Multi-Brand",
-        device_type: "phone" as const,
-        description: "Classic flagship phones from previous generations, still powerful and reliable",
-        models: ["Samsung Note 9", "Samsung Note 10 Lite", "iPhone XS Max"]
+        name: "Note LCD Legacy",
+        brand: "Xiaomi",
+        models: ["Redmi Note 3", "Redmi Note 4", "Redmi Note 5", "Redmi Note 5 Pro", "Redmi Note 6 Pro", "Redmi Note 7", "Redmi Note 7S", "Redmi Note 7 Pro", "Redmi Note 8", "Redmi Note 8 Pro"],
+        description: "Xiaomi Redmi Note legacy LCD devices",
+        device_type: "phone"
+      },
+      {
+        name: "Note 9–13 Gen",
+        brand: "Xiaomi",
+        models: ["Redmi Note 9", "Redmi Note 9 Pro", "Redmi Note 9 Pro Max", "Redmi Note 10", "Redmi Note 10s", "Redmi Note 10 Pro", "Redmi Note 10 Pro Max", "Redmi Note 11", "Redmi Note 11S", "Redmi Note 11 SE", "Redmi Note 11 SE 5G", "Redmi Note 11 Pro", "Redmi Note 11R", "Redmi Note 12", "Redmi Note 12s", "Redmi Note 12R", "Redmi Note 12T Pro", "Redmi Note 12 Pro", "Redmi Note 12 Pro Plus 5G", "Redmi Note 12 Pro Speed Edition", "Redmi Note 13 5G"],
+        description: "Xiaomi Redmi Note 9th to 13th generation devices",
+        device_type: "phone"
+      },
+      {
+        name: "Mi/Premium",
+        brand: "Xiaomi",
+        models: ["Mi 4i", "Mi Max 2", "Mi A1", "Mi A2", "Mi A3", "Mi Note 10", "Mi 10T Pro", "Mi 11 Lite", "Mi 11X", "11T", "11i HyperCharge 5G", "12X", "12T", "12 Pro 5G", "Mi 13"],
+        description: "Xiaomi Mi series premium devices",
+        device_type: "phone"
+      },
+      {
+        name: "Performance/Gaming",
+        brand: "Xiaomi",
+        models: ["Redmi K20", "Redmi K20 Pro", "Redmi K20 Pro Premium", "Redmi K30 5G Extreme Edition", "Redmi K60", "Black Shark 4 Pro"],
+        description: "Xiaomi Redmi K series and Black Shark gaming devices",
+        device_type: "phone"
+      },
+      {
+        name: "Entry/Budget Y",
+        brand: "Vivo",
+        models: ["Y02", "Y02A", "Y02s", "Y02T", "Y11", "Y11 2023", "Y12", "Y12 2023", "Y12s", "Y15 2019", "Y15c", "Y16", "Y17"],
+        description: "Vivo Y series entry and budget devices",
+        device_type: "phone"
+      },
+      {
+        name: "Mainstream Y",
+        brand: "Vivo",
+        models: ["Y19", "Y20", "Y21", "Y21 2021", "Y22 2022", "Y22s", "Y27", "Y27 5G", "Y27s", "Y30 5G", "Y33s", "Y35 2022", "Y35 5G", "Y35 Plus", "Y35m", "Y36", "Y36 5G"],
+        description: "Vivo Y series mainstream devices",
+        device_type: "phone"
+      },
+      {
+        name: "V Legacy–Mid",
+        brand: "Vivo",
+        models: ["V3", "V5", "V5s", "V5 Plus", "V7", "V7 Plus", "V9", "V9 Pro", "V9 Youth", "V11", "V11 Pro", "V15", "V15 Pro", "V17", "V17 Pro", "V19", "V20", "V20 2021", "V20 SE", "V20 Pro"],
+        description: "Vivo V series legacy and mid-range devices",
+        device_type: "phone"
+      },
+      {
+        name: "V New Gen",
+        brand: "Vivo",
+        models: ["V21", "V21e 5G", "V21s", "V23 5G", "V23e", "V23 Pro", "V25 5G", "V25 Pro 5G", "V27", "V27 Pro", "V29", "V29e", "V29 Pro", "V30", "V30e", "V30 Pro"],
+        description: "Vivo V series new generation devices",
+        device_type: "phone"
+      },
+      {
+        name: "X/Flagship",
+        brand: "Vivo",
+        models: ["X21", "X60", "X60 Pro", "X60 Pro Plus", "X70 Pro", "X70 Pro Plus", "X80", "X80 Pro", "X90", "X90 Pro", "V40", "V40e", "V40"],
+        description: "Vivo X series and flagship devices",
+        device_type: "phone"
+      },
+      {
+        name: "Classic",
+        brand: "OnePlus",
+        models: ["OnePlus 3", "OnePlus 3T", "OnePlus 5", "OnePlus 5T", "OnePlus 6", "OnePlus 6T"],
+        description: "OnePlus classic series devices",
+        device_type: "phone"
+      },
+      {
+        name: "7–9 Gen",
+        brand: "OnePlus",
+        models: ["OnePlus 7", "OnePlus 7T", "OnePlus 8", "OnePlus 8T", "OnePlus 9 5G", "OnePlus 9R 5G", "OnePlus 9RT 5G", "OnePlus 7 Pro", "OnePlus 7 Pro 5G", "OnePlus 7T Pro", "OnePlus 8 Pro", "OnePlus 9 Pro 5G"],
+        description: "OnePlus 7th to 9th generation devices",
+        device_type: "phone"
+      },
+      {
+        name: "10–12 Gen",
+        brand: "OnePlus",
+        models: ["OnePlus 10R 5G", "OnePlus 10T 5G", "OnePlus 10 Pro 5G", "OnePlus 11 5G", "OnePlus 11R 5G", "OnePlus 12", "OnePlus 12R"],
+        description: "OnePlus 10th to 12th generation devices",
+        device_type: "phone"
+      },
+      {
+        name: "Nord Family",
+        brand: "OnePlus",
+        models: ["OnePlus Nord", "OnePlus Nord 2 5G", "OnePlus Nord 2T 5G", "OnePlus Nord 3 5G", "OnePlus Nord CE 5G", "OnePlus Nord CE 2 5G", "OnePlus Nord CE 2 Lite 5G", "OnePlus Nord CE 3 5G", "OnePlus Nord CE 3 Lite 5G", "OnePlus Nord CE4 5G", "OnePlus Nord CE4 Lite 5G", "OnePlus Nord 4"],
+        description: "OnePlus Nord family devices",
+        device_type: "phone"
+      },
+      {
+        name: "Entry A",
+        brand: "OPPO",
+        models: ["A1K", "A3s", "A5", "A5 2020", "A5s", "A7", "A8", "A9 2020", "A11", "A12", "A12s", "A15", "A15s", "A16", "A16e", "A17K", "A18"],
+        description: "OPPO A series entry devices",
+        device_type: "phone"
+      },
+      {
+        name: "Core A",
+        brand: "OPPO",
+        models: ["A31", "A32", "A33", "A36", "A37", "A52", "A53", "A53s", "A54", "A56s", "A57", "A57 5G", "A57 2022", "A57e", "A57s", "A58", "A58x"],
+        description: "OPPO A series core devices",
+        device_type: "phone"
+      },
+      {
+        name: "Upper A",
+        brand: "OPPO",
+        models: ["A71", "A72", "A74", "A74 5G", "A76", "A77 2022", "A77 5G", "A77s", "A78 4G", "A78 5G", "A79 5G"],
+        description: "OPPO A series upper tier devices",
+        device_type: "phone"
+      },
+      {
+        name: "Reno Series",
+        brand: "OPPO",
+        models: ["Reno Ace", "Reno A", "Reno 2", "Reno 2Z", "Reno 10x Zoom", "Reno2 F", "Reno3 Pro", "Reno4", "Reno4 Pro", "Reno4 Pro 5G", "Reno6 5G", "Reno7 4G", "Reno8 4G", "Reno8 T", "Reno8T 5G", "Reno9", "Reno9 Pro"],
+        description: "OPPO Reno series devices",
+        device_type: "phone"
+      },
+      {
+        name: "F/K Series",
+        brand: "OPPO",
+        models: ["F1", "F1s", "F3", "F3 Plus", "F5", "F7", "F9", "F9 Pro", "F11", "F11 Pro", "F15", "F17", "F17 Pro", "F19 Pro", "F21 Pro 5G", "F21s Pro", "F21s Pro 5G", "F23 5G", "K9", "K10", "K10 5G", "K10 Energy", "K11", "K11x", "A1 Pro"],
+        description: "OPPO F and K series devices",
+        device_type: "phone"
+      },
+      {
+        name: "Entry C",
+        brand: "Realme",
+        models: ["Realme C1", "Realme C2", "Realme C3", "Realme C11", "Realme C11 2021", "Realme C12", "Realme C15", "Realme C15 Qualcomm Edition", "Realme C17", "Realme C20", "Realme C20A", "Realme C21Y", "Realme C25", "Realme C25s", "Realme C30s", "Realme C31", "Realme C33", "Realme C33 2023", "Realme C35", "Realme C51", "Realme C55"],
+        description: "Realme C series entry devices",
+        device_type: "phone"
+      },
+      {
+        name: "Mainstream Number",
+        brand: "Realme",
+        models: ["Realme 1", "Realme 2", "Realme 2 Pro", "Realme 3", "Realme 3 Pro", "Realme 3i", "Realme 5", "Realme 5i", "Realme 5s", "Realme 6", "Realme 6i", "Realme 6 Pro", "Realme 7", "Realme 7i", "Realme 7 Pro", "Realme 8", "Realme 8i", "Realme 8 5G", "Realme 8s 5G", "Realme 9", "Realme 9i", "Realme 9i 5G", "Realme 9 5G", "Realme 9 5G SE", "Realme 9 Pro 5G", "Realme 9 Pro Plus 5G", "Realme 10 5G", "Realme 10 Pro 5G", "Realme 10 Pro Plus 5G", "Realme 11 Pro Plus 5G"],
+        description: "Realme mainstream number series devices",
+        device_type: "phone"
+      },
+      {
+        name: "Flagship/GT/X",
+        brand: "Realme",
+        models: ["Realme X", "Realme XT", "Realme X2", "Realme X2 Pro", "Realme X7", "Realme X7 Pro", "Realme X7 Pro Ultra", "Realme GT Master Edition", "Realme U1"],
+        description: "Realme flagship, GT, and X series devices",
+        device_type: "phone"
+      },
+      {
+        name: "Narzo/V/Q",
+        brand: "Realme",
+        models: ["Realme Narzo 10", "Realme Narzo 20", "Realme Narzo 20A", "Realme Narzo 20 Pro", "Realme Narzo 30", "Realme Narzo 30A", "Realme Narzo 30 Pro 5G", "Realme Narzo 50A", "Realme Narzo N53", "Realme Narzo N55", "Realme Narzo 60X 5G", "Realme V11", "Realme V11 5G", "Realme V11s", "Realme V20", "Realme V23 5G", "Realme V50", "Realme Q3 Pro", "Realme Q5 5G", "Realme Q5i"],
+        description: "Realme Narzo, V, and Q series devices",
+        device_type: "phone"
+      },
+      {
+        name: "Entry E",
+        brand: "Motorola",
+        models: ["Moto E4 Plus", "Moto E5", "Moto E5 Plus"],
+        description: "Motorola E series entry devices",
+        device_type: "phone"
+      },
+      {
+        name: "Main G",
+        brand: "Motorola",
+        models: ["Moto G4 Plus", "Moto G5 Plus", "Moto G5s Plus", "Moto G6", "Moto G40", "Moto G60"],
+        description: "Motorola G series main devices",
+        device_type: "phone"
+      },
+      {
+        name: "One/Upper",
+        brand: "Motorola",
+        models: ["One Fusion Plus", "One Power", "Moto M", "Moto X4"],
+        description: "Motorola One series and upper tier devices",
+        device_type: "phone"
+      },
+      {
+        name: "Entry C",
+        brand: "Nokia",
+        models: ["Nokia C02", "Nokia C12", "Nokia C12 Plus", "Nokia C12 Pro", "Nokia C21", "Nokia C22", "Nokia C31", "Nokia C32", "Nokia C100", "Nokia C200", "Nokia C210"],
+        description: "Nokia C series entry devices",
+        device_type: "phone"
+      },
+      {
+        name: "Main G",
+        brand: "Nokia",
+        models: ["Nokia G11", "Nokia G21", "Nokia G22", "Nokia G42 5G", "Nokia G60 5G", "Nokia G100", "Nokia G400 5G"],
+        description: "Nokia G series main devices",
+        device_type: "phone"
+      },
+      {
+        name: "Upper/X/6",
+        brand: "Nokia",
+        models: ["Nokia 3.1", "Nokia 5.1 Plus", "Nokia 6.1", "Nokia 6.1 Plus", "Nokia X30 5G"],
+        description: "Nokia upper tier, X series, and 6 series devices",
+        device_type: "phone"
+      },
+      {
+        name: "Entry/Legacy",
+        brand: "Honor",
+        models: ["Honor 7X", "Honor 8X", "Honor 9 Lite", "Honor 9N"],
+        description: "Honor entry level and legacy devices",
+        device_type: "phone"
+      },
+      {
+        name: "Performance",
+        brand: "Honor",
+        models: ["Honor 8 Pro", "Honor Play"],
+        description: "Honor performance devices",
+        device_type: "phone"
+      },
+      {
+        name: "Pixel Entry",
+        brand: "Google",
+        models: ["Pixel 4a 5G", "Pixel 6A"],
+        description: "Google Pixel entry level devices",
+        device_type: "phone"
+      },
+      {
+        name: "Pixel Flagship",
+        brand: "Google",
+        models: ["Pixel 6", "Pixel 6 Pro", "Pixel 7", "Pixel 7 Pro"],
+        description: "Google Pixel flagship devices",
+        device_type: "phone"
+      },
+      {
+        name: "Entry/Value",
+        brand: "POCO",
+        models: ["POCO C3", "POCO C40", "POCO C50", "POCO C51", "POCO C55", "POCO C65"],
+        description: "POCO entry level and value devices",
+        device_type: "phone"
+      },
+      {
+        name: "Mid X/M",
+        brand: "POCO",
+        models: ["POCO M2", "POCO M2 Pro", "POCO M3", "POCO M3 Pro 5G", "POCO M4 5G", "POCO M4 Pro", "POCO X2", "POCO X3", "POCO X3 Pro", "POCO X6 5G"],
+        description: "POCO mid-range X and M series devices",
+        device_type: "phone"
+      },
+      {
+        name: "Flagship F",
+        brand: "POCO",
+        models: ["POCO F1", "POCO F4 5G", "POCO F5 5G", "POCO F5 Pro"],
+        description: "POCO flagship F series devices",
+        device_type: "phone"
       }
     ];
 
-    console.log(`Creating ${platformSeriesData.length} platform series...`);
-
-    // Create all platform series
-    for (const seriesData of platformSeriesData) {
+    console.log('Adding new brand-wise platform series...');
+    for (const series of newPlatformSeries) {
       try {
-        await createModelSeries(seriesData);
-        console.log(`Created platform series: ${seriesData.name}`);
+        await databases.createDocument(
+          DATABASE_ID,
+          COLLECTIONS.MODEL_SERIES,
+          ID.unique(),
+          {
+            ...series,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }
+        );
+        console.log(`Added series: ${series.name} (${series.brand})`);
       } catch (error) {
-        console.error(`Error creating series ${seriesData.name}:`, error);
+        console.error(`Error adding series ${series.name}:`, error);
       }
     }
 
-    console.log('Platform series population completed!');
+    console.log('Platform series population completed successfully!');
   } catch (error) {
-    console.error('Error populating platform series:', error);
+    console.error('Error in populatePlatformSeries:', error);
     throw error;
   }
 };

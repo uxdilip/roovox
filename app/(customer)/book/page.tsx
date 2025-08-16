@@ -11,10 +11,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLocation } from '@/contexts/LocationContext';
 import { NoSSR } from '@/components/ui/NoSSR';
 
-
 // Force dynamic rendering to prevent SSR issues
 export const dynamic = 'force-dynamic';
-export const runtime = 'edge';
 
 export default function BookPage() {
   const { user, isLoading } = useAuth();
@@ -27,7 +25,6 @@ export default function BookPage() {
   const [selectedPartQuality, setSelectedPartQuality] = useState<PartQuality | null>(null);
   const [selectedIssuesWithPartType, setSelectedIssuesWithPartType] = useState<{ id: string; partType?: string }[]>([]);
   const [isClient, setIsClient] = useState(false);
-
 
   useEffect(() => {
     setIsClient(true);
@@ -46,7 +43,6 @@ export default function BookPage() {
     setStep(2);
   };
 
-  // Accepts services, partQualities, and selectedIssuesWithPartType
   const handleServiceSelect = (services: Service[], partQualities: PartQuality[], selectedIssues?: { id: string; partType?: string }[]) => {
     setSelectedServices(services);
     setSelectedPartQuality(partQualities[0]); // Use first part quality
@@ -54,7 +50,6 @@ export default function BookPage() {
     setStep(3);
   };
 
-  // Accepts provider and optional partQuality
   const handleProviderSelect = async (provider: any, partQuality?: PartQuality) => {
     console.log('🔍 Selected Provider:', {
       id: provider.id,
@@ -67,7 +62,6 @@ export default function BookPage() {
     if (partQuality) {
       setSelectedPartQuality(partQuality);
     }
-    // Note: Provider selection will be handled in the booking form
     setStep(4);
   };
 
@@ -75,8 +69,6 @@ export default function BookPage() {
     console.log('Booking data:', bookingData);
     // Here you would submit to your backend
   };
-
-
 
   // Show loading while checking authentication
   if (isLoading || !isClient) {
@@ -91,8 +83,6 @@ export default function BookPage() {
     );
   }
 
-
-
   return (
     <NoSSR fallback={
       <div className="container mx-auto px-4 py-8">
@@ -105,18 +95,18 @@ export default function BookPage() {
     }>
       <>
         {(step === 1 || step === 2) && (
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-4xl mx-auto">
-          {step === 1 && (
-            <DeviceSelector onDeviceSelect={handleDeviceSelect} />
-          )}
-          {step === 2 && selectedDevice && (
-            <ServiceSelector
-              device={selectedDevice}
-              onServiceSelect={handleServiceSelect}
-              onBack={() => setStep(1)}
-            />
-          )}
+          <div className="container mx-auto px-4 py-8">
+            <div className="max-w-4xl mx-auto">
+              {step === 1 && (
+                <DeviceSelector onDeviceSelect={handleDeviceSelect} />
+              )}
+              {step === 2 && selectedDevice && (
+                <ServiceSelector
+                  device={selectedDevice}
+                  onServiceSelect={handleServiceSelect}
+                  onBack={() => setStep(1)}
+                />
+              )}
             </div>
           </div>
         )}
@@ -141,38 +131,23 @@ export default function BookPage() {
           <div className="flex flex-col min-h-screen w-full bg-[#f9fafb]">
             <div className="flex-1 flex w-full">
               <div className="w-full">
-                  <BookingForm
-                    device={selectedDevice}
+                <BookingForm
+                  device={selectedDevice}
                   service={selectedServices[0]}
                   issues={selectedServices}
-                    partQuality={selectedPartQuality || { tier: 'oem', price_multiplier: 1, warranty_days: 180 }}
-                    onSubmit={handleBookingSubmit}
-                    onBack={() => setStep(3)}
-                    phone={user?.phone}
-                    address={user?.address}
-                    providerId={selectedProvider.id}
+                  partQuality={selectedPartQuality || { tier: 'oem', price_multiplier: 1, warranty_days: 180 }}
+                  onSubmit={handleBookingSubmit}
+                  onBack={() => setStep(3)}
+                  phone={user?.phone}
+                  address={user?.address}
+                  providerId={selectedProvider.id}
                   providerPrice={selectedProvider.pricing?.base_rate || selectedProvider.price}
                   providerServices={selectedProvider.matchingServices || []}
                   selectedIssues={selectedIssuesWithPartType}
-                  />
-                  
-                  {/* Debug info */}
-                  <div style={{ display: 'none' }}>
-                    <pre>
-                      {JSON.stringify({
-                        selectedProvider: {
-                          id: selectedProvider.id,
-                          matchingServices: selectedProvider.matchingServices,
-                          matchingServicesCount: selectedProvider.matchingServices?.length
-                        },
-                        selectedServices: selectedServices.map(s => ({ id: s.id, name: s.name })),
-                        partQuality: selectedPartQuality
-                      }, null, 2)}
-                    </pre>
-                  </div>
+                />
               </div>
-        </div>
-      </div>
+            </div>
+          </div>
         )}
       </>
     </NoSSR>

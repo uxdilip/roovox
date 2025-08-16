@@ -13,11 +13,11 @@ import { Button } from "@/components/ui/button";
 import ServicesQuickActions from "./ServicesQuickActions";
 import ServiceFilters from "./ServiceFilters";
 import SeriesView from "./SeriesView";
-// import PlatformSeriesSelector from './PlatformSeriesSelector'; // Temporarily hidden
+import PlatformSeriesSelector from './PlatformSeriesSelector';
 
 // Import modals
 import AddServiceModal from "./ServiceModals/AddServiceModal";
-
+import EditIndividualServiceModal from "./ServiceModals/EditIndividualServiceModal";
 import SeriesBulkUpdateModal from "./ServiceModals/SeriesBulkUpdateModal";
 import EditSeriesModal from "./ServiceModals/EditSeriesModal";
 import CustomSeriesModal from "./ServiceModals/CustomSeriesModal";
@@ -40,13 +40,15 @@ export default function ServicesDashboard() {
 
   // Modal states
   const [showAddModal, setShowAddModal] = useState(false);
-  // const [showPlatformSeriesModal, setShowPlatformSeriesModal] = useState(false); // Temporarily hidden
+  const [showEditIndividualServiceModal, setShowEditIndividualServiceModal] = useState(false);
+  const [showPlatformSeriesModal, setShowPlatformSeriesModal] = useState(false);
   const [showSeriesBulkUpdateModal, setShowSeriesBulkUpdateModal] = useState(false);
   const [showEditSeriesModal, setShowEditSeriesModal] = useState(false);
   const [showCustomSeriesModal, setShowCustomSeriesModal] = useState(false);
   const [showDeleteSeriesModal, setShowDeleteSeriesModal] = useState(false);
   
   // Selected service states
+  const [selectedIndividualService, setSelectedIndividualService] = useState<any>(null);
   const [selectedSeriesForBulk, setSelectedSeriesForBulk] = useState<string>("");
   const [selectedSeriesForEdit, setSelectedSeriesForEdit] = useState<string>("");
   const [selectedSeriesForDelete, setSelectedSeriesForDelete] = useState<string>("");
@@ -222,6 +224,28 @@ export default function ServicesDashboard() {
     setShowDeleteSeriesModal(true);
   };
 
+  const handleEditIndividualService = (service: any) => {
+    setSelectedIndividualService(service);
+    setShowEditIndividualServiceModal(true);
+  };
+
+  const handleDeleteIndividualService = async (service: any) => {
+    if (confirm(`Are you sure you want to delete the ${service.issue} service for ${service.brand} ${service.model}?`)) {
+      try {
+        await databases.deleteDocument(
+          DATABASE_ID,
+          "services_offered",
+          service.$id
+        );
+        toast({ title: "Success", description: "Service deleted successfully!" });
+        handleServiceUpdate(); // Refresh the services
+      } catch (error) {
+        console.error('Error deleting service:', error);
+        toast({ title: "Error", description: "Failed to delete service. Please try again.", variant: "destructive" });
+      }
+    }
+  };
+
   const handleServiceUpdate = () => {
     // Refresh services and series data after any update
     setRefreshing(true);
@@ -322,6 +346,7 @@ export default function ServicesDashboard() {
         <ServicesQuickActions
           onCustomSeries={() => setShowCustomSeriesModal(true)}
           onAddService={() => setShowAddModal(true)}
+          onPlatformSeries={() => setShowPlatformSeriesModal(true)}
         />
 
         {/* Filters */}
@@ -380,6 +405,8 @@ export default function ServicesDashboard() {
               onBulkUpdate={handleBulkUpdate}
               onEditSeries={handleEditSeries}
               onDeleteSeries={handleDeleteSeries}
+              onEditIndividualService={handleEditIndividualService}
+              onDeleteIndividualService={handleDeleteIndividualService}
             />
           )}
         </div>
@@ -389,6 +416,13 @@ export default function ServicesDashboard() {
           open={showAddModal}
           onOpenChange={setShowAddModal}
           providerId={user.id}
+          onSuccess={handleServiceUpdate}
+        />
+
+        <EditIndividualServiceModal
+          open={showEditIndividualServiceModal}
+          onOpenChange={setShowEditIndividualServiceModal}
+          service={selectedIndividualService}
           onSuccess={handleServiceUpdate}
         />
 
@@ -426,8 +460,8 @@ export default function ServicesDashboard() {
           onSuccess={handleServiceUpdate}
         />
 
-        {/* Platform Series Modal - Temporarily hidden */}
-        {/* {showPlatformSeriesModal && (
+        {/* Platform Series Modal */}
+        {showPlatformSeriesModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
               <div className="flex items-center justify-between p-6 border-b border-gray-200">
@@ -442,13 +476,13 @@ export default function ServicesDashboard() {
                 </Button>
               </div>
               <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
-                        <PlatformSeriesSelector
-          deviceType="phone"
-        />
+                <PlatformSeriesSelector
+                  deviceType="phone"
+                />
               </div>
             </div>
           </div>
-        )} */}
+        )}
       </div>
     </div>
   );
