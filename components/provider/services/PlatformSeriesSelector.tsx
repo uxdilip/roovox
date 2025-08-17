@@ -11,10 +11,12 @@ import PlatformSeriesCustomizationModal from './ServiceModals/PlatformSeriesCust
 
 interface PlatformSeriesSelectorProps {
   deviceType?: 'phone' | 'laptop';
+  onSuccess?: () => void;
 }
 
 export default function PlatformSeriesSelector({ 
-  deviceType = 'phone' 
+  deviceType = 'phone',
+  onSuccess
 }: PlatformSeriesSelectorProps) {
   const [platformSeries, setPlatformSeries] = useState<any[]>([]);
   const [filteredSeries, setFilteredSeries] = useState<any[]>([]);
@@ -74,8 +76,16 @@ export default function PlatformSeriesSelector({
   };
 
   const handleCustomizationSuccess = () => {
-    // Refresh the series list
-    loadPlatformSeries();
+    // Refresh the series list with loading state
+    setIsLoading(true);
+    loadPlatformSeries().finally(() => {
+      setIsLoading(false);
+    });
+    
+    // Call the parent's onSuccess callback to refresh the main dashboard
+    if (onSuccess) {
+      onSuccess();
+    }
   };
 
   const getDeviceIcon = (type: string) => {
@@ -184,7 +194,7 @@ export default function PlatformSeriesSelector({
                 <div className="flex flex-wrap gap-1">
                   {series.models.slice(0, 3).map((model: string, index: number) => (
                     <Badge key={index} variant="secondary" className="text-xs">
-                      {model.split(':')[1]}
+                      {model.includes(':') ? model.split(':')[1] : model}
                     </Badge>
                   ))}
                   {series.models.length > 3 && (

@@ -478,6 +478,7 @@ export default function ServicesDashboard() {
               <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
                 <PlatformSeriesSelector
                   deviceType="phone"
+                  onSuccess={handleServiceUpdate}
                 />
               </div>
             </div>
