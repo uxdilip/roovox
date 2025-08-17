@@ -33,9 +33,14 @@ export default function BookPage() {
   const handleDeviceSelect = (device: Device) => {
     // Check if user is authenticated before proceeding
     if (!user) {
-      const currentPath = window.location.pathname + window.location.search;
-      const returnUrl = encodeURIComponent(currentPath);
-      router.push(`/login?returnUrl=${returnUrl}`);
+      // Only access window on client side
+      if (typeof window !== 'undefined') {
+        const currentPath = window.location.pathname + window.location.search;
+        const returnUrl = encodeURIComponent(currentPath);
+        router.push(`/login?returnUrl=${returnUrl}`);
+      } else {
+        router.push('/login');
+      }
       return;
     }
     
