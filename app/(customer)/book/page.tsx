@@ -13,8 +13,6 @@ import { NoSSR } from '@/components/ui/NoSSR';
 
 // Force dynamic rendering to prevent SSR issues
 export const dynamic = 'force-dynamic';
-export const revalidate = 0;
-export const fetchCache = 'force-no-store';
 
 export default function BookPage() {
   const { user, isLoading } = useAuth();
@@ -28,11 +26,6 @@ export default function BookPage() {
   const [selectedIssuesWithPartType, setSelectedIssuesWithPartType] = useState<{ id: string; partType?: string }[]>([]);
   const [isClient, setIsClient] = useState(false);
 
-  // Ensure this component only runs on client side
-  if (typeof window === 'undefined') {
-    return null;
-  }
-
   useEffect(() => {
     setIsClient(true);
   }, []);
@@ -40,14 +33,9 @@ export default function BookPage() {
   const handleDeviceSelect = (device: Device) => {
     // Check if user is authenticated before proceeding
     if (!user) {
-      // Only access window on client side
-      if (typeof window !== 'undefined') {
-        const currentPath = window.location.pathname + window.location.search;
-        const returnUrl = encodeURIComponent(currentPath);
-        router.push(`/login?returnUrl=${returnUrl}`);
-      } else {
-        router.push('/login');
-      }
+      const currentPath = window.location.pathname + window.location.search;
+      const returnUrl = encodeURIComponent(currentPath);
+      router.push(`/login?returnUrl=${returnUrl}`);
       return;
     }
     
@@ -96,12 +84,72 @@ export default function BookPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+    <NoSSR fallback={
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-4xl mx-auto">
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </div>
         </div>
       </div>
-    </div>
+    }>
+      <>
+        {(step === 1 || step === 2) && (
+          <div className="container mx-auto px-4 py-8">
+            <div className="max-w-4xl mx-auto">
+              {step === 1 && (
+                <DeviceSelector onDeviceSelect={handleDeviceSelect} />
+              )}
+              {step === 2 && selectedDevice && (
+                <ServiceSelector
+                  device={selectedDevice}
+                  onServiceSelect={handleServiceSelect}
+                  onBack={() => setStep(1)}
+                />
+              )}
+            </div>
+          </div>
+        )}
+        
+        {step === 3 && selectedDevice && selectedServices && (
+          <div className="container mx-auto px-4 py-8">
+            <div className="max-w-7xl mx-auto">
+              <ProviderSelector
+                device={selectedDevice}
+                services={selectedServices}
+                partQuality={selectedPartQuality || { tier: 'oem', price_multiplier: 1, warranty_days: 180 }}
+                onProviderSelect={handleProviderSelect}
+                onBack={() => setStep(2)}
+                customerLocation={location?.coordinates || null}
+                selectedIssues={selectedIssuesWithPartType}
+              />
+            </div>
+          </div>
+        )}
+        
+        {step === 4 && selectedDevice && selectedServices && selectedProvider && (
+          <div className="flex flex-col min-h-screen w-full bg-[#f9fafb]">
+            <div className="flex-1 flex w-full">
+              <div className="w-full">
+                <BookingForm
+                  device={selectedDevice}
+                  service={selectedServices[0]}
+                  issues={selectedServices}
+                  partQuality={selectedPartQuality || { tier: 'oem', price_multiplier: 1, warranty_days: 180 }}
+                  onSubmit={handleBookingSubmit}
+                  onBack={() => setStep(3)}
+                  phone={user?.phone}
+                  address={user?.address}
+                  providerId={selectedProvider.id}
+                  providerPrice={selectedProvider.pricing?.base_rate || selectedProvider.price}
+                  providerServices={selectedProvider.matchingServices || []}
+                  selectedIssues={selectedIssuesWithPartType}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </>
+    </NoSSR>
   );
 }
