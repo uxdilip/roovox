@@ -13,6 +13,8 @@ import { NoSSR } from '@/components/ui/NoSSR';
 
 // Force dynamic rendering to prevent SSR issues
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+export const fetchCache = 'force-no-store';
 
 export default function BookPage() {
   const { user, isLoading } = useAuth();
@@ -25,6 +27,11 @@ export default function BookPage() {
   const [selectedPartQuality, setSelectedPartQuality] = useState<PartQuality | null>(null);
   const [selectedIssuesWithPartType, setSelectedIssuesWithPartType] = useState<{ id: string; partType?: string }[]>([]);
   const [isClient, setIsClient] = useState(false);
+
+  // Ensure this component only runs on client side
+  if (typeof window === 'undefined') {
+    return null;
+  }
 
   useEffect(() => {
     setIsClient(true);
