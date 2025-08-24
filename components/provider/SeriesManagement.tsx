@@ -45,7 +45,7 @@ const SeriesManagement: React.FC<SeriesManagementProps> = ({ providerId }) => {
   const [brands, setBrands] = useState<string[]>([]);
   const [selectedBrand, setSelectedBrand] = useState<string>('');
   const [series, setSeries] = useState<SeriesData[]>([]);
-  const [loading, setLoading] = useState(false);
+
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedSeries, setSelectedSeries] = useState<SeriesData | null>(null);
   const [seriesServices, setSeriesServices] = useState<SeriesService[]>([]);
@@ -77,7 +77,6 @@ const SeriesManagement: React.FC<SeriesManagementProps> = ({ providerId }) => {
   useEffect(() => {
     const fetchSeries = async () => {
       if (!selectedBrand) return;
-      setLoading(true);
       try {
         const brandSeries = await getModelSeries(selectedBrand, selectedDevice);
         setSeries(brandSeries);
@@ -85,7 +84,6 @@ const SeriesManagement: React.FC<SeriesManagementProps> = ({ providerId }) => {
         console.error('Error fetching series:', error);
         setSeries([]);
       }
-      setLoading(false);
     };
     fetchSeries();
   }, [selectedBrand, selectedDevice]);
@@ -216,7 +214,6 @@ const SeriesManagement: React.FC<SeriesManagementProps> = ({ providerId }) => {
   const handleSaveSeriesPricing = async () => {
     if (!selectedSeries || !user) return;
 
-    setLoading(true);
     try {
       const now = new Date().toISOString();
       let savedCount = 0;
@@ -297,8 +294,6 @@ const SeriesManagement: React.FC<SeriesManagementProps> = ({ providerId }) => {
         description: 'Failed to save series pricing. Please try again.',
         variant: 'destructive',
       });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -363,8 +358,8 @@ const SeriesManagement: React.FC<SeriesManagementProps> = ({ providerId }) => {
             {/* Series List */}
             <div>
               <Label>Available Series</Label>
-              {loading ? (
-                <div className="text-gray-500">Loading series...</div>
+              {series.length === 0 ? (
+                <div className="text-gray-500">No series found. Please select a brand.</div>
               ) : (
                 <div className="space-y-2">
                   {series.map(seriesItem => (
@@ -519,8 +514,8 @@ const SeriesManagement: React.FC<SeriesManagementProps> = ({ providerId }) => {
             <Button variant="outline" onClick={() => setEditModalOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSaveSeriesPricing} disabled={loading}>
-              {loading ? 'Saving...' : 'Save Pricing'}
+            <Button onClick={handleSaveSeriesPricing}>
+              Save Pricing
             </Button>
           </DialogFooter>
         </DialogContent>

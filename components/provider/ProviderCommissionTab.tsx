@@ -57,7 +57,7 @@ export default function ProviderCommissionTab() {
     completedAmount: 0,
     overdueAmount: 0
   });
-  const [loading, setLoading] = useState(true);
+
   const [activeTab, setActiveTab] = useState('pending');
   const { toast } = useToast();
 
@@ -69,8 +69,6 @@ export default function ProviderCommissionTab() {
 
   const fetchCommissions = async () => {
     try {
-      setLoading(true);
-      
       const response = await databases.listDocuments(
         DATABASE_ID,
         'commission_collections',
@@ -179,8 +177,6 @@ export default function ProviderCommissionTab() {
         description: "Failed to fetch commission data",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -395,8 +391,7 @@ export default function ProviderCommissionTab() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p>Loading...</p>
+          <p>Please log in to view commissions.</p>
         </div>
       </div>
     );
@@ -416,10 +411,9 @@ export default function ProviderCommissionTab() {
         </div>
         <Button 
           onClick={fetchCommissions}
-          disabled={loading}
           variant="outline"
         >
-          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+          <RefreshCw className="h-4 w-4 mr-2" />
           Refresh
         </Button>
       </div>
@@ -491,11 +485,7 @@ export default function ProviderCommissionTab() {
           </Tabs>
         </CardHeader>
         <CardContent>
-          {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            </div>
-          ) : commissions.length === 0 ? (
+          {commissions.length === 0 ? (
             <div className="text-center py-8">
               <DollarSign className="h-16 w-16 mx-auto text-gray-400 mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">

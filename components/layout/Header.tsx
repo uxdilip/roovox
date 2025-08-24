@@ -28,7 +28,8 @@ import {
   Wrench,
   Menu,
   X,
-  Calendar
+  Calendar,
+  MessageCircle
 } from 'lucide-react';
 
 import { useLocation } from '@/contexts/LocationContext';
@@ -50,6 +51,12 @@ export function Header() {
   const getLogoHref = () => {
     if (!user) return '/'; // Public home for non-authenticated users
     return activeRole === 'provider' ? '/provider/dashboard' : '/'; // Customers go to home page
+  };
+
+  // Smart chat navigation based on user role
+  const getChatHref = () => {
+    if (!user) return '/login'; // Non-authenticated users go to login
+    return activeRole === 'provider' ? '/provider/dashboard?tab=chat' : '/chat'; // Providers go to dashboard chat tab, customers go to chat page
   };
 
   // Fetch role-specific display name
@@ -154,6 +161,16 @@ export function Header() {
               // Logged in user menu
               <div className="flex items-center space-x-2 md:space-x-3">
                 
+                {/* Messages - Hidden on mobile */}
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="hidden sm:flex relative"
+                  onClick={() => router.push(getChatHref())}
+                >
+                  <MessageCircle className="h-4 w-4" />
+                </Button>
+
                 {/* Notifications - Hidden on mobile */}
                 <Button variant="ghost" size="sm" className="hidden sm:flex">
                   <Bell className="h-4 w-4" />
@@ -193,6 +210,14 @@ export function Header() {
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     
+                    {/* Messages - Available for all logged-in users */}
+                    <DropdownMenuItem asChild>
+                      <Link href={getChatHref()} className="flex items-center">
+                        <MessageCircle className="mr-2 h-4 w-4" />
+                        Messages
+                      </Link>
+                    </DropdownMenuItem>
+
                     {/* Role-specific menu items */}
                     {activeRole === 'customer' && (
                       <DropdownMenuItem asChild>
@@ -282,6 +307,19 @@ export function Header() {
               {user ? (
                 // Logged in user mobile menu
                 <div className="space-y-2">
+                  {/* Messages */}
+                  <Button 
+                    variant="ghost" 
+                    className="w-full justify-start"
+                    onClick={() => {
+                      router.push(getChatHref());
+                      closeMobileMenu();
+                    }}
+                  >
+                    <MessageCircle className="h-4 w-4 mr-3" />
+                    Messages
+                  </Button>
+
                   {/* Notifications */}
                   <Button variant="ghost" className="w-full justify-start">
                     <Bell className="h-4 w-4 mr-3" />

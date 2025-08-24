@@ -171,9 +171,19 @@ export default function CustomerDashboard() {
           }
         });
 
-        // Batch fetch all device data in parallel
+        // ✅ FIXED: Batch fetch all device data in parallel with better fallback logic
         const deviceDataPromises = uniqueDeviceIds.map(async (deviceId) => {
           try {
+            // If device_id is a generic category (like "phone", "laptop"), use fallback
+            if (deviceId === "phone" || deviceId === "laptop") {
+              return {
+                deviceId,
+                deviceBrand: deviceId === "phone" ? "Smartphone" : "Laptop",
+                deviceModel: "Device",
+                deviceImage: ""
+              };
+            }
+            
             // Try Phones collection first, then Laptops collection as fallback
             const deviceResponse = await databases.getDocument(
               process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
@@ -212,7 +222,7 @@ export default function CustomerDashboard() {
         const providerMap = new Map(providerData.map(p => [p.providerId, p]));
         const deviceMap = new Map(deviceData.map(d => [d.deviceId, d]));
 
-        // Combine all data efficiently
+        // ✅ FIXED: Combine all data efficiently with device_info fallback
         const bookingsWithDetails = bookingsResponse.documents.map(booking => {
           const providerInfo = providerMap.get(booking.provider_id) || { 
             providerName: "Unknown Provider", 
@@ -224,6 +234,32 @@ export default function CustomerDashboard() {
             deviceModel: "", 
             deviceImage: "" 
           };
+
+          // ✅ FIXED: Use device_info if available, otherwise fall back to device lookup
+          let finalDeviceBrand = deviceInfo.deviceBrand;
+          let finalDeviceModel = deviceInfo.deviceModel;
+          
+          // ✅ DEBUG: Log device_info for troubleshooting
+          console.log('🔍 [CUSTOMER MY-BOOKINGS] Booking device_info:', {
+            booking_id: booking.$id,
+            device_info: booking.device_info,
+            device_id: booking.device_id,
+            deviceInfo: deviceInfo
+          });
+          
+          if (booking.device_info) {
+            try {
+              const parsedDeviceInfo = JSON.parse(booking.device_info);
+              console.log('🔍 [CUSTOMER MY-BOOKINGS] Parsed device_info:', parsedDeviceInfo);
+              if (parsedDeviceInfo.brand && parsedDeviceInfo.model) {
+                finalDeviceBrand = parsedDeviceInfo.brand;
+                finalDeviceModel = parsedDeviceInfo.model;
+                console.log('🔍 [CUSTOMER MY-BOOKINGS] Using device_info:', { finalDeviceBrand, finalDeviceModel });
+              }
+            } catch (error) {
+              console.warn('Error parsing device_info:', error);
+            }
+          }
 
           return {
             ...booking,
@@ -255,12 +291,24 @@ export default function CustomerDashboard() {
               avatar: undefined
             },
             device: {
-              brand: deviceInfo.deviceBrand,
-              model: deviceInfo.deviceModel,
+              brand: finalDeviceBrand, // ✅ FIXED: Use device_info when available
+              model: finalDeviceModel, // ✅ FIXED: Use device_info when available
               image_url: deviceInfo.deviceImage
             },
             payment: {
-              payment_method: "Online", // Default for now
+              // ✅ FIXED: Use same payment method logic as provider dashboard
+              payment_method: (() => {
+                // If we have a specific payment method from the database, use it
+                if (booking.payment_method) {
+                  return booking.payment_method;
+                }
+                // Otherwise, determine based on payment status (same logic as provider dashboard)
+                if (booking.payment_status === "pending") {
+                  return "COD"; // Pending payments are typically COD
+                } else {
+                  return "Online"; // Completed payments are typically online
+                }
+              })(),
               status: booking.payment_status || "pending"
             }
           };

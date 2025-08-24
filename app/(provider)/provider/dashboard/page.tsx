@@ -5,8 +5,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
-import { useRouter } from "next/navigation";
-import ProviderServicesPage from "../services/page";
+import { useRouter, useSearchParams } from "next/navigation";
+
 import { databases, DATABASE_ID, COLLECTIONS } from "@/lib/appwrite";
 import { Query } from "appwrite";
 import { Star, CheckCircle, AlertCircle, MapPin, Calendar, DollarSign, Clock, Smartphone, User, CreditCard } from "lucide-react";
@@ -18,25 +18,31 @@ import dynamic from "next/dynamic";
 import { toast } from "sonner";
 import Link from "next/link";
 import ProviderCommissionTab from "@/components/provider/ProviderCommissionTab";
+import TierPricingTab from "@/components/provider/TierPricingTab";
+import ProviderChatTab from "@/components/provider/ProviderChatTab";
 import { EnhancedTabs } from "@/components/ui/enhanced-tabs";
 
 const ServiceSetupStep = dynamic(() => import("@/components/provider/onboarding/steps/ServiceSetupStep"), { ssr: false });
 
 export default function ProviderDashboardPage() {
   const { user, roles, isLoading } = useAuth();
-  const [tab, setTab] = useState("overview");
   const router = useRouter();
+  const searchParams = useSearchParams();
+  
+  // Initialize tab from URL parameter or default to overview
+  const [tab, setTab] = useState(() => {
+    const tabParam = searchParams.get('tab');
+    return tabParam || "overview";
+  });
 
   // --- Overview Tab State ---
   const [profile, setProfile] = useState<any>(null);
   const [providerStatus, setProviderStatus] = useState<any>(null);
   const [businessSetup, setBusinessSetup] = useState<any>(null);
   const [stats, setStats] = useState<any>(null);
-  const [loadingOverview, setLoadingOverview] = useState(true);
 
   // --- Bookings Tab State ---
   const [bookings, setBookings] = useState<any[]>([]);
-  const [loadingBookings, setLoadingBookings] = useState(false);
   const [bookingsTab, setBookingsTab] = useState("upcoming");
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -62,10 +68,27 @@ export default function ProviderDashboardPage() {
     }
   }, [user, roles, isLoading, router]);
 
+  // Update tab when URL parameter changes
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam && tabParam !== tab) {
+      setTab(tabParam);
+    }
+  }, [searchParams, tab]);
+
+  // Update URL when tab changes
+  useEffect(() => {
+    if (tab && tab !== 'overview') {
+      const newUrl = `/provider/dashboard?tab=${tab}`;
+      router.replace(newUrl, { scroll: false });
+    } else if (tab === 'overview') {
+      router.replace('/provider/dashboard', { scroll: false });
+    }
+  }, [tab, router]);
+
   useEffect(() => {
     if (tab !== "overview" || !user) return;
     let isMounted = true;
-    setLoadingOverview(true);
     const fetchData = async () => {
       try {
         // Fetch all data in parallel for maximum speed
@@ -131,11 +154,9 @@ export default function ProviderDashboardPage() {
           setProviderStatus(providerDoc);
           setBusinessSetup(onboarding);
           setStats({ totalBookings, averageRating, totalRevenue });
-          setLoadingOverview(false);
         }
       } catch (error) {
         console.error('Error fetching overview data:', error);
-        setLoadingOverview(false);
       }
     };
     fetchData();
@@ -149,12 +170,10 @@ export default function ProviderDashboardPage() {
       if (!user) return;
 
       try {
-        setLoadingBookings(true);
-        
         // Fetch bookings for this provider
         const bookingsResponse = await databases.listDocuments(
-          process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
-          process.env.NEXT_PUBLIC_APPWRITE_BOOKINGS_COLLECTION_ID!,
+          DATABASE_ID,
+          COLLECTIONS.BOOKINGS,
           [Query.equal("provider_id", user.id)]
         );
 
@@ -171,13 +190,13 @@ export default function ProviderDashboardPage() {
             // Try customers collection first, then User collection as fallback
             const [customerResponse, userResponse] = await Promise.all([
               databases.listDocuments(
-                process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+                DATABASE_ID,
                 COLLECTIONS.CUSTOMERS,
                 [Query.equal("user_id", customerId), Query.limit(1)]
               ).catch(() => ({ documents: [] })),
               databases.listDocuments(
-                process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
-                'User',
+                DATABASE_ID,
+                COLLECTIONS.USERS,
                 [Query.equal("user_id", customerId), Query.limit(1)]
               ).catch(() => ({ documents: [] }))
             ]);
@@ -196,15 +215,25 @@ export default function ProviderDashboardPage() {
         // Batch fetch all device data in parallel
         const deviceDataPromises = uniqueDeviceIds.map(async (deviceId) => {
           try {
+            // Handle generic device IDs from new tier pricing system
+            if (deviceId === 'phone' || deviceId === 'laptop') {
+              return {
+                deviceId,
+                deviceBrand: deviceId === 'phone' ? 'Smartphone' : 'Laptop',
+                deviceModel: 'Device',
+                deviceImage: ""
+              };
+            }
+
             // Try Phones collection first, then Laptops collection as fallback
             const deviceResponse = await databases.getDocument(
-              process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
-              'Phones',
+              DATABASE_ID,
+              COLLECTIONS.PHONES,
               deviceId
             ).catch(() => 
               databases.getDocument(
-                process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
-                'Laptops',
+                DATABASE_ID,
+                COLLECTIONS.LAPTOPS,
                 deviceId
               ).catch(() => null)
             );
@@ -228,8 +257,8 @@ export default function ProviderDashboardPage() {
         const paymentDataPromises = uniqueBookingIds.map(async (bookingId) => {
           try {
             const paymentsResponse = await databases.listDocuments(
-              process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
-              'payments',
+              DATABASE_ID,
+              COLLECTIONS.PAYMENTS,
               [Query.equal("booking_id", bookingId)]
             );
             
@@ -257,14 +286,35 @@ export default function ProviderDashboardPage() {
         const deviceMap = new Map(deviceData.map(d => [d.deviceId, d]));
         const paymentMap = new Map(paymentData.map(p => [p.bookingId, p]));
 
-        // Combine all data efficiently
+        // ✅ FIXED: Combine all data efficiently with device_info fallback
         const bookingsWithDetails = bookingsResponse.documents.map(booking => {
           const customerName = customerMap.get(booking.customer_id) || "Unknown Customer";
           const deviceInfo = deviceMap.get(booking.device_id) || { deviceBrand: "Unknown Device", deviceModel: "", deviceImage: "" };
           const paymentInfo = paymentMap.get(booking.$id) || { paymentMethod: "Online", paymentStatus: "pending" };
 
-          // ✅ FIXED: Create device_display field
-          const deviceDisplay = `${deviceInfo.deviceBrand} ${deviceInfo.deviceModel}`.trim();
+          // ✅ FIXED: Use device_info if available, otherwise fall back to device lookup
+          let finalDeviceDisplay = `${deviceInfo.deviceBrand} ${deviceInfo.deviceModel}`.trim();
+          
+          // ✅ DEBUG: Log device_info for troubleshooting
+          console.log('🔍 [PROVIDER DASHBOARD] Booking device_info:', {
+            booking_id: booking.$id,
+            device_info: booking.device_info,
+            device_id: booking.device_id,
+            deviceInfo: deviceInfo
+          });
+          
+          if (booking.device_info) {
+            try {
+              const parsedDeviceInfo = JSON.parse(booking.device_info);
+              console.log('🔍 [PROVIDER DASHBOARD] Parsed device_info:', parsedDeviceInfo);
+              if (parsedDeviceInfo.brand && parsedDeviceInfo.model) {
+                finalDeviceDisplay = `${parsedDeviceInfo.brand} ${parsedDeviceInfo.model}`;
+                console.log('🔍 [PROVIDER DASHBOARD] Using device_info:', finalDeviceDisplay);
+              }
+            } catch (error) {
+              console.warn('Error parsing device_info:', error);
+            }
+          }
 
           return {
             ...booking,
@@ -272,7 +322,7 @@ export default function ProviderDashboardPage() {
             device_brand: deviceInfo.deviceBrand,
             device_model: deviceInfo.deviceModel,
             device_image: deviceInfo.deviceImage,
-            device_display: deviceDisplay, // ✅ FIXED: Add device_display field
+            device_display: finalDeviceDisplay, // ✅ FIXED: Use device_info when available
             payment_method: paymentInfo.paymentMethod,
             payment_status: paymentInfo.paymentStatus
           };
@@ -283,8 +333,6 @@ export default function ProviderDashboardPage() {
         }
       } catch (error) {
         console.error("Error fetching bookings:", error);
-      } finally {
-        setLoadingBookings(false);
       }
     };
     fetchBookings();
@@ -302,14 +350,39 @@ export default function ProviderDashboardPage() {
       filtered = filtered.filter(b => b.status === "cancelled");
     }
 
-    // Apply search filter
+    // ✅ FIXED: Apply search filter including selected_issues
     if (searchTerm.trim()) {
       const query = searchTerm.toLowerCase();
-      filtered = filtered.filter(b => 
-        (b.device_display || b.device || "").toLowerCase().includes(query) ||
-        (b.customer_name || "").toLowerCase().includes(query) ||
-        (b.issues || []).some((issue: string) => issue.toLowerCase().includes(query))
-      );
+      filtered = filtered.filter(b => {
+        // Check device display
+        if ((b.device_display || b.device || "").toLowerCase().includes(query)) return true;
+        
+        // Check customer name
+        if ((b.customer_name || "").toLowerCase().includes(query)) return true;
+        
+        // Check selected_issues (the actual field from database)
+        if (b.selected_issues) {
+          try {
+            let issues: any[] = [];
+            if (typeof b.selected_issues === 'string') {
+              issues = JSON.parse(b.selected_issues);
+            } else if (Array.isArray(b.selected_issues)) {
+              issues = b.selected_issues;
+            }
+            
+            if (issues.some((issue: any) => 
+              (issue.name || issue.id || '').toLowerCase().includes(query)
+            )) return true;
+          } catch (error) {
+            console.warn('Error parsing selected_issues for search:', error);
+          }
+        }
+        
+        // Fallback to old issues field
+        if ((b.issues || []).some((issue: string) => issue.toLowerCase().includes(query))) return true;
+        
+        return false;
+      });
     }
 
     // Apply status filter
@@ -418,11 +491,35 @@ export default function ProviderDashboardPage() {
     );
   };
 
-  // Helper: get issues as string
+  // ✅ FIXED: Helper to get issues as string from selected_issues
   const issuesString = (booking: any) => {
+    // First try to parse selected_issues (the actual field from database)
+    if (booking.selected_issues) {
+      try {
+        // If it's a JSON string, parse it
+        if (typeof booking.selected_issues === 'string') {
+          const parsed = JSON.parse(booking.selected_issues);
+          if (Array.isArray(parsed)) {
+            // Extract service names from the objects
+            const serviceNames = parsed.map(issue => issue.name || issue.id || 'Unknown Service');
+            return serviceNames.join(", ");
+          }
+        }
+        // If it's already an array
+        if (Array.isArray(booking.selected_issues)) {
+          const serviceNames = booking.selected_issues.map((issue: any) => issue.name || issue.id || 'Unknown Service');
+          return serviceNames.join(", ");
+        }
+      } catch (error) {
+        console.warn('Error parsing selected_issues:', error);
+      }
+    }
+    
+    // Fallback to other fields
     if (Array.isArray(booking.issues)) return booking.issues.join(", ");
     if (typeof booking.issues === "string") return booking.issues;
     if (booking.issue_description) return booking.issue_description;
+    
     return "-";
   };
 
@@ -453,10 +550,7 @@ export default function ProviderDashboardPage() {
               <CardTitle>Overview</CardTitle>
             </CardHeader>
             <CardContent>
-              {loadingOverview ? (
-                <div className="py-10 text-center text-muted-foreground">Loading...</div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   {/* Profile Info */}
                   <div className="space-y-4">
                     <div className="flex items-center gap-4">
@@ -512,7 +606,6 @@ export default function ProviderDashboardPage() {
                     </Card>
                   </div>
                 </div>
-              )}
             </CardContent>
           </Card>
         </motion.div>
@@ -570,9 +663,7 @@ export default function ProviderDashboardPage() {
                   </ShadTabsTrigger>
                 </ShadTabsList>
                 <ShadTabsContent value="upcoming">
-                  {loadingBookings ? (
-                    <div className="py-10 text-center text-muted-foreground">Loading...</div>
-                  ) : bookingsByTab.length === 0 ? (
+                  {bookingsByTab.length === 0 ? (
                     <div className="py-10 text-center text-muted-foreground">No upcoming bookings.</div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -651,9 +742,7 @@ export default function ProviderDashboardPage() {
                   )}
                 </ShadTabsContent>
                 <ShadTabsContent value="completed">
-                  {loadingBookings ? (
-                    <div className="py-10 text-center text-muted-foreground">Loading...</div>
-                  ) : bookingsByTab.length === 0 ? (
+                  {bookingsByTab.length === 0 ? (
                     <div className="py-10 text-center text-muted-foreground">No completed bookings.</div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -709,9 +798,7 @@ export default function ProviderDashboardPage() {
                   )}
                 </ShadTabsContent>
                 <ShadTabsContent value="cancelled">
-                  {loadingBookings ? (
-                    <div className="py-10 text-center text-muted-foreground">Loading...</div>
-                  ) : bookingsByTab.length === 0 ? (
+                  {bookingsByTab.length === 0 ? (
                     <div className="py-10 text-center text-muted-foreground">No cancelled bookings.</div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -782,21 +869,7 @@ export default function ProviderDashboardPage() {
         </motion.div>
       )
     },
-    {
-      value: "services",
-      label: "Services",
-      content: (
-        <motion.div
-          key="services"
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -16 }}
-          transition={{ duration: 0.25 }}
-        >
-          <ProviderServicesPage />
-        </motion.div>
-      )
-    },
+
     {
       value: "commission",
       label: "Commission",
@@ -809,6 +882,36 @@ export default function ProviderDashboardPage() {
           transition={{ duration: 0.25 }}
         >
           <ProviderCommissionTab />
+        </motion.div>
+      )
+    },
+    {
+      value: "chat",
+      label: "Chat",
+      content: (
+        <motion.div
+          key="chat"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -16 }}
+          transition={{ duration: 0.25 }}
+        >
+          <ProviderChatTab />
+        </motion.div>
+      )
+    },
+    {
+      value: "tier-pricing",
+      label: "Tier Pricing",
+      content: (
+        <motion.div
+          key="tier-pricing"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -16 }}
+          transition={{ duration: 0.25 }}
+        >
+          <TierPricingTab />
         </motion.div>
       )
     }
@@ -944,10 +1047,7 @@ export default function ProviderDashboardPage() {
               onNext={async () => {
                 setEditAvailabilityOpen(false);
                 setTab('overview');
-                // Refetch dashboard data
-                setLoadingOverview(true);
-                // Wait a moment for DB update
-                setTimeout(() => setLoadingOverview(false), 1200);
+                // Refetch dashboard data - no loading state needed
               }}
               onPrev={() => setEditAvailabilityOpen(false)}
             />

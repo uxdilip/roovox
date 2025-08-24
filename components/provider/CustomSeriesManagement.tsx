@@ -44,7 +44,7 @@ export default function CustomSeriesManagement({ providerId }: CustomSeriesManag
   const [customSeries, setCustomSeries] = useState<CustomSeries[]>([]);
   const [selectedSeries, setSelectedSeries] = useState<CustomSeries | null>(null);
   const [seriesServices, setSeriesServices] = useState<CustomSeriesService[]>([]);
-  const [loading, setLoading] = useState(false);
+
   const [showPricingModal, setShowPricingModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showAddPricingModal, setShowAddPricingModal] = useState(false);
@@ -80,7 +80,6 @@ export default function CustomSeriesManagement({ providerId }: CustomSeriesManag
   };
 
   const loadCustomSeries = async () => {
-    setLoading(true);
     try {
       const series = await getCustomSeriesByProvider(providerId);
       setCustomSeries(series);
@@ -91,8 +90,6 @@ export default function CustomSeriesManagement({ providerId }: CustomSeriesManag
         description: "Failed to load custom series",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -228,15 +225,7 @@ export default function CustomSeriesManagement({ providerId }: CustomSeriesManag
     return brands.size;
   };
 
-  if (loading) {
-    return (
-      <Card>
-        <CardContent className="p-6">
-          <div className="text-center">Loading custom series...</div>
-        </CardContent>
-      </Card>
-    );
-  }
+
 
   return (
     <div className="space-y-6">

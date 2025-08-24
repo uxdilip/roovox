@@ -47,14 +47,9 @@ export default function CustomSeriesCreator({ providerId, onSuccess, onCancel }:
   const [availableModels, setAvailableModels] = useState<DeviceModel[]>([]);
   const [selectedModels, setSelectedModels] = useState<DeviceModel[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [loadingModels, setLoadingModels] = useState(false);
-  
   // Pricing
   const [issues, setIssues] = useState<any[]>([]);
   const [pricing, setPricing] = useState<PricingData[]>([]);
-  
-  // Loading states
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     loadBrands();
@@ -154,7 +149,6 @@ export default function CustomSeriesCreator({ providerId, onSuccess, onCancel }:
   const loadModels = async (brand: string) => {
     if (!brand) return;
     
-    setLoadingModels(true);
     try {
       // Try to get actual models from the database
       const { getPhones, getLaptops } = await import('@/lib/appwrite-services');
@@ -203,8 +197,6 @@ export default function CustomSeriesCreator({ providerId, onSuccess, onCancel }:
         { brand: brand, model: `${brand} Model 5` },
       ];
       setAvailableModels(fallbackModels);
-    } finally {
-      setLoadingModels(false);
     }
   };
 
@@ -268,7 +260,6 @@ export default function CustomSeriesCreator({ providerId, onSuccess, onCancel }:
   };
 
   const handleCreate = async () => {
-    setLoading(true);
     try {
       // Create the custom series
       const seriesData = {
@@ -321,8 +312,6 @@ export default function CustomSeriesCreator({ providerId, onSuccess, onCancel }:
         description: "Failed to create custom series",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -534,13 +523,7 @@ export default function CustomSeriesCreator({ providerId, onSuccess, onCancel }:
             )}
 
             {/* Instructions */}
-            {loadingModels && (
-              <div className="text-center py-8 text-muted-foreground">
-                <p className="text-sm">Loading models for {selectedBrand}...</p>
-              </div>
-            )}
-
-            {availableModels.length === 0 && selectedBrand && !loadingModels && (
+            {availableModels.length === 0 && selectedBrand && (
               <div className="text-center py-8 text-muted-foreground">
                 <p className="text-sm">No models found for {selectedBrand}</p>
               </div>
@@ -662,8 +645,8 @@ export default function CustomSeriesCreator({ providerId, onSuccess, onCancel }:
           )}
           
           {step === 'pricing' ? (
-            <Button onClick={handleCreate} disabled={loading}>
-              {loading ? 'Creating...' : 'Create Series'}
+            <Button onClick={handleCreate}>
+              Create Series
             </Button>
           ) : (
             <Button onClick={handleNext}>
