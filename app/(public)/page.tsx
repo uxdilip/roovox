@@ -433,17 +433,25 @@ export default function HomePage() {
           
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 max-w-5xl mx-auto">
             {[
-              { title: "Plumbing Assistance", icon: "🔧" },
-              { title: "Appliance Repair", icon: "⚡" },
-              { title: "Home Cleaning", icon: "🧽" },
-              { title: "Installation", icon: "🛠️" },
+              { title: "Plumbing Assistance", icon: "🔧", image: "/assets/Gemini_Generated_Image_d6m6bkd6m6bkd6m6.png" },
+              { title: "Appliance Repair", icon: "⚡", image: "/assets/appliance repair.png" },
+              { title: "Home Cleaning", icon: "🧽", image: "/assets/Gemini_Generated_Image_fkvqz2fkvqz2fkvq.png" },
+              { title: "Installation", icon: "🛠️", image: "/assets/installation.png" },
             ].map((service, idx) => (
               <div
                 key={idx}
                 className="bg-slate-50 rounded-lg md:rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 p-4 md:p-6 text-center border-0"
               >
                 <div className="w-full h-16 md:h-24 mb-3 md:mb-4 rounded-lg bg-slate-100 flex items-center justify-center">
-                  <span className="text-2xl md:text-3xl">{service.icon}</span>
+                  {service.image ? (
+                    <img
+                      src={service.image}
+                      alt={service.title}
+                      className="object-contain h-full w-full rounded-lg"
+                    />
+                  ) : (
+                    <span className="text-2xl md:text-3xl">{service.icon}</span>
+                  )}
                 </div>
                 <h3 className="text-sm md:text-lg font-semibold text-slate-900 mb-2">{service.title}</h3>
                 <Badge variant="secondary" className="text-xs bg-slate-200 text-slate-600 border-0">

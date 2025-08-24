@@ -32,7 +32,8 @@ import {
   Star,
   AlertCircle,
   CheckCircle,
-  XCircle
+  XCircle,
+  ArrowRight
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -199,12 +200,40 @@ export default function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
 
-  // Scroll to bottom when messages change
+  // Track if this is the first time loading messages for a conversation
+  const [isFirstLoad, setIsFirstLoad] = useState(true);
+  const [userHasScrolled, setUserHasScrolled] = useState(false);
+
+  // Handle scroll events to detect user scrolling
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLDivElement;
+    const isAtBottom = target.scrollHeight - target.scrollTop <= target.clientHeight + 50;
+    
+    // User has scrolled if they're not at bottom
+    setUserHasScrolled(!isAtBottom);
+  }, []);
+
+  // WhatsApp behavior: Always scroll to bottom when first opening chat
   useEffect(() => {
-    if (messages.length > 0) {
+    if (messages.length > 0 && selectedConversation && isFirstLoad) {
+      // Scroll to bottom when first opening chat (like WhatsApp)
       setTimeout(scrollToBottom, 100);
+      setIsFirstLoad(false);
     }
-  }, [messages, scrollToBottom]);
+  }, [messages, scrollToBottom, selectedConversation, isFirstLoad]);
+
+  // Auto-scroll for new messages only if user is at bottom
+  useEffect(() => {
+    if (messages.length > 0 && selectedConversation && !isFirstLoad) {
+      const lastMessage = messages[messages.length - 1];
+      const isNewMessage = lastMessage && 
+        new Date(lastMessage.created_at).getTime() > Date.now() - 5000; // Within last 5 seconds
+      
+      if (isNewMessage && !userHasScrolled) {
+        setTimeout(scrollToBottom, 100);
+      }
+    }
+  }, [messages, scrollToBottom, selectedConversation, isFirstLoad, userHasScrolled]);
 
   // Fetch provider profiles when conversations are loaded
   useEffect(() => {
@@ -246,6 +275,9 @@ export default function ChatPage() {
   useEffect(() => {
     if (selectedConversation) {
       fetchOffersForConversation(selectedConversation.id);
+      // Reset scroll behavior for new conversation
+      setIsFirstLoad(true);
+      setUserHasScrolled(false);
     }
   }, [selectedConversation]);
 
@@ -402,9 +434,23 @@ export default function ChatPage() {
   return (
     <div className="flex h-screen bg-gray-50">
       {/* Left Sidebar - Conversations List */}
-      <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
+      <div className={`${selectedConversation ? 'hidden md:flex md:w-80' : 'w-full md:w-80'} bg-white border-r border-gray-200 flex flex-col`}>
+        {/* Mobile Header with Back Button */}
+        <div className="md:hidden p-4 border-b border-gray-200 bg-white">
+          <div className="flex items-center justify-between">
+            <h1 className="text-lg font-semibold text-gray-900">All messages</h1>
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => setSelectedConversation(null)}
+              className="md:hidden"
+            >
+              <Search className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
         {/* Header */}
-        <div className="p-4 border-b border-gray-200">
+        <div className="p-2 md:p-4 border-b border-gray-200">
           <h1 className="text-lg font-semibold text-gray-900">All messages</h1>
           <div className="mt-3 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -436,20 +482,20 @@ export default function ChatPage() {
                 <div
                   key={conversation.id}
                   onClick={() => setSelectedConversation(conversation)}
-                  className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${
+                  className={`p-3 md:p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors active:bg-gray-100 ${
                     selectedConversation?.id === conversation.id ? 'bg-blue-50 border-blue-200' : ''
                   }`}
                 >
-                  <div className="flex items-start space-x-3">
+                  <div className="flex items-start space-x-2 md:space-x-3">
                     <div className="relative">
-                    <Avatar className="h-10 w-10">
+                    <Avatar className="h-8 w-8 md:h-10 md:w-10">
                       <AvatarImage src={provider?.profilePicture} />
                       <AvatarFallback className="bg-green-100 text-green-600">
                         {provider?.businessName?.charAt(0)?.toUpperCase() || provider?.name?.charAt(0)?.toUpperCase() || 'P'}
                       </AvatarFallback>
                     </Avatar>
                       {onlineUsers.has(conversation.provider_id) && (
-                        <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
+                        <div className="absolute -bottom-1 -right-1 w-2 h-2 md:w-3 md:h-3 bg-green-500 border-2 border-white rounded-full"></div>
                       )}
                     </div>
                     
@@ -491,15 +537,25 @@ export default function ChatPage() {
       </div>
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col">
+      <div className={`${selectedConversation ? 'flex-1 flex flex-col' : 'hidden md:flex md:flex-1 md:flex-col'} w-full`}>
         {selectedConversation ? (
           <>
             {/* Chat Header */}
-            <div className="bg-white border-b border-gray-200 p-4">
+            <div className="bg-white border-b border-gray-200 p-2 md:p-4 sticky top-0 z-20">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
+                  {/* Mobile Back Button */}
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => setSelectedConversation(null)}
+                    className="md:hidden mr-2"
+                  >
+                    <ArrowRight className="h-4 w-4 rotate-180" />
+                  </Button>
+                  
                   <div className="relative">
-                  <Avatar className="h-10 w-10">
+                  <Avatar className="h-8 w-8 md:h-10 md:w-10">
                     <AvatarImage src={providerProfiles[selectedConversation.provider_id]?.profilePicture} />
                     <AvatarFallback className="bg-green-100 text-green-600">
                       {providerProfiles[selectedConversation.provider_id]?.businessName?.charAt(0)?.toUpperCase() || 
@@ -507,7 +563,7 @@ export default function ChatPage() {
                     </AvatarFallback>
                   </Avatar>
                     {onlineUsers.has(selectedConversation.provider_id) && (
-                      <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
+                      <div className="absolute -bottom-1 -right-1 w-2 h-2 md:w-3 md:h-3 bg-green-500 border-2 border-white rounded-full"></div>
                     )}
                   </div>
                   
@@ -534,7 +590,10 @@ export default function ChatPage() {
             </div>
 
             {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div 
+              className="flex-1 overflow-y-auto p-2 md:p-4 space-y-4 messages-container"
+              onScroll={handleScroll}
+            >
               {/* Combine messages and offers in chronological order */}
               {(() => {
                 // Create a combined array of messages and offers
@@ -582,7 +641,7 @@ export default function ChatPage() {
                   className={`flex ${message.sender_type === 'customer' ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
-                    className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                    className={`max-w-[85%] md:max-w-xs lg:max-w-md px-3 md:px-4 py-2 rounded-lg ${
                       message.sender_type === 'customer'
                         ? 'bg-blue-500 text-white'
                         : 'bg-gray-200 text-gray-900'
@@ -786,24 +845,39 @@ export default function ChatPage() {
                 </div>
               )}
               
+              {/* New Messages Indicator (like WhatsApp) */}
+              {userHasScrolled && messages.length > 0 && (
+                <div className="flex justify-center mb-4">
+                  <Button
+                    onClick={scrollToBottom}
+                    size="sm"
+                    className="bg-blue-500 hover:bg-blue-600 text-white rounded-full shadow-lg"
+                  >
+                    <MessageCircle className="h-4 w-4 mr-2" />
+                    New messages
+                  </Button>
+                </div>
+              )}
+              
               <div ref={messagesEndRef} />
             </div>
 
             {/* Message Input */}
-            <div className="bg-white border-t border-gray-200 p-4">
+            <div className="bg-white border-t border-gray-200 p-2 md:p-4 sticky bottom-0 z-10">
               <div className="flex space-x-2">
                 <Input
                   placeholder="Type a message..."
                   value={newMessage}
                   onChange={handleInputChange}
                   onKeyPress={handleKeyPress}
-                  className="flex-1"
+                  className="flex-1 min-w-0"
                   disabled={sending}
                 />
                 <Button 
                   onClick={handleSendMessage}
                   disabled={!newMessage.trim() || sending}
                   size="sm"
+                  className="flex-shrink-0"
                 >
                   <Send className="h-4 w-4" />
                 </Button>
