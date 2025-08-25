@@ -124,7 +124,7 @@ export function useRealtimeChat({ userId, userType }: UseRealtimeChatProps): Use
 
     loadMessages();
 
-    // ✅ NEW: Fallback mechanism - periodic message check every 3 seconds
+    // Aggressive fallback mechanism - check every 500ms
     // This ensures messages are received even if real-time fails
     const fallbackInterval = setInterval(async () => {
       try {
@@ -134,40 +134,28 @@ export function useRealtimeChat({ userId, userType }: UseRealtimeChatProps): Use
           setMessages(prev => {
             // Only update if we have new messages
             if (latestMessages.length > prev.length) {
-              console.log('🔄 Fallback: Found new messages, updating chat');
               return latestMessages;
             }
             return prev;
           });
         }
       } catch (error) {
-        console.warn('Fallback message check failed:', error);
+        // Silently handle fallback errors
       }
-    }, 3000); // Check every 3 seconds for faster fallback
+    }, 500); // Check every 500ms for faster fallback
 
     // Subscribe to new messages
-    console.log('🔌 [HOOK] Setting up message subscription for conversation:', selectedConversation.id);
-    
     const unsubscribe = realtimeChat.subscribeToMessages(
       selectedConversation.id,
       (newMessage) => {
-        console.log('📨 [HOOK] Received real-time message:', {
-          id: newMessage.id,
-          content: newMessage.content,
-          sender_id: newMessage.sender_id,
-          sender_type: newMessage.sender_type,
-          conversation_id: newMessage.conversation_id
-        });
-        
         setMessages(prev => {
-          // ✅ FIXED: Only check for exact ID duplicates (not content-based)
+          // Only check for exact ID duplicates (not content-based)
           const existsById = prev.some(msg => msg.id === newMessage.id);
           if (existsById) {
-            console.log('🚫 Skipping duplicate message by ID:', newMessage.id);
             return prev;
           }
           
-          // ✅ FIXED: Only check for optimistic message duplicates from same user
+          // Only check for optimistic message duplicates from same user
           // This prevents blocking messages from other users
           const isOptimisticDuplicate = prev.some(msg => 
             msg.id.startsWith('temp_') && 
@@ -178,7 +166,6 @@ export function useRealtimeChat({ userId, userType }: UseRealtimeChatProps): Use
           );
           
           if (isOptimisticDuplicate) {
-            console.log('🚫 Skipping real-time message - replacing optimistic version:', newMessage.content);
             // Replace optimistic message with real message
             return prev.map(msg => 
               msg.id.startsWith('temp_') && 
@@ -189,7 +176,6 @@ export function useRealtimeChat({ userId, userType }: UseRealtimeChatProps): Use
             );
           }
           
-          console.log('✅ Adding new real-time message:', newMessage.content, 'from:', newMessage.sender_id);
           return [...prev, newMessage];
         });
       }

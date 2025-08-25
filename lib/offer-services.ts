@@ -331,16 +331,40 @@ export async function getCustomerOffers(customerId: string): Promise<{ success: 
  */
 export async function updateOfferOnBookingComplete(offerId: string, bookingId: string): Promise<{ success: boolean; error?: string }> {
   try {
-    await databases.updateDocument(
-      DATABASE_ID,
-      COLLECTIONS.OFFERS,
-      offerId,
-      {
-        status: 'accepted',
-        booking_id: bookingId,
-        accepted_at: new Date().toISOString()
+    // Only update fields that exist in the offers collection schema
+    // Note: booking_id field may not exist in the collection schema yet
+    const updateData: any = {
+      status: 'accepted',
+      accepted_at: new Date().toISOString()
+    };
+
+    // Try to add booking_id if the field exists in the schema
+    try {
+      await databases.updateDocument(
+        DATABASE_ID,
+        COLLECTIONS.OFFERS,
+        offerId,
+        {
+          ...updateData,
+          booking_id: bookingId
+        }
+      );
+      console.log('✅ [OFFER-SERVICES] Offer updated with booking_id successfully');
+    } catch (bookingIdError: any) {
+      if (bookingIdError.message?.includes('Unknown attribute: "booking_id"')) {
+        // booking_id field doesn't exist, update without it
+        console.log('⚠️ [OFFER-SERVICES] booking_id field not found, updating without it');
+        await databases.updateDocument(
+          DATABASE_ID,
+          COLLECTIONS.OFFERS,
+          offerId,
+          updateData
+        );
+        console.log('✅ [OFFER-SERVICES] Offer updated without booking_id successfully');
+      } else {
+        throw bookingIdError;
       }
-    );
+    }
 
     console.log('✅ [OFFER-SERVICES] Offer updated successfully:', {
       offerId,
@@ -351,7 +375,7 @@ export async function updateOfferOnBookingComplete(offerId: string, bookingId: s
     return { success: true };
 
   } catch (error) {
-    console.error('❌ Error updating offer on booking completion:', error);
+    console.error('❌ [OFFER-SERVICES] Error updating offer on booking completion:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }

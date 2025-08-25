@@ -1,6 +1,7 @@
 import { client, databases, DATABASE_ID } from './appwrite';
 import { ID, Query } from 'appwrite';
 import { ChatMessage, Conversation } from './chat-services';
+import { notificationService } from './notifications';
 
 // Real-time chat service for instant messaging like Fiverr
 export class RealtimeChatService {
@@ -23,21 +24,11 @@ export class RealtimeChatService {
     const recentOptimisticMessages = new Set<string>();
     
     // Subscribe to new messages in this conversation
-    console.log('🔌 [REALTIME] Subscribing to messages for conversation:', conversationId);
-    
     const unsubscribe = client.subscribe(
       `databases.${DATABASE_ID}.collections.messages.documents`,
       (response) => {
-        console.log('📡 [REALTIME] Received message event:', response.events, 'for conversation:', conversationId);
-        
         if (response.events.includes('databases.*.collections.*.documents.*.create')) {
           const message = response.payload as any;
-          console.log('📨 [REALTIME] New message payload:', {
-            conversation_id: message.conversation_id,
-            sender_id: message.sender_id,
-            content: message.content,
-            target_conversation: conversationId
-          });
           
           // Only process messages for this conversation
           if (message.conversation_id === conversationId) {
@@ -52,19 +43,13 @@ export class RealtimeChatService {
               created_at: message.created_at
             };
             
-            // ✅ FIXED: Only check for optimistic message duplicates from the SAME user
-            // This prevents blocking messages from other users
+            // Check if this is a duplicate of a recent optimistic message from the SAME user
             const messageKey = `${message.sender_id}_${message.content}_${message.sender_type}`;
             
-            // Check if this is a duplicate of a recent optimistic message from the SAME user
             if (recentOptimisticMessages.has(messageKey)) {
               recentOptimisticMessages.delete(messageKey);
-              console.log('🚫 Skipping real-time message - replacing optimistic version from same user:', message.content);
               return;
             }
-            
-            // ✅ FIXED: Process ALL messages from other users immediately
-            console.log('✅ Processing real-time message from:', message.sender_id, 'content:', message.content, 'conversation:', conversationId);
             
             callback(chatMessage);
           }
@@ -160,19 +145,19 @@ export class RealtimeChatService {
       created_at: new Date().toISOString()
     };
 
-    // ✅ FIXED: Mark this optimistic message to avoid real-time duplicate
-    const messageKey = `${senderId}_${content}_${senderType}`;
-    
-    // Use conversation-specific optimistic message tracking
-    const recentOptimisticMessages = (this as any)[`recentOptimisticMessages_${conversationId}`];
-    
-    if (recentOptimisticMessages) {
-      recentOptimisticMessages.add(messageKey);
-      // Remove after 10 seconds to prevent memory leaks
-      setTimeout(() => {
-        recentOptimisticMessages?.delete(messageKey);
-      }, 10000);
-    }
+          // Mark this optimistic message to avoid real-time duplicate
+      const messageKey = `${senderId}_${content}_${senderType}`;
+      
+      // Use conversation-specific optimistic message tracking
+      const recentOptimisticMessages = (this as any)[`recentOptimisticMessages_${conversationId}`];
+      
+      if (recentOptimisticMessages) {
+        recentOptimisticMessages.add(messageKey);
+        // Remove after 10 seconds to prevent memory leaks
+        setTimeout(() => {
+          recentOptimisticMessages?.delete(messageKey);
+        }, 10000);
+      }
 
     // Show optimistic update immediately
     onOptimisticUpdate?.(tempMessage);
@@ -198,7 +183,6 @@ export class RealtimeChatService {
         const timeDiff = Date.now() - new Date(lastMessage.created_at).getTime();
         
         if (timeDiff < 2000) { // Reduced to 2 seconds for better UX
-          console.log('🚫 Preventing duplicate message from same user');
           // Use existing message instead
           const existingMessage: ChatMessage = {
             id: lastMessage.$id,
@@ -243,7 +227,66 @@ export class RealtimeChatService {
         }
       );
 
-      console.log('✅ Message sent successfully:', message.$id);
+      // Create notification for RECIPIENT only (not sender)
+      try {
+        // Get conversation details to determine recipient
+        const conversation = await databases.getDocument(
+          DATABASE_ID,
+          'conversations',
+          conversationId
+        );
+
+        if (conversation) {
+          // Determine recipient (opposite of sender)
+          const recipientId = message.sender_type === 'customer' 
+            ? conversation.provider_id 
+            : conversation.customer_id;
+          
+          const recipientType = message.sender_type === 'customer' ? 'provider' : 'customer';
+          
+          // Ensure we're not notifying the sender
+          if (recipientId !== message.sender_id) {
+            // Get sender name for notification
+            let senderName = 'Someone';
+            try {
+              const senderUser = await databases.listDocuments(
+                DATABASE_ID,
+                'User',
+                [Query.equal('user_id', message.sender_id), Query.limit(1)]
+              );
+              
+              if (senderUser.documents.length > 0) {
+                senderName = senderUser.documents[0].name;
+              }
+            } catch (error) {
+              // Silently handle sender name fetch errors
+            }
+
+            // Create notification for recipient with smart logic
+            await notificationService.createNotification({
+              type: 'message',
+              category: 'chat',
+              priority: 'medium',
+              title: 'New Message',
+              message: `New message from ${senderName}`,
+              userId: recipientId,
+              userType: recipientType,
+              relatedId: conversationId,
+              relatedType: 'conversation',
+              metadata: {
+                messageId: message.$id,
+                senderId: message.sender_id,
+                senderName,
+                conversationId
+              }
+            }, {
+              skipIfActiveChat: true
+            });
+          }
+        }
+      } catch (notificationError) {
+        // Silently handle notification errors
+      }
 
       // Success callback with real message
       const realMessage: ChatMessage = {
@@ -382,6 +425,8 @@ export class RealtimeChatService {
     this.conversationCallbacks.delete(subscriptionKey);
     this.typingCallbacks.delete(subscriptionKey);
   }
+
+  // Fresh notification system will be implemented here
 
   /**
    * Clean up all subscriptions

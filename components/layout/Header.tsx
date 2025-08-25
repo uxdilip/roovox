@@ -35,6 +35,8 @@ import {
 import { useLocation } from '@/contexts/LocationContext';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import LocationSelector from '@/components/LocationSelector';
+import { BusinessNotificationBell } from '@/components/ui/business-notification-bell';
+import { MessageNotificationEnvelope } from '@/components/ui/message-notification-envelope';
 
 export function Header() {
   const { user, logout, isLoading, activeRole } = useAuth();
@@ -172,9 +174,8 @@ export function Header() {
                 </Button>
 
                 {/* Notifications - Hidden on mobile */}
-                <Button variant="ghost" size="sm" className="hidden sm:flex">
-                  <Bell className="h-4 w-4" />
-                </Button>
+                <BusinessNotificationBell variant="default" />
+                <MessageNotificationEnvelope variant="default" />
 
                 {/* User Menu - Hidden on mobile */}
                 <DropdownMenu>
@@ -320,11 +321,9 @@ export function Header() {
                     Messages
                   </Button>
 
-                  {/* Notifications */}
-                  <Button variant="ghost" className="w-full justify-start">
-                    <Bell className="h-4 w-4 mr-3" />
-                    Notifications
-                  </Button>
+                                  {/* Notifications */}
+                <BusinessNotificationBell variant="mobile" />
+                <MessageNotificationEnvelope variant="mobile" />
 
                   {/* User Info */}
                   <div className="px-4 py-3 bg-gray-50 rounded-lg">

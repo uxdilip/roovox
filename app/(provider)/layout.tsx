@@ -4,6 +4,7 @@ import React, { useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { Header } from '@/components/layout/Header';
+import { ChatToastNotification } from '@/components/ui/chat-toast-notification';
 
 export default function ProviderLayout({
   children,
@@ -16,7 +17,7 @@ export default function ProviderLayout({
   // Ensure activeRole is set to 'provider' when on any provider page
   useEffect(() => {
     if (user && roles.includes('provider') && activeRole !== 'provider' && setActiveRole) {
-      console.log('🔍 ProviderLayout: Setting activeRole to provider');
+  
       setActiveRole('provider');
     }
   }, [user, roles, activeRole, setActiveRole]);
@@ -58,6 +59,8 @@ export default function ProviderLayout({
       <main className="flex-1">
         {children}
       </main>
+      {/* Chat notifications for provider pages */}
+      <ChatToastNotification position="bottom-right" duration={1000} soundEnabled={true} />
     </div>
   );
 } 
