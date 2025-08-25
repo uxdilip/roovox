@@ -18,7 +18,7 @@ import dynamic from "next/dynamic";
 import { toast } from "sonner";
 import Link from "next/link";
 import ProviderCommissionTab from "@/components/provider/ProviderCommissionTab";
-import TierPricingTab from "@/components/provider/TierPricingTab";
+import NewTierPricingTab from "@/components/provider/NewTierPricingTab";
 import ProviderChatTab from "@/components/provider/ProviderChatTab";
 import { EnhancedTabs } from "@/components/ui/enhanced-tabs";
 
@@ -1172,7 +1172,7 @@ export default function ProviderDashboardPage() {
           exit={{ opacity: 0, y: -16 }}
           transition={{ duration: 0.25 }}
         >
-          <TierPricingTab />
+                          <NewTierPricingTab />
         </motion.div>
       )
     }
