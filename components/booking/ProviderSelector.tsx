@@ -207,12 +207,34 @@ export function ProviderSelector({ device, services, partQuality, onProviderSele
             (doc: any) => doc.provider_id === pid
           );
 
-          // Filter tier pricing to only include selected issues
-          const matchingTierServices = providerTierPricing.filter((tierDoc: any) =>
-            issueNames.some(issueName => 
-              issueName.toLowerCase().trim() === tierDoc.issue.toLowerCase().trim()
-            )
-          );
+          // Filter tier pricing to only include selected issues with part type matching
+          const matchingTierServices = providerTierPricing.filter((tierDoc: any) => {
+            return issueNames.some(issueName => {
+              const issueNameLower = issueName.toLowerCase().trim();
+              const tierIssueLower = tierDoc.issue.toLowerCase().trim();
+              
+              // Handle part type matching for Screen Replacement (using issue name approach)
+              const isScreenReplacement = issueNameLower.includes('screen replacement');
+              if (isScreenReplacement) {
+                // Find the corresponding selected issue to get its part type
+                const selectedIssue = selectedIssues.find((si: any) => 
+                  (si.name || si.id)?.toLowerCase().trim() === issueNameLower
+                );
+                
+                if (selectedIssue && selectedIssue.partType) {
+                  // For screen replacement with part type, match against "Issue (OEM)" or "Issue (HQ)"
+                  const expectedTierIssue = `${issueName} (${selectedIssue.partType.toUpperCase()})`.toLowerCase();
+                  return tierIssueLower === expectedTierIssue;
+                } else {
+                  // If no part type specified, match the base issue name
+                  return tierIssueLower === issueNameLower;
+                }
+              }
+              
+              // For non-screen replacement issues, direct name matching
+              return tierIssueLower === issueNameLower;
+            });
+          });
 
           console.log('🔍 Provider tier services:', {
             providerId: pid,
@@ -227,19 +249,31 @@ export function ProviderSelector({ device, services, partQuality, onProviderSele
           }
 
           // Convert tier pricing to service format
-          const matchingServices = matchingTierServices.map((tierDoc: any) => ({
-            issue: tierDoc.issue,
-            price: deviceTier ? tierDoc[deviceTier] : tierDoc.standard,
-            pricingType: 'tier_pricing',
-            partType: '', // Tier pricing doesn't distinguish part types
-            warranty: '30 days', // Default warranty for tier pricing
-            tierPrices: {
-              basic: tierDoc.basic,
-              standard: tierDoc.standard,
-              premium: tierDoc.premium
-            },
-            deviceTier: deviceTier || 'standard'
-          }));
+          const matchingServices = matchingTierServices.map((tierDoc: any) => {
+            // Extract part type from issue name if it exists (e.g., "Screen Replacement (OEM)")
+            const issueMatch = tierDoc.issue.match(/^(.+?)\s*\(([^)]+)\)$/);
+            let baseIssue = tierDoc.issue;
+            let partType = '';
+            
+            if (issueMatch) {
+              baseIssue = issueMatch[1].trim();
+              partType = issueMatch[2].trim();
+            }
+            
+            return {
+              issue: baseIssue, // Use base issue name for matching
+              price: deviceTier ? tierDoc[deviceTier] : tierDoc.standard,
+              pricingType: 'tier_pricing',
+              partType: partType, // Extract part type from issue name
+              warranty: '30 days', // Default warranty for tier pricing
+              tierPrices: {
+                basic: tierDoc.basic,
+                standard: tierDoc.standard,
+                premium: tierDoc.premium
+              },
+              deviceTier: deviceTier || 'standard'
+            };
+          });
 
           // Calculate distance if customer location is available
           let distance = 0;
@@ -509,45 +543,47 @@ export function ProviderSelector({ device, services, partQuality, onProviderSele
   // No providers message is now handled in the provider list section
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-7xl mx-auto px-6 py-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold">Select a Provider</h2>
-          <p className="text-muted-foreground">
-            Found {providers.length} provider{providers.length !== 1 ? 's' : ''} for your {device.brand} {device.model}
-          </p>
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Select a Provider</h1>
+            <p className="text-lg text-gray-600">
+              Found {filteredProviders.length} provider{filteredProviders.length !== 1 ? 's' : ''} for your {device.brand} {device.model}
+            </p>
+          </div>
+          <Button variant="outline" onClick={onBack} className="h-11 px-6">
+            ← Back
+          </Button>
         </div>
-        <Button onClick={onBack} variant="outline">
-          Back
-        </Button>
-      </div>
 
-      {/* Filters and Sorting */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <SlidersHorizontal className="h-5 w-5" />
-            Filters & Sorting
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-4 items-center">
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="verifiedOnly"
-                checked={verifiedOnly}
-                onChange={(e) => setVerifiedOnly(e.target.checked)}
-                className="rounded"
-              />
-              <label htmlFor="verifiedOnly" className="text-sm">Verified only</label>
+        {/* Filters & Sorting */}
+        <Card className="p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-2">
+                <SlidersHorizontal className="w-5 h-5 text-gray-500" />
+                <span className="font-medium text-gray-700">Filters & Sorting</span>
+              </div>
+              
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={verifiedOnly}
+                    onChange={(e) => setVerifiedOnly(e.target.checked)}
+                    className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                  />
+                  <span className="text-sm text-gray-700">Verified only</span>
+                </label>
+              </div>
             </div>
-            
-            <div className="flex items-center gap-2">
-              <span className="text-sm">Sort by:</span>
+
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-gray-600">Sort by:</span>
               <Select value={sortBy} onValueChange={(value: 'distance' | 'experience') => setSortBy(value)}>
-                <SelectTrigger className="w-32">
+                <SelectTrigger className="w-40 h-10">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -557,19 +593,20 @@ export function ProviderSelector({ device, services, partQuality, onProviderSele
               </Select>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </Card>
+      </div>
 
       {/* Provider List */}
       {loading ? (
-        <div className="flex items-center justify-center py-12">
+        <div className="flex items-center justify-center py-16">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Finding providers with tier pricing...</p>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-6"></div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">Finding providers...</h3>
+            <p className="text-gray-600">Searching for the best service providers with tier pricing</p>
           </div>
         </div>
       ) : filteredProviders.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-8">
           {filteredProviders.map((provider) => (
             <ProviderCard
               key={provider.id}
@@ -586,12 +623,19 @@ export function ProviderSelector({ device, services, partQuality, onProviderSele
           ))}
         </div>
       ) : (
-        <div className="text-center py-8">
-          <p className="text-gray-600 mb-4">No providers found for your selected device and services.</p>
-          <p className="text-sm text-gray-500 mb-4">
-            Try selecting different services or check back later for more providers.
-          </p>
-          <Button onClick={onBack} variant="outline">Go Back</Button>
+        <div className="text-center py-16">
+          <div className="max-w-md mx-auto">
+            <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Users className="w-12 h-12 text-gray-400" />
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-3">No providers found</h3>
+            <p className="text-gray-600 mb-6">
+              We couldn't find any providers for your selected device and services. Try selecting different services or check back later for more providers.
+            </p>
+            <Button onClick={onBack} variant="outline" className="h-11 px-8">
+              ← Go Back
+            </Button>
+          </div>
         </div>
       )}
 

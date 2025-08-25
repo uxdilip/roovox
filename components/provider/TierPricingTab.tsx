@@ -33,6 +33,7 @@ interface TierPricing {
   device_type: string;
   brand: string;
   issue: string;
+  part_type?: string; // "OEM" | "HQ" | null - for Screen Replacement issues
   basic: number;
   standard: number;
   premium: number;
@@ -819,3 +820,824 @@ function EditPricingModal({
     </div>
   );
 }
+
+
+              </div>
+
+              <div>
+
+                <Label>Brand</Label>
+
+                <Select value={newPricing.brand} onValueChange={(value) => setNewPricing(prev => ({ ...prev, brand: value }))}>
+
+                  <SelectTrigger>
+
+                    <SelectValue placeholder="Select brand" />
+
+                  </SelectTrigger>
+
+                  <SelectContent>
+
+                    {getBrands().map(brand => (
+
+                      <SelectItem key={brand} value={brand}>{brand}</SelectItem>
+
+                    ))}
+
+                  </SelectContent>
+
+                </Select>
+
+              </div>
+
+              <div>
+
+                <Label>Issue</Label>
+
+                <Select value={newPricing.issue} onValueChange={(value) => setNewPricing(prev => ({ ...prev, issue: value }))}>
+
+                  <SelectTrigger>
+
+                    <SelectValue placeholder="Select issue" />
+
+                  </SelectTrigger>
+
+                  <SelectContent>
+
+                    {getCurrentIssues().map(issue => (
+
+                      <SelectItem key={issue.id} value={issue.name}>{issue.name}</SelectItem>
+
+                    ))}
+
+                  </SelectContent>
+
+                </Select>
+
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+
+                <div>
+
+                  <Label>Basic (₹)</Label>
+
+                  <Input
+
+                    type="number"
+
+                    placeholder=""
+
+                    value={newPricing.basic}
+
+                    onChange={(e) => setNewPricing(prev => ({ ...prev, basic: e.target.value }))}
+
+                  />
+
+                </div>
+
+                <div>
+
+                  <Label>Standard (₹)</Label>
+
+                  <Input
+
+                    type="number"
+
+                    placeholder=""
+
+                    value={newPricing.standard}
+
+                    onChange={(e) => setNewPricing(prev => ({ ...prev, standard: e.target.value }))}
+
+                  />
+
+                </div>
+
+                <div>
+
+                  <Label>Premium (₹)</Label>
+
+                  <Input
+
+                    type="number"
+
+                    placeholder=""
+
+                    value={newPricing.premium}
+
+                    onChange={(e) => setNewPricing(prev => ({ ...prev, premium: e.target.value }))}
+
+                  />
+
+                </div>
+
+              </div>
+
+              <div className="flex justify-end gap-2">
+
+                <Button variant="outline" onClick={() => setShowAddModal(false)}>
+
+                  Cancel
+
+                </Button>
+
+                <Button 
+
+                  onClick={() => {
+
+                    console.log('🔍 Save button clicked!');
+
+                    handleAddPricing();
+
+                  }} 
+
+                  className="bg-black hover:bg-gray-800 text-white border-0"
+
+                >
+
+                  <Save className="h-4 w-4 mr-2" />
+
+                  Save Pricing
+
+                </Button>
+
+              </div>
+
+            </div>
+
+          </DialogContent>
+
+        </Dialog>
+
+      </div>
+
+
+
+      {/* Tabs */}
+
+      <Tabs value={activeTab} onValueChange={(value: string) => setActiveTab(value as 'phones' | 'laptops')}>
+
+        <TabsList className="grid w-full grid-cols-2">
+
+          <TabsTrigger value="phones" className="flex items-center gap-2">
+
+            <Smartphone className="h-4 w-4" />
+
+            Phones
+
+          </TabsTrigger>
+
+          <TabsTrigger value="laptops" className="flex items-center gap-2">
+
+            <Laptop className="h-4 w-4" />
+
+            Laptops
+
+          </TabsTrigger>
+
+        </TabsList>
+
+
+
+        <TabsContent value="phones" className="space-y-4">
+
+          <PhonePricingContent 
+
+            pricing={getFilteredPricing()}
+
+            onEdit={setEditingPricing}
+
+            onDelete={setDeletePricing}
+
+            onSave={handleEditPricing}
+
+            editingPricing={editingPricing}
+
+          />
+
+        </TabsContent>
+
+
+
+        <TabsContent value="laptops" className="space-y-4">
+
+          <LaptopPricingContent 
+
+            pricing={getFilteredPricing()}
+
+            onEdit={setEditingPricing}
+
+            onDelete={setDeletePricing}
+
+            onSave={handleEditPricing}
+
+            editingPricing={editingPricing}
+
+          />
+
+        </TabsContent>
+
+      </Tabs>
+
+
+
+      {/* Edit Modal */}
+
+      {editingPricing && (
+
+        <EditPricingModal
+
+          pricing={editingPricing}
+
+          onSave={handleEditPricing}
+
+          onCancel={() => setEditingPricing(null)}
+
+        />
+
+      )}
+
+
+
+      {/* Delete Confirmation Dialog */}
+
+      <AlertDialog open={!!deletePricing} onOpenChange={(open) => !open && setDeletePricing(null)}>
+
+        <AlertDialogContent>
+
+          <AlertDialogHeader>
+
+            <AlertDialogTitle>Delete Pricing</AlertDialogTitle>
+
+            <AlertDialogDescription>
+
+              Are you sure you want to delete the pricing for <strong>{deletePricing?.brand}</strong> - <strong>{deletePricing?.issue}</strong>?
+
+              <br />
+
+              <span className="text-sm text-muted-foreground">
+
+                Basic: ₹{deletePricing?.basic?.toLocaleString()}, Standard: ₹{deletePricing?.standard?.toLocaleString()}, Premium: ₹{deletePricing?.premium?.toLocaleString()}
+
+              </span>
+
+            </AlertDialogDescription>
+
+          </AlertDialogHeader>
+
+          <AlertDialogFooter>
+
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+
+            <AlertDialogAction 
+
+              onClick={() => {
+
+                if (deletePricing) {
+
+                  const documentId = deletePricing.id || deletePricing.$id;
+
+                  if (documentId) {
+
+                    handleDeletePricing(documentId);
+
+                  } else {
+
+                    toast.error('Cannot delete pricing: missing document ID');
+
+                  }
+
+                }
+
+              }}
+
+              className="bg-red-600 hover:bg-red-700 text-white border-0"
+
+            >
+
+              Delete Pricing
+
+            </AlertDialogAction>
+
+          </AlertDialogFooter>
+
+        </AlertDialogContent>
+
+      </AlertDialog>
+
+    </div>
+
+  );
+
+}
+
+
+
+// Phone Pricing Content Component
+
+function PhonePricingContent({ 
+
+  pricing, 
+
+  onEdit, 
+
+  onDelete, 
+
+  onSave, 
+
+  editingPricing 
+
+}: {
+
+  pricing: TierPricing[];
+
+  onEdit: (pricing: TierPricing) => void;
+
+  onDelete: (pricing: TierPricing) => void;
+
+  onSave: (pricing: TierPricing) => void;
+
+  editingPricing: TierPricing | null;
+
+}) {
+
+  const groupedByBrand = pricing.reduce((acc, p) => {
+
+    if (!acc[p.brand]) acc[p.brand] = [];
+
+    acc[p.brand].push(p);
+
+    return acc;
+
+  }, {} as Record<string, TierPricing[]>);
+
+
+
+  return (
+
+    <div className="space-y-6">
+
+      {Object.entries(groupedByBrand).map(([brand, brandPricing]) => (
+
+        <Card key={brand}>
+
+          <CardHeader>
+
+            <CardTitle className="flex items-center gap-2">
+
+              <span>{brand}</span>
+
+              <Badge variant="secondary">{brandPricing.length} issues</Badge>
+
+            </CardTitle>
+
+          </CardHeader>
+
+          <CardContent>
+
+            <div className="space-y-3">
+
+              {brandPricing.map((pricingItem) => (
+
+                <div key={pricingItem.id} className="flex items-center justify-between p-3 border rounded-lg">
+
+                  <div className="flex-1">
+
+                    <div className="font-medium">{pricingItem.issue}</div>
+
+                    <div className="text-sm text-muted-foreground">
+
+                    </div>
+
+                  </div>
+
+                  <div className="flex items-center gap-4">
+
+                    <div className="text-right">
+
+                      <div className="text-sm text-muted-foreground">Basic</div>
+
+                      <div className="font-semibold">₹{pricingItem.basic.toLocaleString()}</div>
+
+                    </div>
+
+                    <div className="text-right">
+
+                      <div className="text-sm text-muted-foreground">Standard</div>
+
+                      <div className="font-semibold">₹{pricingItem.standard.toLocaleString()}</div>
+
+                    </div>
+
+                    <div className="text-right">
+
+                      <div className="text-sm text-muted-foreground">Premium</div>
+
+                      <div className="font-semibold">₹{pricingItem.premium.toLocaleString()}</div>
+
+                    </div>
+
+                    <div className="flex items-center gap-2">
+
+                      <Button
+
+                        size="sm"
+
+                        variant="outline"
+
+                        onClick={() => onEdit(pricingItem)}
+
+                      >
+
+                        <Edit className="h-4 w-4" />
+
+                      </Button>
+
+                      <Button
+
+                        size="sm"
+
+                        variant="destructive"
+
+                        onClick={() => onDelete(pricingItem)}
+
+                      >
+
+                        <Trash2 className="h-4 w-4" />
+
+                      </Button>
+
+                    </div>
+
+                  </div>
+
+                </div>
+
+              ))}
+
+            </div>
+
+          </CardContent>
+
+        </Card>
+
+      ))}
+
+
+
+      {pricing.length === 0 && (
+
+        <Card>
+
+          <CardContent className="py-12 text-center text-muted-foreground">
+
+            <Smartphone className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+
+            <p>No phone pricing configured yet</p>
+
+            <p className="text-sm">Add your first pricing tier to get started</p>
+
+          </CardContent>
+
+        </Card>
+
+      )}
+
+    </div>
+
+  );
+
+}
+
+
+
+// Laptop Pricing Content Component
+
+function LaptopPricingContent({ 
+
+  pricing, 
+
+  onEdit, 
+
+  onDelete, 
+
+  onSave, 
+
+  editingPricing 
+
+}: {
+
+  pricing: TierPricing[];
+
+  onEdit: (pricing: TierPricing) => void;
+
+  onDelete: (pricing: TierPricing) => void;
+
+  onSave: (pricing: TierPricing) => void;
+
+  editingPricing: TierPricing | null;
+
+}) {
+
+  const groupedByBrand = pricing.reduce((acc, p) => {
+
+    if (!acc[p.brand]) acc[p.brand] = [];
+
+    acc[p.brand].push(p);
+
+    return acc;
+
+  }, {} as Record<string, TierPricing[]>);
+
+
+
+  return (
+
+    <div className="space-y-6">
+
+      {Object.entries(groupedByBrand).map(([brand, brandPricing]) => (
+
+        <Card key={brand}>
+
+          <CardHeader>
+
+            <CardTitle className="flex items-center gap-2">
+
+              <span>{brand}</span>
+
+              <Badge variant="secondary">{brandPricing.length} issues</Badge>
+
+            </CardTitle>
+
+          </CardHeader>
+
+          <CardContent>
+
+            <div className="space-y-3">
+
+              {brandPricing.map((pricingItem) => (
+
+                <div key={pricingItem.id} className="flex items-center justify-between p-3 border rounded-lg">
+
+                  <div className="flex-1">
+
+                    <div className="font-medium">{pricingItem.issue}</div>
+
+                    <div className="text-sm text-muted-foreground">
+
+                    </div>
+
+                  </div>
+
+                  <div className="flex items-center gap-4">
+
+                    <div className="text-right">
+
+                      <div className="text-sm text-muted-foreground">Basic</div>
+
+                      <div className="font-semibold">₹{pricingItem.basic.toLocaleString()}</div>
+
+                    </div>
+
+                    <div className="text-right">
+
+                      <div className="text-sm text-muted-foreground">Standard</div>
+
+                      <div className="font-semibold">₹{pricingItem.standard.toLocaleString()}</div>
+
+                    </div>
+
+                    <div className="text-right">
+
+                      <div className="text-sm text-muted-foreground">Premium</div>
+
+                      <div className="font-semibold">₹{pricingItem.premium.toLocaleString()}</div>
+
+                    </div>
+
+                    <div className="flex items-center gap-2">
+
+                      <Button
+
+                        size="sm"
+
+                        variant="outline"
+
+                        onClick={() => onEdit(pricingItem)}
+
+                      >
+
+                        <Edit className="h-4 w-4" />
+
+                      </Button>
+
+                      <Button
+
+                        size="sm"
+
+                        variant="destructive"
+
+                        onClick={() => onDelete(pricingItem)}
+
+                      >
+
+                        <Trash2 className="h-4 w-4" />
+
+                      </Button>
+
+                    </div>
+
+                  </div>
+
+                </div>
+
+              ))}
+
+            </div>
+
+          </CardContent>
+
+        </Card>
+
+      ))}
+
+
+
+      {pricing.length === 0 && (
+
+        <Card>
+
+          <CardContent className="py-12 text-center text-muted-foreground">
+
+            <Laptop className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+
+            <p>No laptop pricing configured yet</p>
+
+            <p className="text-sm">Add your first pricing tier to get started</p>
+
+          </CardContent>
+
+        </Card>
+
+      )}
+
+    </div>
+
+  );
+
+}
+
+
+
+// Edit Pricing Modal Component
+
+function EditPricingModal({ 
+
+  pricing, 
+
+  onSave, 
+
+  onCancel 
+
+}: {
+
+  pricing: TierPricing;
+
+  onSave: (pricing: TierPricing) => void;
+
+  onCancel: () => void;
+
+}) {
+
+  const [editedPricing, setEditedPricing] = useState(pricing);
+
+
+
+  const handleSave = () => {
+
+    onSave(editedPricing);
+
+  };
+
+
+
+  return (
+
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+
+      <div className="bg-white rounded-lg shadow-lg max-w-md w-full p-6">
+
+        <div className="flex items-center justify-between mb-4">
+
+          <h3 className="text-lg font-semibold">Edit Pricing</h3>
+
+          <Button variant="ghost" size="sm" onClick={onCancel}>
+
+            <X className="h-4 w-4" />
+
+          </Button>
+
+        </div>
+
+        
+
+        <div className="space-y-4">
+
+          <div>
+
+            <Label>Brand</Label>
+
+            <div className="p-2 bg-muted rounded-md text-sm">{pricing.brand}</div>
+
+          </div>
+
+          <div>
+
+            <Label>Issue</Label>
+
+            <div className="p-2 bg-muted rounded-md text-sm">{pricing.issue}</div>
+
+          </div>
+
+          <div className="grid grid-cols-3 gap-2">
+
+            <div>
+
+              <Label>Basic (₹)</Label>
+
+              <Input
+
+                type="number"
+
+                value={editedPricing.basic}
+
+                onChange={(e) => setEditedPricing(prev => ({ ...prev, basic: parseInt(e.target.value) || 0 }))}
+
+              />
+
+            </div>
+
+            <div>
+
+              <Label>Standard (₹)</Label>
+
+              <Input
+
+                type="number"
+
+                value={editedPricing.standard}
+
+                onChange={(e) => setEditedPricing(prev => ({ ...prev, standard: parseInt(e.target.value) || 0 }))}
+
+              />
+
+            </div>
+
+            <div>
+
+              <Label>Premium (₹)</Label>
+
+              <Input
+
+                type="number"
+
+                value={editedPricing.premium}
+
+                onChange={(e) => setEditedPricing(prev => ({ ...prev, premium: parseInt(e.target.value) || 0 }))}
+
+              />
+
+            </div>
+
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4">
+
+            <Button variant="outline" onClick={onCancel}>
+
+              Cancel
+
+            </Button>
+
+            <Button onClick={handleSave} className="bg-black hover:bg-gray-800 text-white border-0">
+
+              <Save className="h-4 w-4 mr-2" />
+
+              Save Changes
+
+            </Button>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  );
+
+}
+
+

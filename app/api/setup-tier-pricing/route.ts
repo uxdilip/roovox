@@ -14,6 +14,7 @@ export async function POST(request: NextRequest) {
         '   - device_type (string, required, max: 50)',
         '   - brand (string, required, max: 100)',
         '   - issue (string, required, max: 200)',
+        '   - part_type (string, optional, max: 50) // For OEM/HQ Screen Replacement',
         '   - basic (integer, required, min: 0, max: 999999)',
         '   - standard (integer, required, min: 0, max: 999999)',
         '   - premium (integer, required, min: 0, max: 999999)',

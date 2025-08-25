@@ -3,10 +3,12 @@ import { Query } from 'appwrite';
 
 export interface TierPricing {
   id: string;
+  $id?: string; // Appwrite document ID
   provider_id: string;
   device_type: string;
   brand: string;
   issue: string;
+  part_type?: string; // "OEM" | "HQ" | null - for Screen Replacement issues
   basic: number;
   standard: number;
   premium: number;
@@ -17,6 +19,7 @@ export interface TierPricing {
 export interface TierPricingMatch {
   providerId: string;
   issue: string;
+  part_type?: string; // "OEM" | "HQ" | null
   tierPrices: {
     basic: number;
     standard: number;
@@ -30,7 +33,8 @@ export const getTierPricingForProviders = async (
   providerIds: string[],
   deviceType: 'phones' | 'laptops',
   brand: string,
-  issueNames: string[]
+  issueNames: string[],
+  partTypes?: string[] // Optional part types for filtering
 ): Promise<TierPricingMatch[]> => {
   try {
     console.log('🔍 Fetching tier pricing for:', { providerIds, deviceType, brand, issueNames });
@@ -58,6 +62,7 @@ export const getTierPricingForProviders = async (
     const tierMatches: TierPricingMatch[] = tierPricingRes.documents.map((doc: any) => ({
       providerId: doc.provider_id,
       issue: doc.issue,
+      part_type: doc.part_type || null,
       tierPrices: {
         basic: doc.basic,
         standard: doc.standard,
@@ -126,6 +131,7 @@ export const getProviderTierPricing = async (
       device_type: doc.device_type,
       brand: doc.brand,
       issue: doc.issue,
+      part_type: doc.part_type || null,
       basic: doc.basic,
       standard: doc.standard,
       premium: doc.premium,
@@ -203,4 +209,156 @@ export const getTierPricingBreakdown = (
     totalPrice,
     hasTierPricing: breakdown.length > 0
   };
+};
+
+// Bulk save tier pricing - New Fiverr-style implementation
+export interface BulkTierPricingData {
+  providerId: string;
+  deviceType: 'phones' | 'laptops';
+  brand: string;
+  issues: {
+    issue: string;
+    part_type?: string;
+    basicPrice: number;
+    standardPrice: number;
+    premiumPrice: number;
+  }[];
+}
+
+export const saveBulkTierPricing = async (data: BulkTierPricingData): Promise<void> => {
+  try {
+    console.log('🔍 DEBUG - saveBulkTierPricing function called with data:', data);
+    const { providerId, deviceType, brand, issues } = data;
+    
+    console.log('💾 Saving bulk tier pricing:', { providerId, deviceType, brand, issueCount: issues.length });
+
+    // Process each issue
+    for (const issueData of issues) {
+      const { issue, part_type, basicPrice, standardPrice, premiumPrice } = issueData;
+      console.log('🔍 DEBUG - Processing issue:', { issue, part_type, basicPrice, standardPrice, premiumPrice });
+      
+      // For Screen Replacement with part types, modify the issue name to include the part type
+      // This way we can handle OEM/HQ without needing the part_type field in database
+      let issueNameToSave = issue;
+      if (part_type && issue.toLowerCase().includes('screen replacement')) {
+        issueNameToSave = `${issue} (${part_type})`;
+        console.log('🔍 DEBUG - Screen replacement detected, modified issue name:', issueNameToSave);
+      }
+      
+      // Check if pricing already exists (simplified query without part_type field)
+      const queries = [
+        Query.equal('provider_id', providerId),
+        Query.equal('device_type', deviceType),
+        Query.equal('brand', brand),
+        Query.equal('issue', issueNameToSave)
+      ];
+
+      console.log('🔍 DEBUG - Checking for existing pricing with queries:', queries);
+      const existingRes = await databases.listDocuments(
+        DATABASE_ID,
+        'tier_pricing',
+        queries
+      );
+
+      console.log('🔍 DEBUG - Existing documents found:', existingRes.documents.length);
+
+      // Simplified data object - only fields that exist in your database
+      const pricingData = {
+        provider_id: providerId,
+        device_type: deviceType,
+        brand: brand,
+        issue: issueNameToSave,
+        basic: basicPrice,
+        standard: standardPrice,
+        premium: premiumPrice
+      };
+
+      console.log('🔍 DEBUG - Pricing data to save:', pricingData);
+
+      if (existingRes.documents.length > 0) {
+        // Update existing
+        const existingDoc = existingRes.documents[0];
+        console.log('🔍 DEBUG - Updating existing document:', existingDoc.$id);
+        await databases.updateDocument(
+          DATABASE_ID,
+          'tier_pricing',
+          existingDoc.$id,
+          {
+            basic: basicPrice,
+            standard: standardPrice,
+            premium: premiumPrice
+          }
+        );
+        console.log(`✅ Updated pricing for ${issueNameToSave}`);
+      } else {
+        // Create new
+        console.log('🔍 DEBUG - Creating new document...');
+        const createdDoc = await databases.createDocument(
+          DATABASE_ID,
+          'tier_pricing',
+          'unique()',
+          pricingData
+        );
+        console.log(`✅ Created pricing for ${issueNameToSave}`, createdDoc.$id);
+      }
+    }
+
+    console.log('🎉 Bulk tier pricing saved successfully!');
+  } catch (error) {
+    console.error('❌ Error saving bulk tier pricing:', error);
+    throw error;
+  }
+};
+
+export const deleteTierPricing = async (providerId: string, deviceType: string, brand: string): Promise<void> => {
+  try {
+    console.log('🗑️ Deleting tier pricing:', { providerId, deviceType, brand });
+    
+    const queries = [
+      Query.equal('provider_id', providerId),
+      Query.equal('device_type', deviceType),
+      Query.equal('brand', brand)
+    ];
+    
+    const existingRes = await databases.listDocuments(DATABASE_ID, 'tier_pricing', queries);
+    console.log('🔍 Found documents to delete:', existingRes.documents.length);
+    
+    // Delete all matching documents
+    for (const doc of existingRes.documents) {
+      await databases.deleteDocument(DATABASE_ID, 'tier_pricing', doc.$id);
+      console.log(`🗑️ Deleted document: ${doc.$id}`);
+    }
+    
+    console.log('✅ Tier pricing deleted successfully!');
+  } catch (error) {
+    console.error('❌ Error deleting tier pricing:', error);
+    throw error;
+  }
+};
+
+export const deleteTierPricingService = async (providerId: string, deviceType: string, brand: string, issueName: string): Promise<void> => {
+  try {
+    console.log('🗑️ Deleting service:', { providerId, deviceType, brand, issueName });
+    
+    const queries = [
+      Query.equal('provider_id', providerId),
+      Query.equal('device_type', deviceType),
+      Query.equal('brand', brand),
+      Query.equal('issue', issueName)
+    ];
+    
+    const existingRes = await databases.listDocuments(DATABASE_ID, 'tier_pricing', queries);
+    console.log('🔍 Found service documents to delete:', existingRes.documents.length);
+    
+    // Delete the specific service
+    for (const doc of existingRes.documents) {
+      await databases.deleteDocument(DATABASE_ID, 'tier_pricing', doc.$id);
+      console.log(`🗑️ Deleted service document: ${doc.$id}`);
+    }
+    
+    console.log('✅ Service deleted successfully!');
+  } catch (error) {
+    console.error('❌ Error deleting service:', error);
+    throw error;
+  }
 };

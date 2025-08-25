@@ -870,51 +870,51 @@ export default function ProviderChatTab() {
                     return (
                       <div key={offer.id} className="flex justify-end">
                         <div className="w-full max-w-2xl">
-                                                     {/* Offer Header */}
+                          {/* Offer Header */}
                            <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4 p-3 bg-white rounded-lg border border-gray-200 space-y-3 md:space-y-0">
-                             <div className="flex items-center space-x-3">
-                               <Avatar className="h-10 w-10">
-                                 <AvatarFallback className="bg-green-100 text-green-600">
-                                   {customerProfiles[selectedConversation.customer_id]?.name?.charAt(0)?.toUpperCase() || 'C'}
-                                 </AvatarFallback>
-                               </Avatar>
-                               <div>
-                                 <h3 className="font-semibold text-gray-900">
-                                   {customerProfiles[selectedConversation.customer_id]?.name || 'Customer'}
-                                 </h3>
-                                 <p className="text-sm text-gray-600">You sent this offer</p>
-                               </div>
-                             </div>
+                            <div className="flex items-center space-x-3">
+                              <Avatar className="h-10 w-10">
+                                <AvatarFallback className="bg-green-100 text-green-600">
+                                  {customerProfiles[selectedConversation.customer_id]?.name?.charAt(0)?.toUpperCase() || 'C'}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <h3 className="font-semibold text-gray-900">
+                                  {customerProfiles[selectedConversation.customer_id]?.name || 'Customer'}
+                                </h3>
+                                <p className="text-sm text-gray-600">You sent this offer</p>
+                              </div>
+                            </div>
                              <div className="text-left md:text-right">
-                               <div className="text-sm text-gray-500">
-                                 {new Date(offer.created_at).toLocaleDateString('en-US', { 
-                                   month: 'short', 
-                                   day: 'numeric' 
-                                 })} at {new Date(offer.created_at).toLocaleTimeString([], { 
-                                   hour: '2-digit', 
-                                   minute: '2-digit' 
-                                 })}
-                               </div>
-                               <button className="text-gray-400 hover:text-gray-600">
-                                 <span className="text-lg">⋯</span>
-                               </button>
-                             </div>
-                           </div>
+                              <div className="text-sm text-gray-500">
+                                {new Date(offer.created_at).toLocaleDateString('en-US', { 
+                                  month: 'short', 
+                                  day: 'numeric' 
+                                })} at {new Date(offer.created_at).toLocaleTimeString([], { 
+                                  hour: '2-digit', 
+                                  minute: '2-digit' 
+                                })}
+                              </div>
+                              <button className="text-gray-400 hover:text-gray-600">
+                                <span className="text-lg">⋯</span>
+                              </button>
+                            </div>
+                          </div>
                           
                           <Card className="border border-gray-200 bg-white shadow-sm">
                             <CardContent className="p-6">
-                                                             {/* Offer Title & Price */}
+                              {/* Offer Title & Price */}
                                <div className="flex flex-col md:flex-row md:items-start md:justify-between mb-4 space-y-3 md:space-y-0">
-                                 <div className="flex-1">
-                                   <h2 className="text-lg font-semibold text-gray-900 mb-2">
-                                     {selectedConversation.device_info?.brand} {selectedConversation.device_info?.model}
-                                   </h2>
-                                 </div>
+                                <div className="flex-1">
+                                  <h2 className="text-lg font-semibold text-gray-900 mb-2">
+                                    {selectedConversation.device_info?.brand} {selectedConversation.device_info?.model}
+                                  </h2>
+                                </div>
                                  <div className="text-left md:text-right md:ml-4">
-                                   <div className="text-2xl font-bold text-green-600">{offer.price}</div>
-                                   <div className="text-sm text-gray-500">Total Price</div>
-                                 </div>
-                               </div>
+                                  <div className="text-2xl font-bold text-green-600">{offer.price}</div>
+                                  <div className="text-sm text-gray-500">Total Price</div>
+                                </div>
+                              </div>
 
                               {/* Offer Inclusions */}
                               <div className="mb-6">
@@ -935,18 +935,18 @@ export default function ProviderChatTab() {
                                 </div>
                               </div>
 
-                                                             {/* Services List */}
-                               <div className="mb-6">
-                                 <h3 className="font-medium text-gray-900 mb-3">Services included:</h3>
+                              {/* Services List */}
+                              <div className="mb-6">
+                                <h3 className="font-medium text-gray-900 mb-3">Services included:</h3>
                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                   {offer.selected_services.map((service: string, index: number) => (
-                                     <div key={index} className="flex items-center space-x-2">
-                                       <Check className="h-4 w-4 text-green-500" />
-                                       <span className="text-sm text-gray-700">{service}</span>
-                 </div>
-               ))}
-                                 </div>
-                               </div>
+                                  {offer.selected_services.map((service: string, index: number) => (
+                                    <div key={index} className="flex items-center space-x-2">
+                                      <Check className="h-4 w-4 text-green-500" />
+                                      <span className="text-sm text-gray-700">{service}</span>
+                </div>
+              ))}
+                                </div>
+                              </div>
 
                               {/* Service Description */}
                               <div className="mb-6 p-4 bg-gray-50 rounded-lg">
@@ -977,23 +977,23 @@ export default function ProviderChatTab() {
                                       Offer Accepted! Service confirmed
                                     </Badge>
                                     
-                                                                         {offer.booking_id && (
+                                    {offer.booking_id && (
                                        <div className="flex flex-col md:flex-row md:items-center md:justify-between p-3 bg-green-50 border border-green-200 rounded-lg space-y-3 md:space-y-0">
-                                         <div className="flex items-center space-x-2">
-                                           <CheckCircle className="h-5 w-5 text-green-600" />
-                                           <span className="text-sm text-green-800">
-                                             Booking ID: {offer.booking_id}
-                                           </span>
-                                         </div>
-                                         <Button
-                                           onClick={() => window.open(`/provider/bookings/${offer.booking_id}`, '_blank')}
-                                           size="sm"
+                                        <div className="flex items-center space-x-2">
+                                          <CheckCircle className="h-5 w-5 text-green-600" />
+                                          <span className="text-sm text-green-800">
+                                            Booking ID: {offer.booking_id}
+                                          </span>
+                                        </div>
+                                        <Button
+                                          onClick={() => window.open(`/provider/bookings/${offer.booking_id}`, '_blank')}
+                                          size="sm"
                                            className="bg-green-600 hover:bg-green-700 text-white w-full md:w-auto"
-                                         >
-                                           View Booking
-                                         </Button>
-                                       </div>
-                                     )}
+                                        >
+                                          View Booking
+                                        </Button>
+                                      </div>
+                                    )}
                                   </div>
                                 )}
                                 
@@ -1077,102 +1077,102 @@ export default function ProviderChatTab() {
                     </DialogHeader>
                     
                     <div className="space-y-4 pb-4">
-                                             {/* ✅ FIXED: Customer & Device Info with Device Selection */}
+                      {/* ✅ FIXED: Customer & Device Info with Device Selection */}
                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
-                         <div>
-                           <Label className="text-sm font-medium text-gray-700">Customer</Label>
-                           <p className="text-sm text-gray-900">
-                             {customerProfiles[selectedConversation.customer_id]?.name || 'Customer'}
-                           </p>
-                         </div>
-                         <div>
-                           <Label className="text-sm font-medium text-gray-700">Customer's Device</Label>
-                           <p className="text-sm text-gray-900 flex items-center gap-2">
-                             {selectedConversation.device_info?.category === 'phone' ? (
-                               <Smartphone className="h-4 w-4" />
-                             ) : (
-                               <Laptop className="h-4 w-4" />
-                             )}
-                             {selectedConversation.device_info?.brand} {selectedConversation.device_info?.model}
-                           </p>
-                         </div>
+                        <div>
+                          <Label className="text-sm font-medium text-gray-700">Customer</Label>
+                          <p className="text-sm text-gray-900">
+                            {customerProfiles[selectedConversation.customer_id]?.name || 'Customer'}
+                          </p>
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium text-gray-700">Customer's Device</Label>
+                          <p className="text-sm text-gray-900 flex items-center gap-2">
+                            {selectedConversation.device_info?.category === 'phone' ? (
+                              <Smartphone className="h-4 w-4" />
+                            ) : (
+                              <Laptop className="h-4 w-4" />
+                            )}
+                            {selectedConversation.device_info?.brand} {selectedConversation.device_info?.model}
+                          </p>
+                        </div>
                         
-                                                 {/* ✅ FIXED: Device Selection Fields */}
-                         <div className="col-span-2 space-y-3 pt-3 border-t border-gray-200">
-                           <Label className="text-sm font-medium text-gray-700">Offer Device <span className="text-red-500">*</span></Label>
+                        {/* ✅ FIXED: Device Selection Fields */}
+                        <div className="col-span-2 space-y-3 pt-3 border-t border-gray-200">
+                          <Label className="text-sm font-medium text-gray-700">Offer Device <span className="text-red-500">*</span></Label>
                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                             <div>
-                               <Label htmlFor="deviceCategory" className="text-xs text-gray-600">Category</Label>
-                               <Select 
-                                 value={offerData.deviceCategory} 
-                                 onValueChange={(value: 'phone' | 'laptop') => {
-                                   setOfferData(prev => ({ ...prev, deviceCategory: value, deviceBrand: '', deviceModel: '' }));
-                                   // ✅ FIXED: Reload device data when category changes
-                                   loadDeviceDataForCategory(value);
-                                 }}
-                               >
-                                 <SelectTrigger>
-                                   <SelectValue />
-                                 </SelectTrigger>
-                                 <SelectContent>
-                                   <SelectItem value="phone">Phone</SelectItem>
-                                   <SelectItem value="laptop">Laptop</SelectItem>
-                                 </SelectContent>
-                               </Select>
-                             </div>
-                             <div>
-                               <Label htmlFor="deviceBrand" className="text-xs text-gray-600">Brand</Label>
-                               <Select 
-                                 value={offerData.deviceBrand} 
-                                 onValueChange={(value) => {
-                                   setOfferData(prev => ({ ...prev, deviceBrand: value, deviceModel: '' }));
-                                 }}
-                                 disabled={isLoadingDeviceData}
-                               >
-                                 <SelectTrigger>
-                                   <SelectValue placeholder="Select brand" />
-                                 </SelectTrigger>
-                                 <SelectContent>
-                                   {availableBrands.map(brand => (
-                                     <SelectItem key={brand} value={brand}>{brand}</SelectItem>
-                                   ))}
-                                 </SelectContent>
-                               </Select>
-                             </div>
-                             <div>
-                               <Label htmlFor="deviceModel" className="text-xs text-gray-600">Model</Label>
-                               <Select 
-                                 value={offerData.deviceModel} 
-                                 onValueChange={(value) => {
-                                   setOfferData(prev => ({ ...prev, deviceModel: value }));
-                                 }}
-                                 disabled={!offerData.deviceBrand || isLoadingDeviceData}
-                               >
-                                 <SelectTrigger>
-                                   <SelectValue placeholder="Select model" />
-                                 </SelectTrigger>
-                                 <SelectContent>
-                                   {availableModels
-                                     .filter(model => {
-                                       // ✅ FIXED: Filter models by selected brand (same as customer flow)
-                                       if (!offerData.deviceBrand) return false;
-                                       // Find the device with this model and check if it matches the selected brand
-                                       return allDevices?.some(device => 
-                                         device.brand === offerData.deviceBrand && device.model === model
-                                       );
-                                     })
-                                     .map(model => (
-                                       <SelectItem key={model} value={model}>{model}</SelectItem>
-                                     ))
-                                   }
-                                 </SelectContent>
-                               </Select>
-                             </div>
-                           </div>
-                           <p className="text-xs text-gray-500">
-                             💡 Tip: You can change the device if you want to offer services for a different model
-                           </p>
-                         </div>
+                            <div>
+                              <Label htmlFor="deviceCategory" className="text-xs text-gray-600">Category</Label>
+                              <Select 
+                                value={offerData.deviceCategory} 
+                                onValueChange={(value: 'phone' | 'laptop') => {
+                                  setOfferData(prev => ({ ...prev, deviceCategory: value, deviceBrand: '', deviceModel: '' }));
+                                  // ✅ FIXED: Reload device data when category changes
+                                  loadDeviceDataForCategory(value);
+                                }}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="phone">Phone</SelectItem>
+                                  <SelectItem value="laptop">Laptop</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div>
+                              <Label htmlFor="deviceBrand" className="text-xs text-gray-600">Brand</Label>
+                              <Select 
+                                value={offerData.deviceBrand} 
+                                onValueChange={(value) => {
+                                  setOfferData(prev => ({ ...prev, deviceBrand: value, deviceModel: '' }));
+                                }}
+                                disabled={isLoadingDeviceData}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select brand" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {availableBrands.map(brand => (
+                                    <SelectItem key={brand} value={brand}>{brand}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div>
+                              <Label htmlFor="deviceModel" className="text-xs text-gray-600">Model</Label>
+                              <Select 
+                                value={offerData.deviceModel} 
+                                onValueChange={(value) => {
+                                  setOfferData(prev => ({ ...prev, deviceModel: value }));
+                                }}
+                                disabled={!offerData.deviceBrand || isLoadingDeviceData}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select model" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {availableModels
+                                    .filter(model => {
+                                      // ✅ FIXED: Filter models by selected brand (same as customer flow)
+                                      if (!offerData.deviceBrand) return false;
+                                      // Find the device with this model and check if it matches the selected brand
+                                      return allDevices?.some(device => 
+                                        device.brand === offerData.deviceBrand && device.model === model
+                                      );
+                                    })
+                                    .map(model => (
+                                      <SelectItem key={model} value={model}>{model}</SelectItem>
+                                    ))
+                                  }
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                          <p className="text-xs text-gray-500">
+                            💡 Tip: You can change the device if you want to offer services for a different model
+                          </p>
+                        </div>
                         <div className="col-span-2">
                           <Label className="text-sm font-medium text-gray-700">Services <span className="text-red-500">*</span></Label>
                           <div className="mt-2">
@@ -1234,70 +1234,70 @@ export default function ProviderChatTab() {
                         </div>
                       </div>
 
-                                             {/* Offer Details Form */}
+                      {/* Offer Details Form */}
                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                         <div>
-                           <Label htmlFor="price">Price (₹) <span className="text-red-500">*</span></Label>
-                           <Input
-                             id="price"
-                             type="number"
-                             placeholder="Enter total amount"
-                             value={offerData.price}
-                             onChange={(e) => {
-                               setOfferData({...offerData, price: e.target.value});
-                               if (e.target.value.trim() && showValidation) setShowValidation(false);
-                             }}
-                             className={showValidation && !offerData.price.trim() ? 'border-red-300 focus:border-red-500' : ''}
-                           />
-                         </div>
-                         <div>
-                           <Label htmlFor="timeline">Timeline <span className="text-red-500">*</span></Label>
-                           <Select value={offerData.timeline} onValueChange={(value) => {
-                             setOfferData({...offerData, timeline: value});
-                             if (value && showValidation) setShowValidation(false);
-                           }}>
-                             <SelectTrigger className={showValidation && !offerData.timeline.trim() ? 'border-red-300 focus:border-red-500' : ''}>
-                               <SelectValue placeholder="Select timeline" />
-                             </SelectTrigger>
-                             <SelectContent>
-                               <SelectItem value="Same Day">Same Day</SelectItem>
-                               <SelectItem value="1-2 Days">1-2 Days</SelectItem>
-                               <SelectItem value="3-5 Days">3-5 Days</SelectItem>
-                               <SelectItem value="1 Week">1 Week</SelectItem>
-                               <SelectItem value="2 Weeks">2 Weeks</SelectItem>
-                               <SelectItem value="Flexible">Flexible</SelectItem>
-                             </SelectContent>
-                           </Select>
-                         </div>
-                         <div>
-                           <Label htmlFor="warranty">Warranty <span className="text-red-500">*</span></Label>
-                           <Input
-                             id="warranty"
-                             placeholder="e.g., 6 months, 1 year, no warranty"
-                             value={offerData.warranty}
-                             onChange={(e) => {
-                               setOfferData({...offerData, warranty: e.target.value});
-                               if (e.target.value.trim() && showValidation) setShowValidation(false);
-                             }}
-                             className={showValidation && !offerData.warranty.trim() ? 'border-red-300 focus:border-red-500' : ''}
-                           />
-                         </div>
-                         <div>
-                           <Label htmlFor="partsType">Parts Quality <span className="text-red-500">*</span></Label>
-                           <Select value={offerData.partsType} onValueChange={(value) => {
-                             setOfferData({...offerData, partsType: value});
-                             if (value && showValidation) setShowValidation(false);
-                           }}>
-                             <SelectTrigger className={showValidation && !offerData.partsType.trim() ? 'border-red-300 focus:border-red-500' : ''}>
-                               <SelectValue placeholder="Select parts quality" />
-                             </SelectTrigger>
-                             <SelectContent>
-                               <SelectItem value="Original OEM Parts">Original OEM Parts</SelectItem>
-                               <SelectItem value="Aftermarket High Quality">Aftermarket High Quality</SelectItem>
-                             </SelectContent>
-                           </Select>
-                         </div>
-                       </div>
+                        <div>
+                          <Label htmlFor="price">Price (₹) <span className="text-red-500">*</span></Label>
+                          <Input
+                            id="price"
+                            type="number"
+                            placeholder="Enter total amount"
+                            value={offerData.price}
+                            onChange={(e) => {
+                              setOfferData({...offerData, price: e.target.value});
+                              if (e.target.value.trim() && showValidation) setShowValidation(false);
+                            }}
+                            className={showValidation && !offerData.price.trim() ? 'border-red-300 focus:border-red-500' : ''}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="timeline">Timeline <span className="text-red-500">*</span></Label>
+                          <Select value={offerData.timeline} onValueChange={(value) => {
+                            setOfferData({...offerData, timeline: value});
+                            if (value && showValidation) setShowValidation(false);
+                          }}>
+                            <SelectTrigger className={showValidation && !offerData.timeline.trim() ? 'border-red-300 focus:border-red-500' : ''}>
+                              <SelectValue placeholder="Select timeline" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Same Day">Same Day</SelectItem>
+                              <SelectItem value="1-2 Days">1-2 Days</SelectItem>
+                              <SelectItem value="3-5 Days">3-5 Days</SelectItem>
+                              <SelectItem value="1 Week">1 Week</SelectItem>
+                              <SelectItem value="2 Weeks">2 Weeks</SelectItem>
+                              <SelectItem value="Flexible">Flexible</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label htmlFor="warranty">Warranty <span className="text-red-500">*</span></Label>
+                          <Input
+                            id="warranty"
+                            placeholder="e.g., 6 months, 1 year, no warranty"
+                            value={offerData.warranty}
+                            onChange={(e) => {
+                              setOfferData({...offerData, warranty: e.target.value});
+                              if (e.target.value.trim() && showValidation) setShowValidation(false);
+                            }}
+                            className={showValidation && !offerData.warranty.trim() ? 'border-red-300 focus:border-red-500' : ''}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="partsType">Parts Quality <span className="text-red-500">*</span></Label>
+                          <Select value={offerData.partsType} onValueChange={(value) => {
+                            setOfferData({...offerData, partsType: value});
+                            if (value && showValidation) setShowValidation(false);
+                          }}>
+                            <SelectTrigger className={showValidation && !offerData.partsType.trim() ? 'border-red-300 focus:border-red-500' : ''}>
+                              <SelectValue placeholder="Select parts quality" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Original OEM Parts">Original OEM Parts</SelectItem>
+                              <SelectItem value="Aftermarket High Quality">Aftermarket High Quality</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
 
                       <div>
                         <Label htmlFor="description">Service Description <span className="text-red-500">*</span></Label>

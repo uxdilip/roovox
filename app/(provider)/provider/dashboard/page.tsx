@@ -18,22 +18,19 @@ import dynamic from "next/dynamic";
 import { toast } from "sonner";
 import Link from "next/link";
 import ProviderCommissionTab from "@/components/provider/ProviderCommissionTab";
-import TierPricingTab from "@/components/provider/TierPricingTab";
+import NewTierPricingTab from "@/components/provider/NewTierPricingTab";
 import ProviderChatTab from "@/components/provider/ProviderChatTab";
 import { EnhancedTabs } from "@/components/ui/enhanced-tabs";
 
 const ServiceSetupStep = dynamic(() => import("@/components/provider/onboarding/steps/ServiceSetupStep"), { ssr: false });
 
 export default function ProviderDashboardPage() {
-  const { user, roles, isLoading, isAuthComplete } = useAuth();
+  const { user, roles, isLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   
-  // Initialize tab from URL parameter or default to overview
-  const [tab, setTab] = useState(() => {
-    const tabParam = searchParams.get('tab');
-    return tabParam || "overview";
-  });
+  // Initialize tab state - always start with overview for fresh data loading
+  const [tab, setTab] = useState("overview");
 
   // --- Overview Tab State ---
   const [profile, setProfile] = useState<any>(null);
@@ -146,8 +143,8 @@ export default function ProviderDashboardPage() {
       
       // Phase 1: Load critical user data first (fastest)
       const userRes = await databases.listDocuments(
-        DATABASE_ID,
-        "User",
+            DATABASE_ID,
+            "User",
         [Query.equal("user_id", user!.id), Query.limit(1)]
       );
       const userDoc = userRes.documents[0];
@@ -155,8 +152,8 @@ export default function ProviderDashboardPage() {
       
       // Phase 2: Load provider status (fast)
       const providerRes = await databases.listDocuments(
-        DATABASE_ID,
-        "providers",
+            DATABASE_ID,
+            "providers",
         [Query.equal("providerId", user!.id), Query.limit(1)]
       );
       const providerDoc = providerRes.documents[0];
@@ -164,30 +161,39 @@ export default function ProviderDashboardPage() {
       
       // Phase 3: Load business setup (medium)
       const businessRes = await databases.listDocuments(
-        DATABASE_ID,
-        "business_setup",
+            DATABASE_ID,
+            "business_setup",
         [Query.equal("user_id", user!.id), Query.limit(1)]
       );
-      const businessDoc = businessRes.documents[0];
-      
-      // Process business setup data
-      let onboarding: any = {};
-      try {
-        onboarding = businessDoc ? JSON.parse(businessDoc.onboarding_data || '{}') : {};
-        ['personalDetails', 'businessSetup', 'serviceSetup'].forEach(key => {
-          if ((onboarding as any)[key] && typeof (onboarding as any)[key] === 'string') {
-            try { (onboarding as any)[key] = JSON.parse((onboarding as any)[key]); } catch {}
+        const businessDoc = businessRes.documents[0];
+
+        // Process business setup data
+        let onboarding: any = {};
+        try {
+          onboarding = businessDoc ? JSON.parse(businessDoc.onboarding_data || '{}') : {};
+          ['personalDetails', 'businessSetup', 'serviceSetup'].forEach(key => {
+            if ((onboarding as any)[key] && typeof (onboarding as any)[key] === 'string') {
+              try { (onboarding as any)[key] = JSON.parse((onboarding as any)[key]); } catch {}
+            }
+          });
+          if ((onboarding as any).businessSetup && (onboarding as any).businessSetup.business && typeof (onboarding as any).businessSetup.business === 'string') {
+            try { (onboarding as any).businessSetup.business = JSON.parse((onboarding as any).businessSetup.business); } catch {}
           }
-        });
-        if ((onboarding as any).businessSetup && (onboarding as any).businessSetup.business && typeof (onboarding as any).businessSetup.business === 'string') {
-          try { (onboarding as any).businessSetup.business = JSON.parse((onboarding as any).businessSetup.business); } catch {}
-        }
-        if ((onboarding as any).serviceSetup && typeof (onboarding as any).serviceSetup === 'string') {
-          try { (onboarding as any).serviceSetup = JSON.parse((onboarding as any).serviceSetup); } catch {}
-        }
-      } catch { onboarding = {}; }
+          if ((onboarding as any).serviceSetup && typeof (onboarding as any).serviceSetup === 'string') {
+            try { (onboarding as any).serviceSetup = JSON.parse((onboarding as any).serviceSetup); } catch {}
+          }
+        } catch { onboarding = {}; }
       
       setBusinessSetup(onboarding);
+      
+      // Debug logging to troubleshoot data structure
+      console.log('🔍 [PROVIDER DASHBOARD] Debug - businessSetup data:', {
+        onboarding,
+        personalDetails: onboarding?.personalDetails,
+        businessInfo: onboarding?.businessInfo,
+        serviceSetup: onboarding?.serviceSetup,
+        location: onboarding?.serviceSetup?.location
+      });
       
       // Phase 4: Load booking stats (slowest)
       const bookingsRes = await databases.listDocuments(
@@ -196,9 +202,9 @@ export default function ProviderDashboardPage() {
         [Query.equal("provider_id", user!.id)]
       );
       const bookings = bookingsRes.documents as any[];
-      
-      // Stats calculations
-      const totalBookings = bookings.length;
+
+        // Stats calculations
+        const totalBookings = bookings.length;
       const completedBookings = bookings.filter((b: any) => b.status === "completed");
       const totalRevenue = completedBookings.reduce((sum: number, b: any) => sum + (b.total_amount || 0), 0);
       const ratedBookings = bookings.filter((b: any) => b.rating && b.rating > 0);
@@ -252,7 +258,7 @@ export default function ProviderDashboardPage() {
         
         // Step 2: Refresh data in background (stale-while-revalidate)
         setTimeout(() => {
-          if (user && isAuthComplete) {
+          if (user && !isLoading) {
             loadDataProgressively();
           }
         }, 100);
@@ -280,7 +286,7 @@ export default function ProviderDashboardPage() {
       
       setHasCachedData(true);
       
-    } catch (error) {
+      } catch (error) {
       console.error('Error in fetchDataWithCache:', error);
       
       if (error instanceof Error && error.message === 'Circuit breaker is OPEN') {
@@ -309,27 +315,19 @@ export default function ProviderDashboardPage() {
     }
   }, [user, roles, isLoading, router]);
 
-  // Update tab when URL parameter changes
-  useEffect(() => {
-    const tabParam = searchParams.get('tab');
-    if (tabParam && tabParam !== tab) {
-      setTab(tabParam);
-    }
-  }, [searchParams, tab]);
+  // Handle tab changes without URL manipulation
+  const handleTabChange = (newTab: string) => {
+    setTab(newTab);
+  };
 
-  // Update URL when tab changes
-  useEffect(() => {
-    if (tab && tab !== 'overview') {
-      const newUrl = `/provider/dashboard?tab=${tab}`;
-      router.replace(newUrl, { scroll: false });
-    } else if (tab === 'overview') {
-      router.replace('/provider/dashboard', { scroll: false });
-    }
-  }, [tab, router]);
+  // Reset tab to overview when needed
+  const resetToOverview = () => {
+    setTab("overview");
+  };
 
   // Fixed: Wait for auth to complete and user to be available before fetching data
   useEffect(() => {
-    if (tab !== "overview" || !user || !isAuthComplete) return;
+    if (!user || isLoading) return;
     
     let isMounted = true;
     const timer = setTimeout(() => {
@@ -342,7 +340,7 @@ export default function ProviderDashboardPage() {
       isMounted = false;
       clearTimeout(timer);
     };
-  }, [tab, user, isAuthComplete]);
+  }, [user, isLoading]);
 
   // Clear cache when user changes
   useEffect(() => {
@@ -589,29 +587,88 @@ export default function ProviderDashboardPage() {
     return filtered;
   }, [bookings, bookingsTab, searchTerm, statusFilter]);
 
-  // Extract fields for display
+  // Extract fields for display with robust fallback logic
   const name = businessSetup?.personalDetails?.fullName || profile?.name || "-";
-  const businessName = businessSetup?.businessInfo?.businessName || profile?.business_name || "-";
+  
+  // Enhanced business name extraction with multiple fallbacks
+  const businessName = (() => {
+    // Try business setup first
+    if (businessSetup?.businessInfo?.businessName) return businessSetup.businessInfo.businessName;
+    
+    // Try profile business name
+    if (profile?.business_name) return profile.business_name;
+    
+    // Try other possible business name fields
+    if (businessSetup?.businessInfo?.name) return businessSetup.businessInfo.name;
+    if (profile?.businessName) return profile.businessName;
+    if (profile?.company_name) return profile.company_name;
+    
+    // Default fallback
+    return "-";
+  })();
+  
   const email = businessSetup?.personalDetails?.email || profile?.email || "-";
   const phone = businessSetup?.personalDetails?.mobile || profile?.phone || "-";
   const isVerified = providerStatus?.isVerified;
   const isApproved = providerStatus?.isApproved;
-  const serviceArea = businessSetup?.serviceSetup?.location ? `${businessSetup.serviceSetup.location.city || "-"}, ${businessSetup.serviceSetup.location.state || "-"} ${businessSetup.serviceSetup.location.zip || ""}` : "-";
+  
+  // Robust service area extraction with multiple fallback structures
+  const serviceArea = (() => {
+    const location = businessSetup?.serviceSetup?.location;
+    if (!location) return "-";
+    
+    // Handle different location structures
+    if (location.city && location.state) {
+      const city = location.city || "-";
+      const state = location.state || "-";
+      const zip = location.zip || "";
+      return `${city}, ${state} ${zip}`.trim();
+    }
+    
+    // Fallback to other possible structures
+    if (location.address) return location.address;
+    if (typeof location === 'string') return location;
+    
+    // Check if location is stored in a different format
+    if (location.pincode) return `Pincode: ${location.pincode}`;
+    if (location.area) return location.area;
+    
+    return "-";
+  })();
+  
   const availability = businessSetup?.serviceSetup?.availability || "-";
 
   // Format availability (simple string or object)
   const availabilityString = useMemo(() => {
     if (!availability || typeof availability === "string") return availability || "-";
+    
     // If object, format as e.g. Mon–Fri 10AM–7PM
     if (typeof availability === "object") {
-      const days = Object.keys(availability).filter(day => availability[day]?.available);
-      if (days.length === 0) return "-";
-      const firstDay = days[0];
-      const lastDay = days[days.length - 1];
-      const start = availability[firstDay]?.start;
-      const end = availability[firstDay]?.end;
-      return `${firstDay.charAt(0).toUpperCase() + firstDay.slice(1)}–${lastDay.charAt(0).toUpperCase() + lastDay.slice(1)} ${start}–${end}`;
+      try {
+        const days = Object.keys(availability).filter(day => availability[day]?.available);
+        if (days.length === 0) return "-";
+        
+        const firstDay = days[0];
+        const lastDay = days[days.length - 1];
+        const start = availability[firstDay]?.start || "9:00";
+        const end = availability[firstDay]?.end || "18:00";
+        
+        // Format day names properly
+        const formatDay = (day: string) => {
+          const dayMap: Record<string, string> = {
+            'sun': 'Sun', 'mon': 'Mon', 'tue': 'Tue', 'wed': 'Wed',
+            'thu': 'Thu', 'fri': 'Fri', 'sat': 'Sat'
+          };
+          return dayMap[day.toLowerCase()] || day.charAt(0).toUpperCase() + day.slice(1);
+        };
+        
+        return `${formatDay(firstDay)}–${formatDay(lastDay)} ${start}–${end}`;
+      } catch (error) {
+        console.warn('Error formatting availability:', error);
+        return "Available";
+      }
     }
+    
     return "-";
   }, [availability]);
 
@@ -810,7 +867,7 @@ export default function ProviderDashboardPage() {
 
               {/* Content State - Show if we have data (cached or fresh) */}
               {(hasCachedData || (!isDataLoading && !dataError)) && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   {/* Profile Info */}
                   <div className="space-y-4">
                     <div className="flex items-center gap-4">
@@ -1172,7 +1229,7 @@ export default function ProviderDashboardPage() {
           exit={{ opacity: 0, y: -16 }}
           transition={{ duration: 0.25 }}
         >
-          <TierPricingTab />
+          <NewTierPricingTab />
         </motion.div>
       )
     }
@@ -1322,50 +1379,50 @@ export default function ProviderDashboardPage() {
       {/* Dashboard Content */}
       {!isLoading && (
         <>
-          {/* Edit Availability Modal */}
-          {editAvailabilityOpen && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-              <div className="bg-white rounded-lg shadow-lg max-w-lg w-full p-6 relative">
-                <button className="absolute top-2 right-2 text-gray-500 hover:text-gray-700" onClick={() => setEditAvailabilityOpen(false)}>&times;</button>
-                <ServiceSetupStep
-                  data={availabilityEditData || {}}
-                  setData={setAvailabilityEditData}
-                  onNext={async () => {
-                    setEditAvailabilityOpen(false);
-                    setTab('overview');
-                    // Refresh data after availability update
-                    handleRefresh();
-                  }}
-                  onPrev={() => setEditAvailabilityOpen(false)}
-                />
-              </div>
+      {/* Edit Availability Modal */}
+      {editAvailabilityOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+          <div className="bg-white rounded-lg shadow-lg max-w-lg w-full p-6 relative">
+            <button className="absolute top-2 right-2 text-gray-500 hover:text-gray-700" onClick={() => setEditAvailabilityOpen(false)}>&times;</button>
+            <ServiceSetupStep
+              data={availabilityEditData || {}}
+              setData={setAvailabilityEditData}
+                             onNext={async () => {
+                 setEditAvailabilityOpen(false);
+                 resetToOverview();
+                 // Refresh data after availability update
+                 handleRefresh();
+               }}
+              onPrev={() => setEditAvailabilityOpen(false)}
+            />
+          </div>
+        </div>
+      )}
+      {/* Decline Reason Modal */}
+      {declineModalOpen && bookingToDecline && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+          <div className="bg-white rounded-lg shadow-lg max-w-md w-full p-6 relative">
+            <h3 className="text-lg font-semibold mb-4">Reason for Declining Booking</h3>
+            <textarea
+              className="w-full p-2 border rounded-md mb-4"
+              rows={4}
+              value={declineReason}
+              onChange={(e) => setDeclineReason(e.target.value)}
+              placeholder="Enter reason for declining the booking..."
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setDeclineModalOpen(false)}>Cancel</Button>
+              <Button variant="destructive" onClick={handleDeclineSubmit}>Decline</Button>
             </div>
-          )}
-          {/* Decline Reason Modal */}
-          {declineModalOpen && bookingToDecline && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-              <div className="bg-white rounded-lg shadow-lg max-w-md w-full p-6 relative">
-                <h3 className="text-lg font-semibold mb-4">Reason for Declining Booking</h3>
-                <textarea
-                  className="w-full p-2 border rounded-md mb-4"
-                  rows={4}
-                  value={declineReason}
-                  onChange={(e) => setDeclineReason(e.target.value)}
-                  placeholder="Enter reason for declining the booking..."
-                />
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setDeclineModalOpen(false)}>Cancel</Button>
-                  <Button variant="destructive" onClick={handleDeclineSubmit}>Decline</Button>
-                </div>
-              </div>
-            </div>
-          )}
-          <EnhancedTabs 
-            tabs={tabs} 
-            defaultValue={tab} 
-            className="w-full"
-            onTabChange={setTab}
-          />
+          </div>
+        </div>
+      )}
+                             <EnhancedTabs 
+                 tabs={tabs} 
+                 defaultValue={tab} 
+                 className="w-full"
+                 onTabChange={handleTabChange}
+               />
           {/* Data Loading Indicator */}
           {isDataLoading && tab === "overview" && (
             <div className="mt-4 text-center">
@@ -1377,6 +1434,6 @@ export default function ProviderDashboardPage() {
           )}
         </>
       )}
-    </div>
+          </div>
   );
 }

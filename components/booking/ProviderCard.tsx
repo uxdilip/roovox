@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -55,6 +55,18 @@ export const ProviderCard: React.FC<ProviderCardProps> = ({
   hasActiveConversation = false
 }) => {
   const [showContactOptions, setShowContactOptions] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowContactOptions(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
   
   // Normalize part type for matching
   const normalizePartType = (pt?: string) => {
@@ -145,20 +157,20 @@ export const ProviderCard: React.FC<ProviderCardProps> = ({
   if (startingPrice === Infinity) startingPrice = 0;
 
   return (
-    <div className="group relative bg-white rounded-2xl border border-gray-200 p-6 hover:shadow-lg transition-all duration-200 hover:-translate-y-1">
+    <div className="group relative bg-white rounded-2xl border border-gray-200 p-8 hover:shadow-xl transition-all duration-300 hover:-translate-y-2">
       
       {/* Header Section */}
-      <div className="flex items-start gap-4 mb-6">
+      <div className="flex items-start gap-6 mb-8">
         {/* Avatar */}
-        <div className="relative">
+        <div className="relative flex-shrink-0">
           <img
             src={provider.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(provider.businessName || provider.name)}&background=374151&color=ffffff&size=128`}
             alt={provider.businessName || provider.name}
-            className="w-16 h-16 rounded-full object-cover border-2 border-gray-200"
+            className="w-20 h-20 rounded-full object-cover border-3 border-gray-200 shadow-sm"
           />
           {provider.isVerified && (
-            <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-              <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+            <div className="absolute -bottom-1 -right-1 w-7 h-7 bg-green-500 rounded-full flex items-center justify-center shadow-lg">
+              <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
               </svg>
             </div>
@@ -167,145 +179,114 @@ export const ProviderCard: React.FC<ProviderCardProps> = ({
 
         {/* Provider Info */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-2">
-            <h3 className="font-bold text-lg text-gray-900 truncate">
+          <div className="flex items-center gap-3 mb-2">
+            <h3 className="text-xl font-bold text-gray-900 truncate">
               {provider.businessName || provider.name}
             </h3>
           </div>
           
-          {/* Rating and Experience */}
-          <div className="flex items-center gap-4 text-sm text-gray-600 mb-2">
-            {provider.rating ? (
-              <div className="flex items-center gap-1">
-                <div className="flex">
-                  {[...Array(5)].map((_, i) => (
-                    <svg key={i} className={`w-4 h-4 ${i < Math.floor(provider.rating!) ? 'text-yellow-400' : 'text-gray-300'}`} fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                  ))}
-                </div>
-                <span className="font-medium">{provider.rating.toFixed(1)}</span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-1 text-gray-400">
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                </svg>
-                <span>No rating</span>
-              </div>
-            )}
-            
-            {provider.yearsOfExperience ? (
-              <div className="flex items-center gap-1">
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
-                </svg>
-                <span>{provider.yearsOfExperience}+ years</span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-1 text-gray-400">
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
-                </svg>
-                <span>Experience N/A</span>
-              </div>
-            )}
-          </div>
-
-          {/* Location */}
-          <div className="flex items-center gap-1 text-sm text-gray-600">
-            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-            </svg>
-            <span className="truncate">{provider.location || 'Location N/A'}</span>
+          <div className="space-y-2 text-sm text-gray-600">
+            <div className="flex items-center gap-2">
+              <Star className="w-4 h-4 text-yellow-400" />
+              <span>{provider.rating ? `${provider.rating.toFixed(1)} rating` : 'No rating'}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-gray-400" />
+              <span>{provider.yearsOfExperience ? `${provider.yearsOfExperience} years experience` : 'Experience N/A'}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-gray-400" />
+              <span>{provider.location || 'Location N/A'}</span>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Services Section */}
       <div className="mb-6">
-        <h4 className="font-semibold text-gray-900 mb-3">Services for {selectedModel}</h4>
-        <div className="space-y-2">
+        <h4 className="text-lg font-semibold text-gray-900 mb-4">
+          Services for {selectedModel}
+        </h4>
+        <div className="space-y-3">
           {issueRows}
         </div>
       </div>
 
-      {/* Total Price and Actions */}
-      <div className="border-t border-gray-200 pt-4">
-        <div className="text-center mb-4">
-          <p className="text-sm text-gray-600">Total estimate</p>
-          <p className="text-3xl font-bold text-gray-900">
-            ₹{totalEstimate.toLocaleString()}
-          </p>
+      {/* Total Estimate */}
+      <div className="border-t border-gray-100 pt-4 mb-6">
+        <div className="flex items-center justify-between">
+          <span className="text-lg font-medium text-gray-700">Starting from</span>
+          <span className="text-2xl font-bold text-primary">₹{totalEstimate.toLocaleString()}</span>
         </div>
+      </div>
 
-        {/* Negotiation Status */}
-        {hasActiveNegotiation && (
-          <div className="mb-3 flex items-center justify-center">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-full text-sm font-medium">
-              <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-              Chat in Progress
-            </div>
-          </div>
-        )}
-
-        {/* Action Buttons */}
-        <div className="flex gap-3">
-          <button
-            onClick={onViewProfile}
-            className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors duration-200"
-          >
-            View Profile
-          </button>
-          
-          {/* Contact Dropdown */}
-          <div className="relative flex-1">
-                      <button
+      {/* Action Buttons */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <Button 
+          variant="outline" 
+          onClick={onViewProfile}
+          className="flex-1 h-11 text-sm font-medium"
+        >
+          <FileText className="w-4 h-4 mr-2" />
+          View Profile
+        </Button>
+        
+        {/* Contact Dropdown */}
+        <div className="relative flex-1" ref={dropdownRef}>
+          <Button 
             onClick={() => setShowContactOptions(!showContactOptions)}
-            className={`w-full px-4 py-2.5 text-sm font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200 flex items-center justify-center gap-2 ${
+            className={`w-full h-11 text-sm font-medium flex items-center justify-center gap-2 ${
               hasActiveNegotiation || hasActiveConversation
-                ? 'text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 focus:ring-blue-500'
-                : 'text-white bg-black hover:bg-gray-800 focus:ring-gray-500'
+                ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+                : 'bg-primary hover:bg-primary/90 text-white'
             }`}
           >
-            {hasActiveNegotiation ? 'Continue Chat' : hasActiveConversation ? 'Continue Chat' : 'Contact me'}
-            <ChevronDown className="h-4 w-4" />
-          </button>
-            
-            {/* Dropdown Menu */}
-            {showContactOptions && (
-              <div className="absolute top-full mt-2 w-full bg-white border border-gray-200 rounded-lg shadow-lg z-10">
-                {CONTACT_OPTIONS.map((option) => (
-                                      <button
-                      key={option.type}
-                      onClick={() => {
-                        setShowContactOptions(false);
-                        if (option.type === 'quote') {
-                          onGetQuote?.();
-                        } else if (option.type === 'chat') {
-                          onDirectChat?.();
-                        }
-                      }}
-                      className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors flex items-center gap-3 border-b border-gray-100 last:border-b-0"
-                    >
-                      <span className="text-lg">{option.icon}</span>
-                      <div>
-                        <div className="font-medium text-gray-900">
-                          {option.type === 'chat' && hasActiveConversation ? 'Continue Chat' : option.label}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {option.type === 'chat' && hasActiveConversation 
-                            ? 'Resume your existing conversation' 
-                            : option.description
-                          }
-                        </div>
-                      </div>
-                      <ChevronDown className="h-4 w-4 ml-auto transform rotate-90 text-gray-400" />
-                    </button>
-                ))}
-              </div>
-            )}
-          </div>
+            <MessageSquare className="w-4 h-4" />
+            {hasActiveNegotiation || hasActiveConversation ? 'Chat' : 'Chat'}
+            <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${showContactOptions ? 'rotate-180' : ''}`} />
+          </Button>
+          
+          {/* Dropdown Menu - Displaying Upward */}
+          {showContactOptions && (
+            <div className="absolute bottom-full mb-2 w-full bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+              <button
+                onClick={() => {
+                  setShowContactOptions(false);
+                  onGetQuote?.();
+                }}
+                className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors flex items-center gap-3 border-b border-gray-100"
+              >
+                <span className="text-lg">💬</span>
+                <div>
+                  <div className="font-medium text-gray-900">Get Quote</div>
+                  <div className="text-xs text-gray-500">Request a custom quote for your needs</div>
+                </div>
+                <ChevronDown className="w-4 h-4 ml-auto transform rotate-90 text-gray-400" />
+              </button>
+              
+              <button
+                onClick={() => {
+                  setShowContactOptions(false);
+                  onDirectChat?.();
+                }}
+                className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors flex items-center gap-3"
+              >
+                <span className="text-lg">💭</span>
+                <div>
+                  <div className="font-medium text-gray-900">
+                    {hasActiveConversation ? 'Continue Chat' : 'Start Chat'}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {hasActiveConversation 
+                      ? 'Resume your existing conversation' 
+                      : 'Start a new conversation with this provider'
+                    }
+                  </div>
+                </div>
+                <ChevronDown className="w-4 h-4 ml-auto transform rotate-90 text-gray-400" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

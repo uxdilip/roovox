@@ -20,7 +20,6 @@ const RATE_LIMIT = {
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
-  isAuthComplete: boolean;
   loginWithPhoneOtp: (phone: string, otp?: string, userId?: string) => Promise<{ userId?: string } | void>;
   logout: () => Promise<void>;
   setUser?: React.Dispatch<React.SetStateAction<User | null>>;
@@ -42,7 +41,6 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isAuthComplete, setIsAuthComplete] = useState(false);
   const [roles, setRoles] = useState<string[]>([]);
   const [activeRole, setActiveRoleState] = useState<'customer' | 'provider'>('customer');
   const [showLocationPrompt, setShowLocationPrompt] = useState(false);
@@ -129,9 +127,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const checkAuth = async () => {
     console.log('🔍 checkAuth called');
-    setIsLoading(true);
-    setIsAuthComplete(false);
-    
     try {
       const session = await account.get();
       // Session found
@@ -224,7 +219,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       console.log('🔍 checkAuth completed, setting isLoading to false');
       setIsLoading(false);
-      setIsAuthComplete(true);
     }
   };
 
@@ -450,8 +444,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setShowLocationPrompt,
       canRequestOtp,
       getOtpAttempts,
-      clearOtpAttempts,
-      isAuthComplete
+      clearOtpAttempts
     }}>
       {children}
     </AuthContext.Provider>
