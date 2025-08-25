@@ -20,6 +20,7 @@ const RATE_LIMIT = {
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
+  isAuthComplete: boolean;
   loginWithPhoneOtp: (phone: string, otp?: string, userId?: string) => Promise<{ userId?: string } | void>;
   logout: () => Promise<void>;
   setUser?: React.Dispatch<React.SetStateAction<User | null>>;
@@ -41,6 +42,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAuthComplete, setIsAuthComplete] = useState(false);
   const [roles, setRoles] = useState<string[]>([]);
   const [activeRole, setActiveRoleState] = useState<'customer' | 'provider'>('customer');
   const [showLocationPrompt, setShowLocationPrompt] = useState(false);
@@ -52,6 +54,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [otpAttempts, setOtpAttempts] = useState<Record<string, number>>({});
 
   useEffect(() => {
+    console.log('🔍 AuthContext useEffect triggered - calling checkAuth');
     checkAuth();
   }, []);
 
@@ -125,6 +128,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const checkAuth = async () => {
+    console.log('🔍 checkAuth called');
+    setIsLoading(true);
+    setIsAuthComplete(false);
+    
     try {
       const session = await account.get();
       // Session found
@@ -181,7 +188,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (needsPhoneOnboarding && !isProviderLogin && typeof window !== 'undefined') {
             const currentPath = window.location.pathname;
             if (currentPath !== '/customer/onboarding') {
-      
+              console.log('🔄 Google OAuth user needs phone onboarding, redirecting...');
               router.push('/customer/onboarding');
             }
           }
@@ -190,7 +197,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (needsProviderOnboarding && isProviderLogin && typeof window !== 'undefined') {
             const currentPath = window.location.pathname;
             if (currentPath !== '/provider/onboarding') {
-      
+              console.log('🔄 Google OAuth provider needs onboarding, redirecting...');
               router.push('/provider/onboarding');
             }
           }
@@ -215,7 +222,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
       setRoles([]);
     } finally {
-              setIsLoading(false);
+      console.log('🔍 checkAuth completed, setting isLoading to false');
+      setIsLoading(false);
+      setIsAuthComplete(true);
     }
   };
 
@@ -234,7 +243,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try { 
         await account.deleteSession('current'); 
       } catch (e) {
-        // Session already deleted or doesn't exist
+        console.log('No existing session to delete');
       }
       
       recordOtpRequest(phone);
@@ -244,7 +253,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try { 
         await account.deleteSession('current'); 
       } catch (e) {
-        // Session already deleted or doesn't exist
+        console.log('No existing session to delete');
       }
       
       recordOtpAttempt(userId!);
@@ -264,7 +273,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           roles: ['customer']
         });
       } catch (error) {
-        // User document may already exist or error creating
+        console.log('User document may already exist or error creating:', error);
       }
       
       const userDoc = await getUserByUserId(accountDetails.$id);
@@ -311,7 +320,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setShowLocationPrompt(false);
       }
       
-
+      console.log('User set in context:', accountDetails);
       
       // Call checkAuth to ensure all user data is properly set
       await checkAuth();
@@ -321,9 +330,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const register = async (email: string, password: string, name: string) => {
     try {
       const user = await account.create(ID.unique(), email, password, name);
-
+      console.log('Account created successfully:', user.$id);
       await account.createEmailPasswordSession(email, password);
-
+      console.log('Session created successfully');
       await createUserDocument({
         userId: user.$id,
         name: name,
@@ -441,7 +450,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setShowLocationPrompt,
       canRequestOtp,
       getOtpAttempts,
-      clearOtpAttempts
+      clearOtpAttempts,
+      isAuthComplete
     }}>
       {children}
     </AuthContext.Provider>
