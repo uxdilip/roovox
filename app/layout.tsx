@@ -4,6 +4,8 @@ import { Inter } from 'next/font/google';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { LocationProvider } from '@/contexts/LocationContext';
 import { Toaster } from '@/components/ui/toaster';
+import { ChatToastNotification } from '@/components/ui/chat-toast-notification';
+import { ChatProvider } from '@/contexts/ChatContext';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -68,10 +70,14 @@ export default function RootLayout({
         <meta name="msapplication-tap-highlight" content="no" />
       </head>
       <body className={inter.className}>
-        <LocationProvider>
+                <LocationProvider>
           <AuthProvider>
-            {children}
-            <Toaster />
+            <ChatProvider>
+              {children}
+              <Toaster />
+              {/* Chat notifications only - bottom-right */}
+              <ChatToastNotification position="bottom-right" duration={1000} soundEnabled={true} />
+            </ChatProvider>
           </AuthProvider>
         </LocationProvider>
       </body>

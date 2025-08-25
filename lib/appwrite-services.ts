@@ -24,6 +24,7 @@ import { Device, Provider, Service, Booking } from '@/types';
 import { Query } from 'appwrite';
 import { storage } from './appwrite';
 import { ID } from 'appwrite';
+import { notificationService } from './notifications';
 
 const MAX_LIMIT = 100;
 
@@ -560,6 +561,68 @@ export const updateBookingPayment = async (bookingId: string, paymentMethod: str
         updated_at: new Date().toISOString() 
       }
     );
+
+    // 🔔 NEW: Create payment notification
+    try {
+      console.log('🔔 Creating payment notification...');
+      
+      // Get booking details for notification
+      const booking = await databases.getDocument(
+        DATABASE_ID,
+        COLLECTIONS.BOOKINGS,
+        bookingId
+      );
+
+      if (booking) {
+        const deviceInfo = booking.device_info ? JSON.parse(booking.device_info) : {};
+        const deviceName = `${deviceInfo.brand || 'Device'} ${deviceInfo.model || ''}`.trim();
+        
+        // Notify customer about payment completion
+        await notificationService.createNotification({
+          type: 'payment',
+          category: 'business', // NEW: Mark as business notification
+          priority: 'high',
+          title: 'Payment Confirmed',
+          message: `Payment of ₹${booking.total_amount || 0} confirmed for your ${deviceName} repair`,
+          userId: booking.customer_id,
+          userType: 'customer',
+          relatedId: bookingId,
+          relatedType: 'payment',
+          metadata: { 
+            bookingId,
+            amount: booking.total_amount,
+            paymentMethod,
+            deviceInfo: booking.device_info
+          }
+        });
+
+        // Notify provider about payment received
+        await notificationService.createNotification({
+          type: 'payment',
+          category: 'business', // NEW: Mark as business notification
+          priority: 'high',
+          title: 'Payment Received',
+          message: `Payment of ₹${booking.total_amount || 0} received for ${deviceName} repair`,
+          userId: booking.provider_id,
+          userType: 'provider',
+          relatedId: bookingId,
+          relatedType: 'payment',
+          metadata: { 
+            bookingId,
+            amount: booking.total_amount,
+            paymentMethod,
+            deviceInfo,
+            customerId: booking.customer_id
+          }
+        });
+
+        console.log('✅ Payment notifications created successfully');
+      }
+    } catch (notificationError) {
+      console.error('❌ Error creating payment notifications (non-fatal):', notificationError);
+      // Continue without failing the payment update
+    }
+
     return doc;
   } catch (error) {
     console.error('Error updating booking payment:', error);
@@ -1587,46 +1650,38 @@ export const createCustomerProfile = async (customerData: {
 
 export const getCustomerByUserId = async (userId: string) => {
   try {
-    console.log('🔍 Searching for customer profile with user_id:', userId);
     const response = await databases.listDocuments(
       DATABASE_ID,
       COLLECTIONS.CUSTOMERS,
       [Query.equal('user_id', userId), Query.limit(1)]
     );
     
-    console.log('📊 Found customer documents:', response.documents.length);
     if (response.documents.length > 0) {
-      console.log('✅ Customer profile found:', response.documents[0]);
       return response.documents[0];
     } else {
-      console.log('❌ No customer profile found for user_id:', userId);
       return null;
     }
   } catch (error) {
-    console.error('❌ Error fetching customer profile:', error);
+    console.error('Error fetching customer profile:', error);
     return null;
   }
 }; 
 
 export const getBusinessSetupByUserId = async (userId: string) => {
   try {
-    console.log('🔍 Searching for business setup with user_id:', userId);
     const response = await databases.listDocuments(
       DATABASE_ID,
       'business_setup',
       [Query.equal('user_id', userId), Query.limit(1)]
     );
     
-    console.log('📊 Found business setup documents:', response.documents.length);
     if (response.documents.length > 0) {
-      console.log('✅ Business setup found:', response.documents[0]);
       return response.documents[0];
     } else {
-      console.log('❌ No business setup found for user_id:', userId);
       return null;
     }
   } catch (error) {
-    console.error('❌ Error fetching business setup:', error);
+    console.error('Error fetching business setup:', error);
     return null;
   }
 }; 

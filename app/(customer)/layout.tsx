@@ -4,6 +4,7 @@ import { Header } from '@/components/layout/Header';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import { ChatToastNotification } from '@/components/ui/chat-toast-notification';
 
 export default function CustomerLayout({
   children,
@@ -33,6 +34,8 @@ export default function CustomerLayout({
       <main className="flex-1">
         {children}
       </main>
+      {/* Chat notifications for customer pages */}
+      <ChatToastNotification position="bottom-right" duration={1000} soundEnabled={true} />
     </div>
   );
 } 

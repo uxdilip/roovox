@@ -3,7 +3,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRealtimeChat } from '@/hooks/use-realtime-chat';
+import { useChat } from '@/contexts/ChatContext';
 import { databases, DATABASE_ID, COLLECTIONS, client } from '@/lib/appwrite';
+import { realtimeChat } from '@/lib/realtime-chat';
 import { Query } from 'appwrite';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -37,6 +39,7 @@ import {
 
 export default function ProviderChatTab() {
   const { user } = useAuth();
+  const { setActiveConversation } = useChat();
   const [newMessage, setNewMessage] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [customerProfiles, setCustomerProfiles] = useState<Record<string, any>>({});
@@ -272,7 +275,7 @@ export default function ProviderChatTab() {
       });
 
       if (result.success) {
-        console.log('✅ Offer created successfully:', result.offerId);
+
         
         // ✅ FIXED: Close modal and reset form with all fields
         setShowOfferModal(false);
@@ -358,23 +361,11 @@ export default function ProviderChatTab() {
 
   // Fetch customer profiles when conversations are loaded
   useEffect(() => {
-    console.log('🔍 Provider conversations loaded:', conversations.length);
-    conversations.forEach((conv, index) => {
-      console.log(`Conversation ${index}:`, {
-        id: conv.id,
-        customer_id: conv.customer_id,
-        last_message_content: conv.last_message_content,
-        device_info: conv.device_info
-      });
-    });
-
     const fetchProfiles = async () => {
       const customerIds = Array.from(new Set(conversations.map(conv => conv.customer_id)));
-      console.log('🔍 Customer IDs to fetch:', customerIds);
       
       for (const customerId of customerIds) {
         if (!customerProfiles[customerId]) {
-          console.log('🔍 Fetching profile for customer:', customerId);
           const profile = await fetchCustomerProfile(customerId);
           if (profile) {
             setCustomerProfiles(prev => ({ ...prev, [customerId]: profile }));
@@ -392,8 +383,14 @@ export default function ProviderChatTab() {
   useEffect(() => {
     if (selectedConversation) {
       fetchOffersForConversation(selectedConversation.id);
+      
+      // Set active conversation for smart notifications
+      setActiveConversation(selectedConversation.id);
+    } else {
+      // Clear active conversation when none selected
+      setActiveConversation(null);
     }
-  }, [selectedConversation]);
+  }, [selectedConversation, setActiveConversation]);
 
   // ✅ NEW: Real-time updates for offers
   useEffect(() => {
@@ -404,7 +401,6 @@ export default function ProviderChatTab() {
       `databases.${DATABASE_ID}.collections.${COLLECTIONS.OFFERS}.documents`,
       (response: any) => {
         if (response.events.includes('databases.*.collections.*.documents.*.update')) {
-          console.log('🔄 [PROVIDER-CHAT] Offer updated, refreshing offers...');
           fetchOffersForConversation(selectedConversation.id);
         }
       }
@@ -417,7 +413,7 @@ export default function ProviderChatTab() {
 
   // Fetch customer profile (cached)
   const fetchCustomerProfile = useCallback(async (customerId: string) => {
-    console.log('🔍 fetchCustomerProfile called for:', customerId);
+
     
     try {
       // Try multiple collection approaches
@@ -433,7 +429,7 @@ export default function ProviderChatTab() {
         
         if (customerRes.documents.length > 0) {
           const customer = customerRes.documents[0];
-          console.log('✅ Found in customers collection:', customer.full_name || customer.name);
+
           profile = {
             id: customerId,
             name: customer.full_name || customer.name || 'Customer',
@@ -443,7 +439,7 @@ export default function ProviderChatTab() {
           };
         }
       } catch (customerError) {
-        console.log('Customers collection not accessible or empty');
+        // Silently handle customer collection errors
       }
       
       // 2. If not found, try User collection by user_id field
@@ -457,7 +453,7 @@ export default function ProviderChatTab() {
           
           if (userRes.documents.length > 0) {
             const user = userRes.documents[0];
-            console.log('✅ Found in User collection by user_id:', user.name);
+
             profile = {
               id: customerId,
               name: user.name || 'Customer',
@@ -467,7 +463,7 @@ export default function ProviderChatTab() {
             };
           }
         } catch (userError) {
-          console.log('User collection search by user_id failed');
+          // Silently handle user collection errors
         }
       }
       
@@ -475,7 +471,7 @@ export default function ProviderChatTab() {
       if (!profile) {
         try {
           const userDoc = await databases.getDocument(DATABASE_ID, 'User', customerId);
-          console.log('✅ Found in User collection by document ID:', userDoc.name);
+
           profile = {
             id: customerId,
             name: userDoc.name || 'Customer',
@@ -484,7 +480,7 @@ export default function ProviderChatTab() {
             profilePicture: userDoc.profilePicture || ''
           };
         } catch (getError) {
-          console.log('User not found by document ID either');
+          // Silently handle document ID errors
         }
       }
       
@@ -492,7 +488,7 @@ export default function ProviderChatTab() {
         return profile;
       }
 
-      console.log('⚠️ Customer profile not found anywhere, using default');
+
       return {
         id: customerId,
         name: 'Customer',
@@ -501,7 +497,7 @@ export default function ProviderChatTab() {
         profilePicture: ''
       };
     } catch (error) {
-      console.error('❌ Error fetching customer profile:', error);
+
       return {
         id: customerId,
         name: 'Customer',

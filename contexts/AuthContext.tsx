@@ -52,7 +52,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [otpAttempts, setOtpAttempts] = useState<Record<string, number>>({});
 
   useEffect(() => {
-    console.log('🔍 AuthContext useEffect triggered - calling checkAuth');
     checkAuth();
   }, []);
 
@@ -126,7 +125,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const checkAuth = async () => {
-    console.log('🔍 checkAuth called');
     try {
       const session = await account.get();
       // Session found
@@ -183,7 +181,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (needsPhoneOnboarding && !isProviderLogin && typeof window !== 'undefined') {
             const currentPath = window.location.pathname;
             if (currentPath !== '/customer/onboarding') {
-              console.log('🔄 Google OAuth user needs phone onboarding, redirecting...');
+      
               router.push('/customer/onboarding');
             }
           }
@@ -192,7 +190,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (needsProviderOnboarding && isProviderLogin && typeof window !== 'undefined') {
             const currentPath = window.location.pathname;
             if (currentPath !== '/provider/onboarding') {
-              console.log('🔄 Google OAuth provider needs onboarding, redirecting...');
+      
               router.push('/provider/onboarding');
             }
           }
@@ -217,8 +215,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
       setRoles([]);
     } finally {
-      console.log('🔍 checkAuth completed, setting isLoading to false');
-      setIsLoading(false);
+              setIsLoading(false);
     }
   };
 
@@ -237,7 +234,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try { 
         await account.deleteSession('current'); 
       } catch (e) {
-        console.log('No existing session to delete');
+        // Session already deleted or doesn't exist
       }
       
       recordOtpRequest(phone);
@@ -247,7 +244,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try { 
         await account.deleteSession('current'); 
       } catch (e) {
-        console.log('No existing session to delete');
+        // Session already deleted or doesn't exist
       }
       
       recordOtpAttempt(userId!);
@@ -267,7 +264,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           roles: ['customer']
         });
       } catch (error) {
-        console.log('User document may already exist or error creating:', error);
+        // User document may already exist or error creating
       }
       
       const userDoc = await getUserByUserId(accountDetails.$id);
@@ -314,7 +311,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setShowLocationPrompt(false);
       }
       
-      console.log('User set in context:', accountDetails);
+
       
       // Call checkAuth to ensure all user data is properly set
       await checkAuth();
@@ -324,9 +321,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const register = async (email: string, password: string, name: string) => {
     try {
       const user = await account.create(ID.unique(), email, password, name);
-      console.log('Account created successfully:', user.$id);
+
       await account.createEmailPasswordSession(email, password);
-      console.log('Session created successfully');
+
       await createUserDocument({
         userId: user.$id,
         name: name,

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRealtimeChat } from '@/hooks/use-realtime-chat';
+import { useChat } from '@/contexts/ChatContext';
 import { databases, DATABASE_ID, COLLECTIONS, client } from '@/lib/appwrite';
 import { Query } from 'appwrite';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -37,9 +38,18 @@ import {
 import { useRouter } from 'next/navigation';
 
 export default function ChatPage() {
-  const { user } = useAuth();
+  const { user, activeRole } = useAuth();
+  const { setActiveConversation } = useChat();
   const router = useRouter();
   const searchParams = useSearchParams();
+  
+  // Set active conversation when conversation changes
+  useEffect(() => {
+    const conversationId = searchParams.get('conversation') || searchParams.get('id');
+    setActiveConversation(conversationId);
+  }, [searchParams, setActiveConversation]);
+  
+  // Fresh notification system will be implemented here
   const [newMessage, setNewMessage] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [providerProfiles, setProviderProfiles] = useState<Record<string, any>>({});
@@ -80,7 +90,6 @@ export default function ChatPage() {
   const handleAcceptOffer = async (offerId: string) => {
     try {
       // Don't update offer status yet - wait for payment completion
-      console.log('✅ Offer accepted, redirecting to booking...');
       
       // Update local state to show "Processing..." instead of "Accepted"
       setOffers(prev => prev.map(offer => 
@@ -108,7 +117,7 @@ export default function ChatPage() {
     try {
       const result = await declineOffer(decliningOfferId, declineReason);
       if (result.success) {
-        console.log('✅ Offer declined successfully');
+
         
         // Update local state
         setOffers(prev => prev.map(offer => 
@@ -171,19 +180,18 @@ export default function ChatPage() {
       if (typeof window !== 'undefined') {
         // Make cleanup function available globally
         (window as any).appwriteCleanup = () => {
-          console.log('🧹 Cleaning up Appwrite real-time connections...');
           try {
             // Import and use the realtime chat cleanup
             import('@/lib/realtime-chat').then(({ realtimeChat }) => {
               realtimeChat.cleanup();
             });
           } catch (error) {
-            console.log('⚠️ Realtime chat cleanup error:', error);
+            // Silently handle cleanup errors
           }
         };
       }
     } catch (error) {
-      console.log('⚠️ Appwrite cleanup warning:', error);
+      // Silently handle cleanup warnings
     }
   }, []);
 
@@ -236,7 +244,6 @@ export default function ChatPage() {
         const conversation = conversations.find(conv => conv.provider_id === providerId);
         if (conversation) {
           setSelectedConversation(conversation);
-          console.log('✅ Auto-selected conversation for provider:', providerId);
         }
       }
     }
@@ -258,7 +265,6 @@ export default function ChatPage() {
       `databases.${DATABASE_ID}.collections.${COLLECTIONS.OFFERS}.documents`,
       (response) => {
         if (response.events.includes('databases.*.collections.*.documents.*.update')) {
-          console.log('🔄 [CHAT] Offer updated, refreshing offers...');
           fetchOffersForConversation(selectedConversation.id);
         }
       }

@@ -76,18 +76,23 @@ export default function ProviderDashboardPage() {
     }
   }, [searchParams, tab]);
 
-  // Update URL when tab changes
+  // Update URL when tab changes - with debouncing to prevent rapid switches
   useEffect(() => {
-    if (tab && tab !== 'overview') {
-      const newUrl = `/provider/dashboard?tab=${tab}`;
-      router.replace(newUrl, { scroll: false });
-    } else if (tab === 'overview') {
-      router.replace('/provider/dashboard', { scroll: false });
-    }
+    const timeoutId = setTimeout(() => {
+      if (tab && tab !== 'overview') {
+        const newUrl = `/provider/dashboard?tab=${tab}`;
+        router.replace(newUrl, { scroll: false });
+      } else if (tab === 'overview') {
+        router.replace('/provider/dashboard', { scroll: false });
+      }
+    }, 100); // 100ms delay to prevent rapid tab switching
+
+    return () => clearTimeout(timeoutId);
   }, [tab, router]);
 
   useEffect(() => {
     if (tab !== "overview" || !user) return;
+    
     let isMounted = true;
     const fetchData = async () => {
       try {
@@ -159,17 +164,29 @@ export default function ProviderDashboardPage() {
         console.error('Error fetching overview data:', error);
       }
     };
-    fetchData();
-    return () => { isMounted = false; };
+    
+    // ✅ CRITICAL FIX: Use setTimeout to ensure component is fully mounted
+    const timeoutId = setTimeout(() => {
+      if (isMounted) {
+        fetchData();
+      }
+    }, 100);
+    
+    return () => { 
+      isMounted = false;
+      clearTimeout(timeoutId);
+    };
   }, [tab, user]);
 
   useEffect(() => {
     if (tab !== "bookings" || !user) return;
+    
     let isMounted = true;
     const fetchBookings = async () => {
       if (!user) return;
 
       try {
+
         // Fetch bookings for this provider
         const bookingsResponse = await databases.listDocuments(
           DATABASE_ID,
@@ -177,7 +194,7 @@ export default function ProviderDashboardPage() {
           [Query.equal("provider_id", user.id)]
         );
 
-        console.log("Found bookings:", bookingsResponse.documents.length);
+
 
         // Extract unique customer IDs and device IDs for batch fetching
         const uniqueCustomerIds = [...new Set(bookingsResponse.documents.map(b => b.customer_id))];
@@ -295,21 +312,11 @@ export default function ProviderDashboardPage() {
           // ✅ FIXED: Use device_info if available, otherwise fall back to device lookup
           let finalDeviceDisplay = `${deviceInfo.deviceBrand} ${deviceInfo.deviceModel}`.trim();
           
-          // ✅ DEBUG: Log device_info for troubleshooting
-          console.log('🔍 [PROVIDER DASHBOARD] Booking device_info:', {
-            booking_id: booking.$id,
-            device_info: booking.device_info,
-            device_id: booking.device_id,
-            deviceInfo: deviceInfo
-          });
-          
           if (booking.device_info) {
             try {
               const parsedDeviceInfo = JSON.parse(booking.device_info);
-              console.log('🔍 [PROVIDER DASHBOARD] Parsed device_info:', parsedDeviceInfo);
               if (parsedDeviceInfo.brand && parsedDeviceInfo.model) {
                 finalDeviceDisplay = `${parsedDeviceInfo.brand} ${parsedDeviceInfo.model}`;
-                console.log('🔍 [PROVIDER DASHBOARD] Using device_info:', finalDeviceDisplay);
               }
             } catch (error) {
               console.warn('Error parsing device_info:', error);
@@ -328,6 +335,7 @@ export default function ProviderDashboardPage() {
           };
         });
 
+        // ✅ CRITICAL FIX: Check if component is still mounted before setting state
         if (isMounted) {
           setBookings(bookingsWithDetails);
         }
@@ -335,9 +343,21 @@ export default function ProviderDashboardPage() {
         console.error("Error fetching bookings:", error);
       }
     };
-    fetchBookings();
-    return () => { isMounted = false; };
+    
+    // ✅ CRITICAL FIX: Use setTimeout to ensure component is fully mounted
+    const timeoutId = setTimeout(() => {
+      if (isMounted) {
+        fetchBookings();
+      }
+    }, 100);
+    
+    return () => { 
+      isMounted = false;
+      clearTimeout(timeoutId);
+    };
   }, [tab, user]);
+
+
 
   // Enhanced bookingsByTab with search and status filter
   const bookingsByTab = useMemo(() => {
@@ -869,7 +889,6 @@ export default function ProviderDashboardPage() {
         </motion.div>
       )
     },
-
     {
       value: "commission",
       label: "Commission",
@@ -918,12 +937,12 @@ export default function ProviderDashboardPage() {
   ];
 
   const handleBookingAction = async (booking: any, action: string) => {
-    console.log('handleBookingAction called with:', { action, bookingId: booking.$id });
+    
     try {
       let update: any = {};
       if (action === "accept") {
         update.status = "in_progress"; // Directly to in_progress when accepted
-        console.log('Setting status to in_progress');
+
       } else if (action === "decline") {
         update.status = "cancelled";
         update.cancellation_reason = declineReason;
@@ -932,7 +951,7 @@ export default function ProviderDashboardPage() {
         if (booking.payment_status === "pending") {
           update.payment_status = "cancelled"; // COD booking cancelled
         }
-        console.log('Setting status to cancelled with reason:', declineReason);
+
       } else if (action === "complete") {
         // Check if this is a COD booking
         if (booking.payment_status === "pending") {
@@ -940,30 +959,25 @@ export default function ProviderDashboardPage() {
             // COD + Doorstep: Mark as completed directly (platform handles verification)
             update.status = "completed";
             update.payment_status = "completed";
-            console.log('🔍 [BOOKING-ACTION] COD + Doorstep: Marking as completed (platform handles COD verification)');
           } else {
             // ✅ FIXED: COD + Instore: Mark as completed and create commission collection
             update.status = "completed";
             update.payment_status = "completed";
-            console.log('🔍 [BOOKING-ACTION] COD + Instore: Setting status to completed and payment_status to completed');
             
             // Create commission collection record
             try {
               await createCommissionCollection(booking.$id, booking.provider_id);
-              console.log('✅ Commission collection record created for booking:', booking.$id);
             } catch (error) {
-              console.error('❌ Error creating commission collection:', error);
+              console.error('Error creating commission collection:', error);
               // Don't fail the booking completion if commission collection fails
             }
           }
         } else {
           // Online payment: Just mark as completed
           update.status = "completed";
-          console.log('🔍 [BOOKING-ACTION] Online payment: Setting status to completed');
         }
       }
       update.updated_at = new Date().toISOString();
-      console.log('Updating booking with:', update);
       await databases.updateDocument(
         DATABASE_ID,
         "bookings",
@@ -986,7 +1000,6 @@ export default function ProviderDashboardPage() {
   };
 
   const handleDeclineClick = (booking: any) => {
-    console.log('Decline clicked for booking:', booking.$id);
     setBookingToDecline(booking);
     setDeclineModalOpen(true);
   };
@@ -1012,7 +1025,6 @@ export default function ProviderDashboardPage() {
         throw new Error(data.error || 'Failed to create commission collection');
       }
 
-      console.log('✅ Commission collection created:', data.message);
       return data;
     } catch (error) {
       console.error('❌ Error creating commission collection:', error);
@@ -1021,7 +1033,6 @@ export default function ProviderDashboardPage() {
   };
 
   const handleDeclineSubmit = () => {
-    console.log('Decline submit clicked, reason:', declineReason);
     if (!declineReason.trim()) {
       toast.error("Please provide a reason for declining");
       return;
@@ -1030,12 +1041,12 @@ export default function ProviderDashboardPage() {
       toast.error("No booking selected for decline");
       return;
     }
-    console.log('Calling handleBookingAction with decline');
     handleBookingAction(bookingToDecline, "decline");
   };
 
   return (
     <div className="max-w-6xl mx-auto py-10 px-4">
+
       {/* Edit Availability Modal */}
       {editAvailabilityOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">

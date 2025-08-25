@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { databases, DATABASE_ID, COLLECTIONS } from '@/lib/appwrite';
-import { NotificationService } from '@/lib/notification-service';
-import { buildNotificationData } from '@/lib/notification-helpers';
+import { notificationService } from '@/lib/notifications';
 import { updateOfferOnBookingComplete } from '@/lib/offer-services';
 
 export async function POST(req: NextRequest) {
@@ -184,29 +183,55 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Send notifications asynchronously (don't block the response)
+    // 🔔 NEW: Create in-app notifications using fresh system
     try {
-      console.log('🔔 Starting notification process for COD booking...');
-      const notificationData = await buildNotificationData(booking);
-      console.log('📧 Notification data built:', {
-        customerEmail: notificationData.customerEmail,
-        providerEmail: notificationData.providerEmail,
-        bookingId: notificationData.bookingId
+      console.log('🔔 Creating notifications for COD booking...');
+      
+      // Create notification for provider
+      await notificationService.createNotification({
+        type: 'booking',
+        category: 'business',
+        priority: 'high',
+        title: 'New COD Booking Received',
+        message: `You have received a new COD booking request`,
+        userId: booking.provider_id,
+        userType: 'provider',
+        relatedId: booking.$id,
+        relatedType: 'booking',
+        metadata: {
+          bookingId: booking.$id,
+          customerId: booking.customer_id,
+          deviceId: booking.device_id,
+          serviceId: booking.service_id,
+          totalAmount: booking.total_amount,
+          paymentMethod: 'COD'
+        }
       });
 
-      // Send new booking notification to provider
-      console.log('📤 Sending provider notification...');
-      NotificationService.sendNewBookingNotificationToProvider(notificationData)
-        .then(() => console.log('✅ Provider notification sent successfully'))
-        .catch(error => console.error('❌ Failed to send provider notification:', error));
+      // Create notification for customer
+      await notificationService.createNotification({
+        type: 'booking',
+        category: 'business',
+        priority: 'high',
+        title: 'COD Booking Confirmed',
+        message: `Your COD booking has been confirmed successfully`,
+        userId: booking.customer_id,
+        userType: 'customer',
+        relatedId: booking.$id,
+        relatedType: 'booking',
+        metadata: {
+          bookingId: booking.$id,
+          providerId: booking.provider_id,
+          deviceId: booking.device_id,
+          serviceId: booking.service_id,
+          totalAmount: booking.total_amount,
+          paymentMethod: 'COD'
+        }
+      });
 
-      // Since this is COD, booking is already confirmed, send confirmation to customer
-      console.log('📤 Sending customer confirmation...');
-      NotificationService.sendBookingConfirmationToCustomer(notificationData)
-        .then(() => console.log('✅ Customer confirmation sent successfully'))
-        .catch(error => console.error('❌ Failed to send customer confirmation:', error));
+      console.log('✅ Fresh notifications created successfully');
     } catch (error) {
-      console.error('❌ Failed to send notifications:', error);
+      console.error('❌ Failed to create notifications:', error);
       // Don't fail the COD confirmation if notifications fail
     }
 

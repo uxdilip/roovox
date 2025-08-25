@@ -1,6 +1,7 @@
 import { databases, DATABASE_ID } from './appwrite';
 import { ID } from 'appwrite';
 import { notifyProviderOfNewRequest, notifyCustomerOfRequestSubmission } from './notification-service';
+// Fresh notification system will be implemented
 
 // Types for negotiation system - simplified to match actual collections
 export interface QuoteRequestData {
@@ -156,6 +157,54 @@ export async function createCustomerRequest(
       }
     } catch (emailError) {
       console.error('❌ Error sending email notifications (non-fatal):', emailError);
+      // Continue without failing the request creation
+    }
+
+    // 🔔 NEW: Create in-app notifications
+    try {
+      console.log('🔔 Creating in-app notifications for quote request...');
+      
+      // Notify provider about new quote request
+      await notificationService.createNotification({
+        type: 'offer',
+        category: 'business', // NEW: Mark as business notification
+        priority: 'high',
+        title: 'New Quote Request',
+        message: `New ${requestData.device_info.brand} ${requestData.device_info.model} repair request`,
+        userId: requestData.provider_id,
+        userType: 'provider',
+        relatedId: requestDoc.$id,
+        relatedType: 'quote_request',
+        metadata: { 
+          requestId: requestDoc.$id, 
+          deviceInfo: requestData.device_info,
+          customerId: customerId,
+          timeline: requestData.timeline,
+          urgency: requestData.urgency_level
+        }
+      });
+
+      // Notify customer about quote request submission
+      await notificationService.createNotification({
+        type: 'offer',
+        category: 'business', // NEW: Mark as business notification
+        priority: 'medium',
+        title: 'Quote Request Sent',
+        message: `Your quote request has been sent to the provider`,
+        userId: customerId,
+        userType: 'customer',
+        relatedId: requestDoc.$id,
+        relatedType: 'quote_request',
+        metadata: { 
+          requestId: requestDoc.$id, 
+          deviceInfo: requestData.device_info,
+          providerId: requestData.provider_id
+        }
+      });
+
+      console.log('✅ In-app notifications created successfully');
+    } catch (notificationError) {
+      console.error('❌ Error creating in-app notifications (non-fatal):', notificationError);
       // Continue without failing the request creation
     }
 

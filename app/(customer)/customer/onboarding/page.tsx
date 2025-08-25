@@ -20,7 +20,7 @@ export default function CustomerOnboardingPage() {
   const { user, isLoading, refreshUserData } = useAuth();
   const router = useRouter();
 
-  console.log('🎭 CustomerOnboardingPage render - user:', user, 'isLoading:', isLoading, 'user?.id:', user?.id);
+
 
   // Determine user type and pre-fill form
   const isGoogleUser = Boolean(user && user.name && user.email && (!user.phone || user.phone.trim() === ''));
@@ -43,9 +43,7 @@ export default function CustomerOnboardingPage() {
 
   // Redirect if user is not logged in
   useEffect(() => {
-    console.log('🔍 useEffect triggered - user:', user, 'isLoading:', isLoading);
     if (!isLoading && !user) {
-      console.log('❌ No user found, redirecting to home');
       router.push('/');
     }
   }, [user, isLoading, router]);
@@ -94,7 +92,7 @@ export default function CustomerOnboardingPage() {
         throw new Error('User not found');
       }
 
-      console.log('🆕 Creating customer profile for user:', user.id);
+
       
       // Create customer profile with available data
       const customerData = {
@@ -105,12 +103,12 @@ export default function CustomerOnboardingPage() {
         address: ''
       };
 
-      console.log('📝 Customer data to create:', customerData);
+
       
       // Create customer profile
       await createCustomerProfile(customerData);
 
-      console.log('✅ Customer profile created successfully');
+
       
       // Refresh user data to get updated phone number
       await refreshUserData();
@@ -127,7 +125,6 @@ export default function CustomerOnboardingPage() {
   };
 
   if (isLoading) {
-    console.log('⏳ Still loading, showing loading screen');
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -138,7 +135,6 @@ export default function CustomerOnboardingPage() {
   }
 
   if (!user) {
-    console.log('❌ No user found, showing loading screen (will redirect)');
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -148,8 +144,6 @@ export default function CustomerOnboardingPage() {
     );
   }
 
-  console.log('🎨 Rendering onboarding form for user:', user.id, 'isGoogleUser:', isGoogleUser, 'isPhoneUser:', isPhoneUser);
-  
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-blue-50 p-4">
       <div className="w-full max-w-md">

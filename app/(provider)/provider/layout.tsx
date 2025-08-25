@@ -13,7 +13,6 @@ export default function ProviderLayout({
   // Ensure activeRole is set to 'provider' when on any provider page
   useEffect(() => {
     if (user && roles.includes('provider') && activeRole !== 'provider' && setActiveRole) {
-      console.log('🔍 ProviderLayout: Setting activeRole to provider');
       setActiveRole('provider');
     }
   }, [user, roles, activeRole, setActiveRole]);
