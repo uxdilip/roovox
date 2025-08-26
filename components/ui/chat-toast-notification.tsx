@@ -79,7 +79,16 @@ export function ChatToastNotification({
           id: notification.id,
           title: notification.title,
           message: notification.message,
-          senderName,
+          senderName: notification.senderName || 'Someone',
+          timestamp: new Date()
+        };
+
+        // 🆕 NEW: Use Fiverr-style content for better UX
+        const fiverrToast: ToastNotification = {
+          id: notification.id,
+          title: notification.senderName || 'New Message',
+          message: notification.messagePreview || notification.message,
+          senderName: notification.senderName || 'Someone',
           timestamp: new Date()
         };
 
