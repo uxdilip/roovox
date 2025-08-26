@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Calendar, Clock, Star, PlusCircle, Smartphone, User, CreditCard, CheckCircle, XCircle, StarIcon } from "lucide-react";
 import { GradientBackground } from "@/components/ui/gradient-background";
-import { EnhancedTabs } from "@/components/ui/enhanced-tabs";
+
 import { EnhancedStatusBadge } from "@/components/ui/enhanced-status-badge";
 import { BookingProgress } from "@/components/ui/booking-progress";
 import { databases } from "@/lib/appwrite";
@@ -61,6 +61,7 @@ export default function CustomerDashboard() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [customerName, setCustomerName] = useState("");
+  const [activeTab, setActiveTab] = useState<'upcoming' | 'completed' | 'cancelled'>('upcoming');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -455,92 +456,103 @@ export default function CustomerDashboard() {
           </div>
         </div>
 
-        {/* Enhanced Tabs Section */}
+        {/* Tabs Section */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          {/* Tab Navigation */}
           <div className="border-b border-gray-100 bg-gray-50/50">
-            <EnhancedTabs
-              defaultValue="upcoming"
-              tabs={[
-                {
-                  value: "upcoming",
-                  label: "Upcoming",
-                  count: getBookingsByStatus("upcoming").length,
-                  content: (
-                    <div className="p-6">
-                      {getBookingsByStatus("upcoming").length === 0 ? (
-                        <div className="text-center py-16">
-                          <div className="h-20 w-20 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                            <Calendar className="h-10 w-10 text-blue-600" />
-                          </div>
-                          <h3 className="text-xl font-semibold text-slate-900 mb-3">No upcoming repairs</h3>
-                          <p className="text-slate-600 mb-8 max-w-md mx-auto">Ready to get your device fixed? Book a repair and we'll connect you with trusted local experts.</p>
-                          <Button asChild size="lg" className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 border-0">
-                            <Link href="/book">
-                              <PlusCircle className="mr-2 h-5 w-5" />
-                              Book Your First Repair
-                            </Link>
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="grid gap-6">
-                                          {getBookingsByStatus("upcoming").map((booking) => (
-                  <BookingCard key={booking.$id} booking={booking} formatDate={formatDate} getDeviceImage={getDeviceImage} updateBookingRating={updateBookingRating} />
-                ))}
-                        </div>
-                      )}
+            <div className="flex space-x-8 px-6">
+              {[
+                { value: "upcoming", label: "Upcoming", count: getBookingsByStatus("upcoming").length },
+                { value: "completed", label: "Completed", count: getBookingsByStatus("completed").length },
+                { value: "cancelled", label: "Cancelled", count: getBookingsByStatus("cancelled").length }
+              ].map((tab) => (
+                <button
+                  key={tab.value}
+                  onClick={() => setActiveTab(tab.value as 'upcoming' | 'completed' | 'cancelled')}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
+                    activeTab === tab.value
+                      ? "border-blue-600 text-blue-600"
+                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span>{tab.label}</span>
+                    <span className="inline-flex items-center justify-center px-2.5 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600">
+                      {tab.count}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Tab Content */}
+          <div className="p-6">
+            {activeTab === "upcoming" && (
+              <div>
+                {getBookingsByStatus("upcoming").length === 0 ? (
+                  <div className="text-center py-16">
+                    <div className="h-20 w-20 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                      <Calendar className="h-10 w-10 text-blue-600" />
                     </div>
-                  ),
-                },
-                {
-                  value: "completed",
-                  label: "Completed",
-                  count: getBookingsByStatus("completed").length,
-                  content: (
-                    <div className="p-6">
-                      {getBookingsByStatus("completed").length === 0 ? (
-                        <div className="text-center py-16">
-                          <div className="h-20 w-20 bg-gradient-to-br from-emerald-100 to-teal-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                            <CheckCircle className="h-10 w-10 text-emerald-600" />
-                          </div>
-                          <h3 className="text-xl font-semibold text-slate-900 mb-3">No completed repairs yet</h3>
-                          <p className="text-slate-600">Your completed repairs will appear here once they're finished.</p>
-                        </div>
-                      ) : (
-                        <div className="grid gap-6">
-                                          {getBookingsByStatus("completed").map((booking) => (
-                  <BookingCard key={booking.$id} booking={booking} formatDate={formatDate} getDeviceImage={getDeviceImage} updateBookingRating={updateBookingRating} />
-                ))}
-                        </div>
-                      )}
+                    <h3 className="text-xl font-semibold text-slate-900 mb-3">No upcoming repairs</h3>
+                    <p className="text-slate-600 mb-8 max-w-md mx-auto">Ready to get your device fixed? Book a repair and we'll connect you with trusted local experts.</p>
+                    <Button asChild size="lg" className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 border-0">
+                      <Link href="/book">
+                        <PlusCircle className="mr-2 h-5 w-5" />
+                        Book Your First Repair
+                      </Link>
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="grid gap-6">
+                    {getBookingsByStatus("upcoming").map((booking) => (
+                      <BookingCard key={booking.$id} booking={booking} formatDate={formatDate} getDeviceImage={getDeviceImage} updateBookingRating={updateBookingRating} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === "completed" && (
+              <div>
+                {getBookingsByStatus("completed").length === 0 ? (
+                  <div className="text-center py-16">
+                    <div className="h-20 w-20 bg-gradient-to-br from-emerald-100 to-teal-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                      <CheckCircle className="h-10 w-10 text-emerald-600" />
                     </div>
-                  ),
-                },
-                {
-                  value: "cancelled",
-                  label: "Cancelled",
-                  count: getBookingsByStatus("cancelled").length,
-                  content: (
-                    <div className="p-6">
-                      {getBookingsByStatus("cancelled").length === 0 ? (
-                        <div className="text-center py-16">
-                          <div className="h-20 w-20 bg-gradient-to-br from-red-100 to-pink-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                            <XCircle className="h-10 w-10 text-red-600" />
-                          </div>
-                          <h3 className="text-xl font-semibold text-slate-900 mb-3">No cancelled bookings</h3>
-                          <p className="text-slate-600">Great! You haven't had to cancel any repairs yet.</p>
-                        </div>
-                      ) : (
-                        <div className="grid gap-6">
-                                          {getBookingsByStatus("cancelled").map((booking) => (
-                  <BookingCard key={booking.$id} booking={booking} formatDate={formatDate} getDeviceImage={getDeviceImage} updateBookingRating={updateBookingRating} />
-                ))}
-                        </div>
-                      )}
+                    <h3 className="text-xl font-semibold text-slate-900 mb-3">No completed repairs yet</h3>
+                    <p className="text-slate-600">Your completed repairs will appear here once they're finished.</p>
+                  </div>
+                ) : (
+                  <div className="grid gap-6">
+                    {getBookingsByStatus("completed").map((booking) => (
+                      <BookingCard key={booking.$id} booking={booking} formatDate={formatDate} getDeviceImage={getDeviceImage} updateBookingRating={updateBookingRating} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === "cancelled" && (
+              <div>
+                {getBookingsByStatus("cancelled").length === 0 ? (
+                  <div className="text-center py-16">
+                    <div className="h-20 w-20 bg-gradient-to-br from-red-100 to-pink-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                      <XCircle className="h-10 w-10 text-red-600" />
                     </div>
-                  ),
-                },
-              ]}
-            />
+                    <h3 className="text-xl font-semibold text-slate-900 mb-3">No cancelled bookings</h3>
+                    <p className="text-slate-600">Great! You haven't had to cancel any repairs yet.</p>
+                  </div>
+                ) : (
+                  <div className="grid gap-6">
+                    {getBookingsByStatus("cancelled").map((booking) => (
+                      <BookingCard key={booking.$id} booking={booking} formatDate={formatDate} getDeviceImage={getDeviceImage} updateBookingRating={updateBookingRating} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

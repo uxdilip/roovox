@@ -90,15 +90,33 @@ const BrandCard: React.FC<BrandCardProps> = ({
   console.log(`🔍 BrandCard ${brand}:`, { 
     deviceType, 
     issuesCount: issues.length, 
-    issues: issues.map(i => ({ name: i.name, isSelected: i.isSelected, prices: { basic: i.basicPrice, standard: i.standardPrice, premium: i.premiumPrice } }))
+    isEditMode,
+    editedIssuesCount: editedIssues.length,
+    issues: issues.map(i => ({ name: i.name, isSelected: i.isSelected, prices: { basic: i.basicPrice, standard: i.standardPrice, premium: i.premiumPrice } })),
+    editedIssues: editedIssues.map(i => ({ id: i.id, name: i.name, isSelected: i.isSelected, prices: { basic: i.basicPrice, standard: i.standardPrice, premium: i.premiumPrice } }))
   });
 
   // Initialize edited issues when entering edit mode
   useEffect(() => {
     if (isEditMode) {
       console.log(`📝 Entering edit mode for ${brand}, initializing with:`, issues);
-      setEditedIssues([...issues]);
+      console.log(`🔍 Issues structure:`, issues.map(i => ({ id: i.id, name: i.name, basicPrice: i.basicPrice, standardPrice: i.standardPrice, premiumPrice: i.premiumPrice })));
+      
+      // Deep clone the issues to ensure we have a clean copy
+      const clonedIssues = issues.map(issue => ({
+        ...issue,
+        basicPrice: Number(issue.basicPrice) || 0,
+        standardPrice: Number(issue.standardPrice) || 0,
+        premiumPrice: Number(issue.premiumPrice) || 0
+      }));
+      
+      console.log(`🔍 Cloned issues:`, clonedIssues.map(i => ({ id: i.id, name: i.name, basicPrice: i.basicPrice, standardPrice: i.standardPrice, premiumPrice: i.premiumPrice })));
+      
+      setEditedIssues(clonedIssues);
       setHasChanges(false);
+    } else {
+      // Reset editedIssues when exiting edit mode
+      setEditedIssues([]);
     }
   }, [isEditMode, issues, brand]);
 
@@ -110,15 +128,39 @@ const BrandCard: React.FC<BrandCardProps> = ({
     }
   }, [issues, isEditMode, brand]);
 
+  // Debug: Log when editedIssues changes
+  useEffect(() => {
+    console.log(`📝 editedIssues changed for ${brand}:`, editedIssues.map(i => ({ id: i.id, basicPrice: i.basicPrice, standardPrice: i.standardPrice, premiumPrice: i.premiumPrice })));
+  }, [editedIssues, brand]);
+
   const handlePriceChange = (issueId: string, priceType: 'basic' | 'standard' | 'premium', value: string) => {
-    const numValue = parseInt(value) || 0;
-    setEditedIssues(prev => 
-      prev.map(issue => 
-        issue.id === issueId 
-          ? { ...issue, [priceType + 'Price']: numValue }
-          : issue
-      )
-    );
+    // Ensure we get a clean number value, removing any leading zeros
+    const cleanValue = value.replace(/^0+/, '') || '0'; // Remove leading zeros but keep '0' if empty
+    const numValue = parseInt(cleanValue) || 0;
+    
+    console.log(`💰 Price change: ${issueId} ${priceType} = ${value} -> ${cleanValue} -> ${numValue}`);
+    console.log(`🔍 Current editedIssues:`, editedIssues);
+    console.log(`🔍 Looking for issue with ID: ${issueId}`);
+    
+    setEditedIssues(prev => {
+      console.log(`🔍 Previous editedIssues:`, prev);
+      const updated = prev.map(issue => {
+        if (issue.id === issueId) {
+          const oldValue = priceType === 'basic' ? issue.basicPrice : priceType === 'standard' ? issue.standardPrice : issue.premiumPrice;
+          console.log(`✅ Found issue ${issueId}, updating ${priceType}Price from ${oldValue} to ${numValue}`);
+          if (priceType === 'basic') {
+            return { ...issue, basicPrice: numValue };
+          } else if (priceType === 'standard') {
+            return { ...issue, standardPrice: numValue };
+          } else {
+            return { ...issue, premiumPrice: numValue };
+          }
+        }
+        return issue;
+      });
+      console.log(`✅ Updated editedIssues:`, updated);
+      return updated;
+    });
     setHasChanges(true);
   };
 
@@ -298,7 +340,7 @@ const BrandCard: React.FC<BrandCardProps> = ({
               <div className="flex items-center gap-2 min-w-0 flex-1">
                 <input
                   type="checkbox"
-                  checked={issue.isSelected}
+                  checked={isEditMode && editedIssues.length > 0 ? (editedIssues.find(e => e.id === issue.id)?.isSelected ?? issue.isSelected) : issue.isSelected}
                   onChange={(e) => handleIssueToggle(issue.id, e.target.checked)}
                   disabled={!isEditMode}
                   className="h-4 w-4 text-blue-600 rounded border-gray-300"
@@ -326,10 +368,24 @@ const BrandCard: React.FC<BrandCardProps> = ({
                       <label className="text-xs text-gray-500 mb-1 block">Basic</label>
                       <Input
                         type="number"
-                        value={issue.basicPrice || ''}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePriceChange(issue.id, 'basic', e.target.value)}
+                        value={(() => {
+                          if (!isEditMode || editedIssues.length === 0) {
+                            return issue.basicPrice || '';
+                          }
+                          const editedIssue = editedIssues.find(e => e.id === issue.id);
+                          const value = editedIssue ? editedIssue.basicPrice : issue.basicPrice;
+                          return value || '';
+                        })()}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                          const value = e.target.value;
+                          // Only allow positive numbers
+                          if (value === '' || /^\d+$/.test(value)) {
+                            handlePriceChange(issue.id, 'basic', value);
+                          }
+                        }}
                         className="w-20 h-8 text-center"
                         min="100"
+                        step="1"
                       />
                     </div>
                     
@@ -337,10 +393,24 @@ const BrandCard: React.FC<BrandCardProps> = ({
                       <label className="text-xs text-gray-500 mb-1 block">Standard</label>
                       <Input
                         type="number"
-                        value={issue.standardPrice || ''}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePriceChange(issue.id, 'standard', e.target.value)}
+                        value={(() => {
+                          if (!isEditMode || editedIssues.length === 0) {
+                            return issue.standardPrice || '';
+                          }
+                          const editedIssue = editedIssues.find(e => e.id === issue.id);
+                          const value = editedIssue ? editedIssue.standardPrice : issue.standardPrice;
+                          return value || '';
+                        })()}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                          const value = e.target.value;
+                          // Only allow positive numbers
+                          if (value === '' || /^\d+$/.test(value)) {
+                            handlePriceChange(issue.id, 'standard', value);
+                          }
+                        }}
                         className="w-20 h-8 text-center"
                         min="100"
+                        step="1"
                       />
                     </div>
                     
@@ -348,10 +418,24 @@ const BrandCard: React.FC<BrandCardProps> = ({
                       <label className="text-xs text-gray-500 mb-1 block">Premium</label>
                       <Input
                         type="number"
-                        value={issue.premiumPrice || ''}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePriceChange(issue.id, 'premium', e.target.value)}
+                        value={(() => {
+                          if (!isEditMode || editedIssues.length === 0) {
+                            return issue.premiumPrice || '';
+                          }
+                          const editedIssue = editedIssues.find(e => e.id === issue.id);
+                          const value = editedIssue ? editedIssue.premiumPrice : issue.premiumPrice;
+                          return value || '';
+                        })()}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                          const value = e.target.value;
+                          // Only allow positive numbers
+                          if (value === '' || /^\d+$/.test(value)) {
+                            handlePriceChange(issue.id, 'premium', value);
+                          }
+                        }}
                         className="w-20 h-8 text-center"
                         min="100"
+                        step="1"
                       />
                     </div>
                     
@@ -809,7 +893,7 @@ export default function NewTierPricingTab() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h3 className="text-xl sm:text-2xl font-bold text-gray-900">Tier Pricing Setup</h3>
+          <h3 className="text-xl sm:text-2xl font-bold text-gray-900">Service</h3>
           <p className="text-gray-600 mt-1 text-sm sm:text-base">Set Basic, Standard, and Premium prices for all your services at once</p>
         </div>
         
@@ -817,13 +901,13 @@ export default function NewTierPricingTab() {
           <DialogTrigger asChild>
             <Button className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto">
               <Plus className="w-4 h-4 mr-2" />
-              Add Tier Pricing
+              Add Service
             </Button>
           </DialogTrigger>
           
           <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto w-[95vw] max-w-none mx-4">
             <DialogHeader>
-              <DialogTitle className="text-xl font-bold">Setup Tier Pricing</DialogTitle>
+              <DialogTitle className="text-xl font-bold">Setup Service</DialogTitle>
             </DialogHeader>
             
             <div className="space-y-6">
@@ -1253,7 +1337,7 @@ export default function NewTierPricingTab() {
                   ) : (
                     <>
                       <Save className="w-4 h-4 mr-2" />
-                      Save Tier Pricing ({selectedCount} issues)
+                      Save Service ({selectedCount} issues)
                     </>
                   )}
                 </Button>
@@ -1263,24 +1347,24 @@ export default function NewTierPricingTab() {
         </Dialog>
       </div>
 
-      {/* Current Tier Pricing Display */}
-      <div className="space-y-4">
-        <h4 className="text-lg font-semibold text-gray-900">Current Tier Pricing</h4>
+                {/* Current Service Display */}
+          <div className="space-y-4">
+            <h4 className="text-lg font-semibold text-gray-900">Current Service</h4>
         
         {existingPricings.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <DollarSign className="w-12 h-12 text-gray-400 mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No tier pricing set up yet</h3>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No service set up yet</h3>
               <p className="text-gray-600 text-center mb-4">
-                Start by adding tier pricing for your devices. You can set Basic, Standard, and Premium prices for multiple issues at once.
+                Start by adding service for your devices. You can set Basic, Standard, and Premium prices for multiple issues at once.
               </p>
               <Button 
                 onClick={() => setIsModalOpen(true)}
                 className="bg-blue-600 hover:bg-blue-700"
               >
                 <Plus className="w-4 h-4 mr-2" />
-                Add Your First Tier Pricing
+                Add Your First Service
               </Button>
             </CardContent>
           </Card>
@@ -1319,12 +1403,36 @@ export default function NewTierPricingTab() {
                   originalId: item.id || item.$id || `temp-${Math.random()}`,
                   partType: partType,
                   isSelected: true,
-                  basicPrice: item.basic || 0,
-                  standardPrice: item.standard || 0,
-                  premiumPrice: item.premium || 0
+                  basicPrice: Number(item.basic) || 0,
+                  standardPrice: Number(item.standard) || 0,
+                  premiumPrice: Number(item.premium) || 0
                 };
                 
-                console.log(`🔧 Converting issue:`, { original: item, converted: issueData });
+                console.log(`🔧 Converting issue:`, { 
+                  original: { 
+                    id: item.id || item.$id, 
+                    issue: item.issue, 
+                    basic: item.basic, 
+                    standard: item.standard, 
+                    premium: item.premium,
+                    basicType: typeof item.basic,
+                    basicValue: item.basic,
+                    standardValue: item.standard,
+                    premiumValue: item.premium
+                  }, 
+                  converted: { 
+                    id: issueData.id,
+                    name: issueData.name,
+                    basicPrice: issueData.basicPrice,
+                    standardPrice: issueData.standardPrice,
+                    premiumPrice: issueData.premiumPrice
+                  },
+                  conversion: {
+                    basicConversion: `${item.basic} -> Number(${item.basic}) -> ${Number(item.basic) || 0}`,
+                    standardConversion: `${item.standard} -> Number(${item.standard}) -> ${Number(item.standard) || 0}`,
+                    premiumConversion: `${item.premium} -> Number(${item.premium}) -> ${Number(item.premium) || 0}`
+                  }
+                });
                 return issueData;
               });
               
@@ -1332,12 +1440,17 @@ export default function NewTierPricingTab() {
                 deviceType: group.device_type, 
                 brand: group.brand, 
                 issuesCount: issues.length,
-                issues: issues.map(i => ({ name: i.name, isSelected: i.isSelected, prices: { basic: i.basicPrice, standard: i.standardPrice, premium: i.premiumPrice } }))
+                issues: issues.map(i => ({ 
+                  id: i.id, 
+                  name: i.name, 
+                  isSelected: i.isSelected, 
+                  prices: { basic: i.basicPrice, standard: i.standardPrice, premium: i.premiumPrice } 
+                }))
               });
               
               return (
                 <BrandCard
-                  key={key}
+                  key={`${key}-${group.items.length}`}
                   deviceType={group.device_type}
                   brand={group.brand}
                   issues={issues}

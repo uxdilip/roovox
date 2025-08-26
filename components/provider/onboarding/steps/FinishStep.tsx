@@ -114,10 +114,16 @@ const FinishStep: React.FC<FinishStepProps> = ({ data, onPrev }) => {
       },
       availability: data.serviceSetup?.availability || {},
       verification: {
-        identityDocument: data.kyc_docs?.aadhaar ? 'Aadhaar Card Uploaded' : 'Not uploaded',
-        businessLicense: data.kyc_docs?.pan ? 'PAN Card Uploaded' : 'Not uploaded',
-        insuranceCertificate: data.kyc_docs?.gst ? 'GST Certificate Uploaded' : 'Not uploaded',
-        backgroundCheck: data.kyc_docs?.shop_reg ? 'Shop License Uploaded' : 'Not uploaded'
+        documents: Object.entries(data.kyc_docs || {}).map(([key, value]) => {
+          const labels = {
+            aadhaar: 'Aadhaar Card',
+            pan: 'PAN Card',
+            gst: 'GST Certificate',
+            shop_reg: 'Shop License'
+          };
+          return value ? `${labels[key as keyof typeof labels]} Uploaded` : null;
+        }).filter(Boolean).join(', ') || 'No documents uploaded',
+        totalDocuments: Object.values(data.kyc_docs || {}).filter(Boolean).length
       },
       payment: {
         payoutMethod: 'UPI',
@@ -496,28 +502,16 @@ const FinishStep: React.FC<FinishStepProps> = ({ data, onPrev }) => {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex justify-between items-center">
-              <span className="text-gray-600">Identity Document:</span>
-              <Badge variant={reviewData.verification.identityDocument !== 'Not uploaded' ? 'default' : 'secondary'}>
-                {reviewData.verification.identityDocument}
+              <span className="text-gray-600">Documents Uploaded:</span>
+              <Badge variant={reviewData.verification.totalDocuments > 0 ? 'default' : 'secondary'}>
+                {reviewData.verification.totalDocuments} document{reviewData.verification.totalDocuments !== 1 ? 's' : ''}
               </Badge>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-gray-600">Business License:</span>
-              <Badge variant={reviewData.verification.businessLicense !== 'Not uploaded' ? 'default' : 'secondary'}>
-                {reviewData.verification.businessLicense}
-              </Badge>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">Insurance Certificate:</span>
-              <Badge variant={reviewData.verification.insuranceCertificate !== 'Not uploaded' ? 'default' : 'secondary'}>
-                {reviewData.verification.insuranceCertificate}
-              </Badge>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">Background Check:</span>
-              <Badge variant={reviewData.verification.backgroundCheck !== 'Not uploaded' ? 'default' : 'secondary'}>
-                {reviewData.verification.backgroundCheck}
-              </Badge>
+              <span className="text-gray-600">Document Types:</span>
+              <span className="text-sm text-gray-700 max-w-xs text-right">
+                {reviewData.verification.documents}
+              </span>
             </div>
           </CardContent>
         </Card>

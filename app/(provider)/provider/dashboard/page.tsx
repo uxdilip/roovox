@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 import { databases, DATABASE_ID, COLLECTIONS } from "@/lib/appwrite";
 import { Query } from "appwrite";
@@ -27,13 +27,9 @@ const ServiceSetupStep = dynamic(() => import("@/components/provider/onboarding/
 export default function ProviderDashboardPage() {
   const { user, roles, isLoading, isAuthComplete } = useAuth();
   const router = useRouter();
-  const searchParams = useSearchParams();
   
-  // Initialize tab from URL parameter or default to overview
-  const [tab, setTab] = useState(() => {
-    const tabParam = searchParams.get('tab');
-    return tabParam || "overview";
-  });
+  // Initialize tab state - always start with "overview"
+  const [tab, setTab] = useState("overview");
 
   // --- Overview Tab State ---
   const [profile, setProfile] = useState<any>(null);
@@ -309,27 +305,11 @@ export default function ProviderDashboardPage() {
     }
   }, [user, roles, isLoading, router]);
 
-  // Update tab when URL parameter changes
-  useEffect(() => {
-    const tabParam = searchParams.get('tab');
-    if (tabParam && tabParam !== tab) {
-      setTab(tabParam);
-    }
-  }, [searchParams, tab]);
 
-  // Update URL when tab changes
-  useEffect(() => {
-    if (tab && tab !== 'overview') {
-      const newUrl = `/provider/dashboard?tab=${tab}`;
-      router.replace(newUrl, { scroll: false });
-    } else if (tab === 'overview') {
-      router.replace('/provider/dashboard', { scroll: false });
-    }
-  }, [tab, router]);
 
   // Fixed: Wait for auth to complete and user to be available before fetching data
   useEffect(() => {
-    if (tab !== "overview" || !user || !isAuthComplete) return;
+    if (!user || !isAuthComplete) return;
     
     let isMounted = true;
     const timer = setTimeout(() => {
@@ -1163,7 +1143,7 @@ export default function ProviderDashboardPage() {
     },
     {
       value: "tier-pricing",
-      label: "Tier Pricing",
+      label: "Service",
       content: (
         <motion.div
           key="tier-pricing"
@@ -1364,7 +1344,10 @@ export default function ProviderDashboardPage() {
             tabs={tabs} 
             defaultValue={tab} 
             className="w-full"
-            onTabChange={setTab}
+            onTabChange={(newTab) => {
+              console.log('🔄 [TAB-CHANGE] Switching to:', newTab);
+              setTab(newTab);
+            }}
           />
           {/* Data Loading Indicator */}
           {isDataLoading && tab === "overview" && (

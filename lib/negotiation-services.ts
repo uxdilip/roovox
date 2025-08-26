@@ -1,6 +1,6 @@
 import { databases, DATABASE_ID } from './appwrite';
 import { ID } from 'appwrite';
-import { notifyProviderOfNewRequest, notifyCustomerOfRequestSubmission } from './notification-service';
+import { notificationService } from './notifications';
 // Fresh notification system will be implemented
 
 // Types for negotiation system - simplified to match actual collections
@@ -130,38 +130,11 @@ export async function createCustomerRequest(
       const provider = providerUser.documents.find((u: any) => u.user_id === requestData.provider_id);
       const customer = customerUser.documents.find((u: any) => u.user_id === customerId);
 
-      if (provider?.email && customer?.email) {
-        // Send notification to provider
-        await notifyProviderOfNewRequest(
-          provider.email,
-          provider.name || 'Provider',
-          customer.name || 'Customer',
-          requestData.device_info,
-          [], // No service_issues since it doesn't exist in collection
-          { min: requestData.budget_min || 0, max: requestData.budget_max || 0 },
-          requestData.timeline
-        );
+      // Email notifications removed - using in-app notifications instead
+      console.log('📧 Email notifications disabled - using in-app notifications');
 
-        // Send confirmation to customer
-        await notifyCustomerOfRequestSubmission(
-          customer.email,
-          customer.name || 'Customer',
-          provider.name || 'Provider',
-          requestData.device_info,
-          [] // No service_issues since it doesn't exist in collection
-        );
-
-        console.log('✅ Email notifications sent');
-      } else {
-        console.log('⚠️ Could not find email addresses for notifications');
-      }
-    } catch (emailError) {
-      console.error('❌ Error sending email notifications (non-fatal):', emailError);
-      // Continue without failing the request creation
-    }
-
-    // 🔔 NEW: Create in-app notifications
-    try {
+      // 🔔 NEW: Create in-app notifications
+      try {
       console.log('🔔 Creating in-app notifications for quote request...');
       
       // Notify provider about new quote request
