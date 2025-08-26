@@ -264,13 +264,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // Always fetch the current session after login
       const accountDetails = await account.get();
+      
+      // Check if this is a provider login
+      const isProviderLogin = typeof window !== 'undefined' && localStorage.getItem('loginAsProvider') === '1';
+      const userRoles = isProviderLogin ? ['customer', 'provider'] : ['customer'];
+      
+      console.log('🔍 [AUTH] Phone OTP login - isProviderLogin:', isProviderLogin, 'userRoles:', userRoles);
+      
       try {
         await createUserDocument({
           userId: accountDetails.$id,
           name: 'Phone User',
           email: `phone_${accountDetails.$id}@noemail.local`,
           phone: phone,
-          roles: ['customer']
+          roles: userRoles
         });
       } catch (error) {
         console.log('User document may already exist or error creating:', error);
@@ -282,7 +289,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         name: accountDetails.name || 'Phone User',
         email: accountDetails.email || `phone_${accountDetails.$id}@noemail.local`,
         phone: phone,
-        role: 'customer' as const,
+        role: isProviderLogin ? 'provider' as const : 'customer' as const,
         address: {
           street: '',
           city: userDoc?.address?.city || '',
