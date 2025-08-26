@@ -310,6 +310,135 @@ export const saveBulkTierPricing = async (data: BulkTierPricingData): Promise<vo
   }
 };
 
+// 🚀 NEW: Bulk brand pricing - apply pricing from one brand to multiple brands
+export interface BulkBrandPricingData {
+  providerId: string;
+  deviceType: 'phones' | 'laptops';
+  masterBrand: string;
+  targetBrands: string[];
+  issues: {
+    issue: string;
+    part_type?: string;
+    basic: number;
+    standard: number;
+    premium: number;
+  }[];
+}
+
+export const saveBulkBrandPricing = async (data: BulkBrandPricingData): Promise<{ success: boolean; message: string; appliedCount: number }> => {
+  try {
+    console.log('🚀 DEBUG - saveBulkBrandPricing function called with data:', data);
+    const { providerId, deviceType, masterBrand, targetBrands, issues } = data;
+    
+    console.log('💾 Applying bulk brand pricing:', { 
+      providerId, 
+      deviceType, 
+      masterBrand, 
+      targetBrands, 
+      issueCount: issues.length 
+    });
+
+    let appliedCount = 0;
+    const errors: string[] = [];
+
+    // Process each target brand
+    for (const targetBrand of targetBrands) {
+      console.log(`🔍 Processing brand: ${targetBrand}`);
+      
+      // Process each issue for this brand
+      for (const issueData of issues) {
+        const { issue, part_type, basic, standard, premium } = issueData;
+        
+        // For Screen Replacement with part types, modify the issue name to include the part type
+        let issueNameToSave = issue;
+        if (part_type && issue.toLowerCase().includes('screen replacement')) {
+          issueNameToSave = `${issue} (${part_type})`;
+        }
+        
+        try {
+          // Check if pricing already exists
+          const queries = [
+            Query.equal('provider_id', providerId),
+            Query.equal('device_type', deviceType),
+            Query.equal('brand', targetBrand),
+            Query.equal('issue', issueNameToSave)
+          ];
+
+          const existingRes = await databases.listDocuments(
+            DATABASE_ID,
+            'tier_pricing',
+            queries
+          );
+
+          const pricingData = {
+            provider_id: providerId,
+            device_type: deviceType,
+            brand: targetBrand,
+            issue: issueNameToSave,
+            basic: basic,
+            standard: standard,
+            premium: premium
+          };
+
+          if (existingRes.documents.length > 0) {
+            // Update existing
+            const existingDoc = existingRes.documents[0];
+            await databases.updateDocument(
+              DATABASE_ID,
+              'tier_pricing',
+              existingDoc.$id,
+              {
+                basic: basic,
+                standard: standard,
+                premium: premium
+              }
+            );
+            console.log(`✅ Updated pricing for ${targetBrand} - ${issueNameToSave}`);
+          } else {
+            // Create new
+            await databases.createDocument(
+              DATABASE_ID,
+              'tier_pricing',
+              'unique()',
+              pricingData
+            );
+            console.log(`✅ Created pricing for ${targetBrand} - ${issueNameToSave}`);
+          }
+          
+          appliedCount++;
+        } catch (error) {
+          const errorMsg = `Failed to save ${targetBrand} - ${issueNameToSave}: ${error instanceof Error ? error.message : 'Unknown error'}`;
+          console.error(`❌ ${errorMsg}`);
+          errors.push(errorMsg);
+        }
+      }
+    }
+
+    if (errors.length > 0) {
+      console.warn(`⚠️ Some errors occurred during bulk pricing:`, errors);
+      return {
+        success: false,
+        message: `Applied to ${appliedCount} items with ${errors.length} errors: ${errors.slice(0, 3).join(', ')}`,
+        appliedCount
+      };
+    }
+
+    console.log(`🎉 Bulk brand pricing completed successfully! Applied to ${appliedCount} items across ${targetBrands.length} brands`);
+    return {
+      success: true,
+      message: `Successfully applied pricing to ${targetBrands.length} brands`,
+      appliedCount
+    };
+  } catch (error) {
+    console.error('❌ Error in saveBulkBrandPricing:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Unknown error occurred',
+      appliedCount: 0
+    };
+  }
+};
+
 export const deleteTierPricing = async (providerId: string, deviceType: string, brand: string): Promise<void> => {
   try {
     console.log('🗑️ Deleting tier pricing:', { providerId, deviceType, brand });

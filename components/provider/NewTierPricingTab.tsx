@@ -24,12 +24,13 @@ import {
   X,
   Check,
   CheckCircle2,
-  InfoIcon
+  InfoIcon,
+  Copy
 } from 'lucide-react';
 import { getPhones, getLaptops, getIssuesByCategory, getBrandsByCategory } from '@/lib/appwrite-services';
 import { databases, DATABASE_ID } from '@/lib/appwrite';
 import { Query } from 'appwrite';
-import { saveBulkTierPricing, getProviderTierPricing, deleteTierPricing, deleteTierPricingService, BulkTierPricingData } from '@/lib/tier-pricing-services';
+import { saveBulkTierPricing, getProviderTierPricing, deleteTierPricing, deleteTierPricingService, BulkTierPricingData, saveBulkBrandPricing, BulkBrandPricingData } from '@/lib/tier-pricing-services';
 
 interface IssueData {
   id: string;
@@ -82,7 +83,7 @@ const BrandCard: React.FC<BrandCardProps> = ({
   onDeleteService 
 }) => {
   const [isEditMode, setIsEditMode] = useState(false);
-  const [editedIssues, setEditedIssues] = useState<IssueData[]>([]);
+  const [editedIssues, setEditedIssues] = useState<IssueData[]>(issues);
   const [hasChanges, setHasChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -101,6 +102,11 @@ const BrandCard: React.FC<BrandCardProps> = ({
       setHasChanges(false);
     }
   }, [isEditMode, issues, brand]);
+
+  // Update edited issues when issues prop changes
+  useEffect(() => {
+    setEditedIssues([...issues]);
+  }, [issues]);
 
   // Reset edited issues when issues prop changes
   useEffect(() => {
@@ -236,6 +242,16 @@ const BrandCard: React.FC<BrandCardProps> = ({
   const selectedCount = issues.filter(issue => issue.isSelected).length;
   const totalIssues = issues.length;
 
+  // Simple placeholder function for price inputs
+  const getPlaceholder = (priceType: 'basic' | 'standard' | 'premium'): string => {
+    const basePrices = {
+      basic: 500,
+      standard: 800,
+      premium: 1200
+    };
+    return basePrices[priceType].toString();
+  };
+
   console.log(`📊 ${brand} stats:`, { selectedCount, totalIssues, isEditMode });
 
   return (
@@ -293,7 +309,7 @@ const BrandCard: React.FC<BrandCardProps> = ({
       
       <CardContent className="pt-0">
         <div className="space-y-3">
-          {issues.map((issue) => (
+          {editedIssues.map((issue) => (
             <div key={issue.id} className="flex items-center gap-3 p-3 rounded-lg border hover:bg-gray-50">
               <div className="flex items-center gap-2 min-w-0 flex-1">
                 <input
@@ -326,6 +342,7 @@ const BrandCard: React.FC<BrandCardProps> = ({
                       <label className="text-xs text-gray-500 mb-1 block">Basic</label>
                       <Input
                         type="number"
+                        placeholder={getPlaceholder(issue, 'basic')}
                         value={issue.basicPrice || ''}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePriceChange(issue.id, 'basic', e.target.value)}
                         className="w-20 h-8 text-center"
@@ -337,6 +354,7 @@ const BrandCard: React.FC<BrandCardProps> = ({
                       <label className="text-xs text-gray-500 mb-1 block">Standard</label>
                       <Input
                         type="number"
+                        placeholder={getPlaceholder(issue, 'standard')}
                         value={issue.standardPrice || ''}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePriceChange(issue.id, 'standard', e.target.value)}
                         className="w-20 h-8 text-center"
@@ -348,6 +366,7 @@ const BrandCard: React.FC<BrandCardProps> = ({
                       <label className="text-xs text-gray-500 mb-1 block">Premium</label>
                       <Input
                         type="number"
+                        placeholder={getPlaceholder(issue, 'premium')}
                         value={issue.premiumPrice || ''}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePriceChange(issue.id, 'premium', e.target.value)}
                         className="w-20 h-8 text-center"
@@ -372,10 +391,10 @@ const BrandCard: React.FC<BrandCardProps> = ({
                       <div className="font-semibold text-gray-900">₹{issue.basicPrice || 0}</div>
                     </div>
                     
-                                         <div className="text-center">
-                       <div className="text-xs text-gray-500">Standard</div>
-                       <div className="font-semibold text-gray-900">₹{issue.standardPrice || 0}</div>
-                     </div>
+                    <div className="text-center">
+                      <div className="text-xs text-gray-500">Standard</div>
+                      <div className="font-semibold text-gray-900">₹{issue.standardPrice || 0}</div>
+                    </div>
                     
                     <div className="text-center">
                       <div className="text-xs text-gray-500">Premium</div>
@@ -421,6 +440,13 @@ export default function NewTierPricingTab() {
   });
   const [savedPricings, setSavedPricings] = useState<SavedPricing[]>([]);
   const [existingPricings, setExistingPricings] = useState<any[]>([]);
+
+  // 🚀 NEW: Bulk pricing state variables
+  const [masterBrand, setMasterBrand] = useState<string>('');
+  const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
+  const [applyToAllBrands, setApplyToAllBrands] = useState(false);
+  const [bulkPricingMode, setBulkPricingMode] = useState(false);
+  const [bulkLoading, setBulkLoading] = useState(false);
 
   // Load existing tier pricing on component mount
   useEffect(() => {
@@ -520,6 +546,125 @@ export default function NewTierPricingTab() {
     return processedIssues;
   };
 
+  // 🚀 NEW: Bulk pricing helper functions
+  const getAllBrandsExceptMaster = (masterBrand: string): string[] => {
+    return brands.filter(brand => brand !== masterBrand);
+  };
+
+  const handleMasterBrandChange = (brand: string) => {
+    setMasterBrand(brand);
+    setSelectedBrands([]);
+    setApplyToAllBrands(false);
+    setBulkPricingMode(false);
+    
+    // Load pricing for the master brand
+    handleBrandChange(brand);
+  };
+
+  const handleBrandSelectionChange = (brand: string, selected: boolean) => {
+    if (selected) {
+      setSelectedBrands(prev => [...prev, brand]);
+    } else {
+      setSelectedBrands(prev => prev.filter(b => b !== brand));
+    }
+  };
+
+  const handleApplyToAllBrandsChange = (checked: boolean) => {
+    setApplyToAllBrands(checked);
+    if (checked) {
+      setSelectedBrands([]);
+    }
+  };
+
+  const validateBulkPricing = (): { isValid: boolean; message: string } => {
+    if (!masterBrand) {
+      return { isValid: false, message: 'Please select a master brand first' };
+    }
+
+    if (!applyToAllBrands && selectedBrands.length === 0) {
+      return { isValid: false, message: 'Please select brands to apply pricing to' };
+    }
+
+    if (pricingData.issues.length === 0) {
+      return { isValid: false, message: 'Please set pricing for the master brand first' };
+    }
+
+    const selectedIssues = pricingData.issues.filter(issue => issue.isSelected);
+    if (selectedIssues.length === 0) {
+      return { isValid: false, message: 'Please select at least one issue to apply pricing to' };
+    }
+
+    return { isValid: true, message: '' };
+  };
+
+  const applyBulkPricing = async () => {
+    const validation = validateBulkPricing();
+    if (!validation.isValid) {
+      toast.error(validation.message);
+      return;
+    }
+
+    setBulkLoading(true);
+    try {
+      const targetBrands = applyToAllBrands 
+        ? getAllBrandsExceptMaster(masterBrand)
+        : selectedBrands;
+
+      console.log('🚀 Starting bulk pricing application:', {
+        masterBrand,
+        targetBrands,
+        selectedIssues: pricingData.issues.filter(issue => issue.isSelected)
+      });
+
+      // Get selected issues with pricing
+      const selectedIssues = pricingData.issues.filter(issue => issue.isSelected);
+      
+      // Prepare bulk pricing data
+      const bulkPricingData: BulkBrandPricingData = {
+        providerId: user?.id || '',
+        deviceType: pricingData.deviceType as 'phones' | 'laptops',
+        masterBrand: masterBrand,
+        targetBrands: targetBrands,
+        issues: selectedIssues.map(issue => ({
+          issue: issue.name,
+          part_type: issue.partType,
+          basic: issue.basicPrice,
+          standard: issue.standardPrice,
+          premium: issue.premiumPrice
+        }))
+      };
+
+      console.log('📊 Bulk pricing data prepared:', bulkPricingData);
+
+      // Save bulk pricing
+      const result = await saveBulkBrandPricing(bulkPricingData);
+      
+      if (result.success) {
+        toast.success(`✅ Bulk pricing applied successfully to ${targetBrands.length} brands!`);
+        
+        // Refresh existing pricings
+        await loadExistingPricings();
+        
+        // Reset bulk pricing mode and form
+        setBulkPricingMode(false);
+        setSelectedBrands([]);
+        setApplyToAllBrands(false);
+        
+        // 🚀 NEW: Close modal and reset form to show dashboard
+        setIsModalOpen(false);
+        setPricingData({ deviceType: '', brand: '', issues: [] });
+        setMasterBrand('');
+      } else {
+        toast.error(`❌ Failed to apply bulk pricing: ${result.message}`);
+      }
+    } catch (error) {
+      console.error('❌ Error applying bulk pricing:', error);
+      toast.error('Failed to apply bulk pricing');
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
   const handleDeviceTypeChange = async (deviceType: 'phones' | 'laptops') => {
     setLoading(true);
     setBrands([]);
@@ -549,6 +694,9 @@ export default function NewTierPricingTab() {
   const handleBrandChange = async (brand: string) => {
     setLoading(true);
     setPricingData(prev => ({ ...prev, brand, issues: [] }));
+    
+    // 🚀 NEW: Set master brand for bulk pricing
+    setMasterBrand(brand);
     
     try {
       // ✅ FIX: Use the same approach as customer flow - search by category name
@@ -820,7 +968,7 @@ export default function NewTierPricingTab() {
               Add Tier Pricing
             </Button>
           </DialogTrigger>
-          
+
           <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto w-[95vw] max-w-none mx-4">
             <DialogHeader>
               <DialogTitle className="text-xl font-bold">Setup Tier Pricing</DialogTitle>
@@ -1258,6 +1406,99 @@ export default function NewTierPricingTab() {
                   )}
                 </Button>
               </div>
+
+              {/* 🚀 NEW: Bulk Pricing Section */}
+              {pricingData.brand && pricingData.issues.length > 0 && (
+                <div className="mt-6 p-4 border rounded-lg bg-gray-50">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Copy className="w-5 h-5 text-blue-600" />
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      Apply {pricingData.brand} Pricing to Other Brands
+                    </h3>
+                  </div>
+                  
+                  <p className="text-gray-600 mb-4">
+                    Set pricing once for {pricingData.brand} and apply it to multiple brands at once. 
+                    You can still set individual pricing for any brand later.
+                  </p>
+
+                  {/* Brand Selection */}
+                  <div className="space-y-4">
+                    {/* Apply to All Toggle */}
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="apply-to-all"
+                        checked={applyToAllBrands}
+                        onCheckedChange={handleApplyToAllBrandsChange}
+                      />
+                      <Label htmlFor="apply-to-all" className="text-sm font-medium">
+                        Apply to ALL brands (except {pricingData.brand})
+                      </Label>
+                    </div>
+
+                    {/* Individual Brand Selection */}
+                    {!applyToAllBrands && (
+                      <div>
+                        <Label className="text-sm font-medium text-gray-700 mb-3 block">
+                          Or select specific brands:
+                        </Label>
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                          {getAllBrandsExceptMaster(pricingData.brand).map((brand) => (
+                            <div key={brand} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`brand-${brand}`}
+                                checked={selectedBrands.includes(brand)}
+                                onCheckedChange={(checked: boolean | string) => 
+                                  handleBrandSelectionChange(brand, !!checked)
+                                }
+                              />
+                              <Label htmlFor={`brand-${brand}`} className="text-sm text-gray-700">
+                                {brand}
+                              </Label>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Bulk Pricing Action */}
+                    <div className="flex flex-col sm:flex-row gap-3 pt-4">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setSelectedBrands([]);
+                          setApplyToAllBrands(false);
+                        }}
+                        disabled={bulkLoading}
+                        className="w-full sm:w-auto"
+                      >
+                        Reset Selection
+                      </Button>
+                      <Button
+                        onClick={applyBulkPricing}
+                        disabled={bulkLoading || (!applyToAllBrands && selectedBrands.length === 0)}
+                        className="bg-green-600 hover:bg-green-700 w-full sm:w-auto"
+                      >
+                        {bulkLoading ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                            Applying...
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-4 h-4 mr-2" />
+                            Apply Bulk Pricing
+                            {applyToAllBrands 
+                              ? ` to ${getAllBrandsExceptMaster(pricingData.brand).length} brands`
+                              : ` to ${selectedBrands.length} brands`
+                            }
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </DialogContent>
         </Dialog>
