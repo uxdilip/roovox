@@ -1,10 +1,11 @@
 "use client";
 
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Star, MapPin, Clock } from 'lucide-react';
+import { Star, MapPin, Clock, ChevronDown, FileText, MessageSquare } from 'lucide-react';
+import { CONTACT_OPTIONS } from '@/lib/chat-services';
 
 interface ProviderCardProps {
   provider: {
@@ -24,13 +25,22 @@ interface ProviderCardProps {
     partType?: 'OEM' | 'HQ';
     price: number;
     warranty?: string;
-    pricingType?: 'platform_series' | 'custom_series' | 'model_override';
+    pricingType?: 'platform_series' | 'custom_series' | 'model_override' | 'tier_pricing';
     seriesName?: string;
+    tierPrices?: {
+      basic: number;
+      standard: number;
+      premium: number;
+    };
+    deviceTier?: 'basic' | 'standard' | 'premium';
   }>;
   selectedIssues: { id: string; name?: string; partType?: string }[];
   selectedModel: string;
   onViewProfile?: () => void;
-  onBookNow?: () => void;
+  onGetQuote?: () => void;
+  onDirectChat?: () => void;
+  hasActiveNegotiation?: boolean;
+  hasActiveConversation?: boolean; // ✅ NEW: Indicates if there's an active chat
 }
 
 export const ProviderCard: React.FC<ProviderCardProps> = ({
@@ -39,8 +49,25 @@ export const ProviderCard: React.FC<ProviderCardProps> = ({
   selectedIssues,
   selectedModel,
   onViewProfile,
-  onBookNow
+  onGetQuote,
+  onDirectChat,
+  hasActiveNegotiation = false,
+  hasActiveConversation = false
 }) => {
+  const [showContactOptions, setShowContactOptions] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowContactOptions(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+  
   // Normalize part type for matching
   const normalizePartType = (pt?: string) => {
     if (!pt) return '';
@@ -49,8 +76,9 @@ export const ProviderCard: React.FC<ProviderCardProps> = ({
     return pt;
   };
 
-  // Calculate total estimate only from matched services
+  // Calculate total estimate and find starting price
   let totalEstimate = 0;
+  let startingPrice = Infinity;
   const matchedServices: any[] = [];
 
   // Debug logging
@@ -89,83 +117,178 @@ export const ProviderCard: React.FC<ProviderCardProps> = ({
     if (match) {
       matchedServices.push(match);
       totalEstimate += match.price || 0;
+      startingPrice = Math.min(startingPrice, match.price || 0);
       
-
-      
-              if (issueObj.partType) {
-          return (
-            <div key={issueObj.id + '-' + issueObj.partType} className="flex flex-col text-sm">
-              <div className="flex items-center justify-between">
-                <span>
-                  {displayName} ({issueObj.partType}): <span className="font-semibold">₹{match.price.toLocaleString()}</span>
-                </span>
-              </div>
-              {match.warranty && <span className="text-xs text-gray-500 ml-2">| {match.warranty} warranty</span>}
-            </div>
-          );
-        }
+      // Display tier pricing or regular pricing
+      if (match.pricingType === 'tier_pricing') {
         return (
-          <div key={issueObj.id} className="flex flex-col text-sm">
-            <div className="flex items-center justify-between">
-              <span>
-                {displayName}: <span className="font-semibold">₹{match.price.toLocaleString()}</span>
-              </span>
-            </div>
+          <div key={issueObj.id} className="flex items-center justify-between text-sm">
+            <span className="text-gray-700">{displayName}</span>
+            <span className="font-semibold text-primary">₹{match.price.toLocaleString()}</span>
           </div>
         );
+      }
+
+      if (issueObj.partType) {
+        return (
+          <div key={issueObj.id + '-' + issueObj.partType} className="flex items-center justify-between text-sm">
+            <span className="text-gray-700">{displayName} ({issueObj.partType})</span>
+            <span className="font-semibold text-primary">₹{match.price.toLocaleString()}</span>
+          </div>
+        );
+      }
+      return (
+        <div key={issueObj.id} className="flex items-center justify-between text-sm">
+          <span className="text-gray-700">{displayName}</span>
+          <span className="font-semibold text-primary">₹{match.price.toLocaleString()}</span>
+        </div>
+      );
     } else {
       return (
-        <div key={issueObj.id + (issueObj.partType ? '-' + issueObj.partType : '')} className="text-sm text-muted-foreground">{displayName}{issueObj.partType ? ` (${issueObj.partType})` : ''}: Not offered</div>
+        <div key={issueObj.id + (issueObj.partType ? '-' + issueObj.partType : '')} className="flex items-center justify-between text-sm text-muted-foreground">
+          <span>{displayName}{issueObj.partType ? ` (${issueObj.partType})` : ''}</span>
+          <span className="text-red-500">Not offered</span>
+        </div>
       );
     }
   });
 
+  // Reset starting price if no services found
+  if (startingPrice === Infinity) startingPrice = 0;
+
   return (
-    <Card className="rounded-lg shadow-md p-0">
-      <CardHeader className="flex flex-row items-center gap-4 pb-2">
-        <img
-          src={provider.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(provider.name)}`}
-          alt={provider.name}
-          className="w-14 h-14 rounded-full object-cover border"
-        />
-        <div className="flex-1">
-              <div className="flex items-center gap-2">
-            <CardTitle className="text-lg font-semibold">
-              {provider.businessName || provider.name}
-            </CardTitle>
-            {provider.isVerified && <Badge variant="secondary">Verified</Badge>}
-              </div>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-            <Star className="h-4 w-4 text-yellow-400" />
-            <span>{provider.rating ? provider.rating.toFixed(1) : 'N/A'}</span>
-            <span>· {provider.yearsOfExperience ? `${provider.yearsOfExperience}+ Years` : 'Experience N/A'}</span>
-              </div>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-            <MapPin className="h-4 w-4" />
-            <span>{provider.location || 'Location N/A'}</span>
-          </div>
-          {provider.availability && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-              <Clock className="h-4 w-4" />
-              <span>{provider.availability}</span>
+    <div className="group relative bg-white rounded-2xl border border-gray-200 p-8 hover:shadow-xl transition-all duration-300 hover:-translate-y-2">
+      
+      {/* Header Section */}
+      <div className="flex items-start gap-6 mb-8">
+        {/* Avatar */}
+        <div className="relative flex-shrink-0">
+          <img
+            src={provider.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(provider.businessName || provider.name)}&background=374151&color=ffffff&size=128`}
+            alt={provider.businessName || provider.name}
+            className="w-20 h-20 rounded-full object-cover border-3 border-gray-200 shadow-sm"
+          />
+          {provider.isVerified && (
+            <div className="absolute -bottom-1 -right-1 w-7 h-7 bg-green-500 rounded-full flex items-center justify-center shadow-lg">
+              <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+              </svg>
             </div>
           )}
         </div>
-      </CardHeader>
-      <CardContent className="pt-0 pb-4">
-        <div className="mb-2 font-medium">Selected Issues for {selectedModel}:</div>
-        <div className="space-y-2 mb-3">
+
+        {/* Provider Info */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-3 mb-2">
+            <h3 className="text-xl font-bold text-gray-900 truncate">
+              {provider.businessName || provider.name}
+            </h3>
+          </div>
+          
+          <div className="space-y-2 text-sm text-gray-600">
+            <div className="flex items-center gap-2">
+              <Star className="w-4 h-4 text-yellow-400" />
+              <span>{provider.rating ? `${provider.rating.toFixed(1)} rating` : 'No rating'}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-gray-400" />
+              <span>{provider.yearsOfExperience ? `${provider.yearsOfExperience} years experience` : 'Experience N/A'}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-gray-400" />
+              <span>{provider.location || 'Location N/A'}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Services Section */}
+      <div className="mb-6">
+        <h4 className="text-lg font-semibold text-gray-900 mb-4">
+          Services for {selectedModel}
+        </h4>
+        <div className="space-y-3">
           {issueRows}
         </div>
-        <div className="flex items-center justify-between font-semibold text-base mb-4">
-          <span>Total Estimate:</span>
-          <span>₹{totalEstimate.toLocaleString()}</span>
+      </div>
+
+      {/* Total Estimate */}
+      <div className="border-t border-gray-100 pt-4 mb-6">
+        <div className="flex items-center justify-between">
+          <span className="text-lg font-medium text-gray-700">Starting from</span>
+          <span className="text-2xl font-bold text-primary">₹{totalEstimate.toLocaleString()}</span>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" className="flex-1" onClick={onViewProfile}>View Profile</Button>
-          <Button className="flex-1" onClick={onBookNow}>Book Now</Button>
+      </div>
+
+      {/* Action Buttons */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <Button 
+          variant="outline" 
+          onClick={onViewProfile}
+          className="flex-1 h-11 text-sm font-medium"
+        >
+          <FileText className="w-4 h-4 mr-2" />
+          View Profile
+        </Button>
+        
+        {/* Contact Dropdown */}
+        <div className="relative flex-1" ref={dropdownRef}>
+          <Button 
+            onClick={() => setShowContactOptions(!showContactOptions)}
+            className={`w-full h-11 text-sm font-medium flex items-center justify-center gap-2 ${
+              hasActiveNegotiation || hasActiveConversation
+                ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+                : 'bg-primary hover:bg-primary/90 text-white'
+            }`}
+          >
+            <MessageSquare className="w-4 h-4" />
+            {hasActiveNegotiation || hasActiveConversation ? 'Chat' : 'Chat'}
+            <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${showContactOptions ? 'rotate-180' : ''}`} />
+          </Button>
+          
+          {/* Dropdown Menu - Displaying Upward */}
+          {showContactOptions && (
+            <div className="absolute bottom-full mb-2 w-full bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+              <button
+                onClick={() => {
+                  setShowContactOptions(false);
+                  onGetQuote?.();
+                }}
+                className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors flex items-center gap-3 border-b border-gray-100"
+              >
+                <span className="text-lg">💬</span>
+                <div>
+                  <div className="font-medium text-gray-900">Get Quote</div>
+                  <div className="text-xs text-gray-500">Request a custom quote for your needs</div>
+                </div>
+                <ChevronDown className="w-4 h-4 ml-auto transform rotate-90 text-gray-400" />
+              </button>
+              
+              <button
+                onClick={() => {
+                  setShowContactOptions(false);
+                  onDirectChat?.();
+                }}
+                className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors flex items-center gap-3"
+              >
+                <span className="text-lg">💭</span>
+                <div>
+                  <div className="font-medium text-gray-900">
+                    {hasActiveConversation ? 'Continue Chat' : 'Start Chat'}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {hasActiveConversation 
+                      ? 'Resume your existing conversation' 
+                      : 'Start a new conversation with this provider'
+                    }
+                  </div>
+                </div>
+                <ChevronDown className="w-4 h-4 ml-auto transform rotate-90 text-gray-400" />
+              </button>
+            </div>
+          )}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }; 

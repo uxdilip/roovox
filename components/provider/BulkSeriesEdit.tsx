@@ -45,7 +45,7 @@ const BulkSeriesEdit: React.FC<BulkSeriesEditProps> = ({ providerId }) => {
   const [selectedSeries, setSelectedSeries] = useState<string[]>([]);
   const [issues, setIssues] = useState<{ $id: string; name: string; type?: string }[]>([]);
   const [bulkRules, setBulkRules] = useState<BulkEditRule[]>([]);
-  const [loading, setLoading] = useState(false);
+
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [previewData, setPreviewData] = useState<any[]>([]);
   const { toast } = useToast();
@@ -74,7 +74,6 @@ const BulkSeriesEdit: React.FC<BulkSeriesEditProps> = ({ providerId }) => {
   useEffect(() => {
     const fetchSeries = async () => {
       if (!selectedBrand) return;
-      setLoading(true);
       try {
         const brandSeries = await getModelSeries(selectedBrand, selectedDevice);
         setSeries(brandSeries);
@@ -83,7 +82,6 @@ const BulkSeriesEdit: React.FC<BulkSeriesEditProps> = ({ providerId }) => {
         console.error('Error fetching series:', error);
         setSeries([]);
       }
-      setLoading(false);
     };
     fetchSeries();
   }, [selectedBrand, selectedDevice]);
@@ -184,7 +182,6 @@ const BulkSeriesEdit: React.FC<BulkSeriesEditProps> = ({ providerId }) => {
       return;
     }
 
-    setLoading(true);
     try {
       const preview: any[] = [];
 
@@ -238,15 +235,12 @@ const BulkSeriesEdit: React.FC<BulkSeriesEditProps> = ({ providerId }) => {
         description: 'Failed to generate preview. Please try again.',
         variant: 'destructive',
       });
-    } finally {
-      setLoading(false);
     }
   };
 
   const applyBulkEdit = async () => {
     if (previewData.length === 0 || !user) return;
 
-    setLoading(true);
     try {
       const now = new Date().toISOString();
       let appliedCount = 0;
@@ -305,8 +299,6 @@ const BulkSeriesEdit: React.FC<BulkSeriesEditProps> = ({ providerId }) => {
         description: 'Failed to apply bulk edit. Please try again.',
         variant: 'destructive',
       });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -478,8 +470,8 @@ const BulkSeriesEdit: React.FC<BulkSeriesEditProps> = ({ providerId }) => {
 
           {/* Preview and Apply */}
           <div className="flex justify-end">
-            <Button onClick={generatePreview} disabled={loading || selectedSeries.length === 0 || bulkRules.length === 0}>
-              {loading ? 'Generating Preview...' : 'Preview Changes'}
+            <Button onClick={generatePreview} disabled={selectedSeries.length === 0 || bulkRules.length === 0}>
+              Preview Changes
             </Button>
           </div>
         </CardContent>
@@ -529,8 +521,8 @@ const BulkSeriesEdit: React.FC<BulkSeriesEditProps> = ({ providerId }) => {
             <Button variant="outline" onClick={() => setPreviewModalOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={applyBulkEdit} disabled={loading}>
-              {loading ? 'Applying Changes...' : 'Apply Changes'}
+            <Button onClick={applyBulkEdit}>
+              Apply Changes
             </Button>
           </DialogFooter>
         </DialogContent>

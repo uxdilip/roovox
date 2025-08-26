@@ -75,6 +75,12 @@ export default function ProviderLoginPage() {
 
       setLoading(true);
       try {
+        // Set provider login flag when requesting OTP
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('loginAsProvider', '1');
+          console.log('🔍 [PROVIDER-LOGIN] Set loginAsProvider flag to 1 when requesting OTP');
+        }
+        
         const result = await loginWithPhoneOtp('+91' + emailOrPhone);
         if (result && result.userId) {
           setUserId(result.userId);
@@ -96,6 +102,12 @@ export default function ProviderLoginPage() {
     setLoading(true);
     
     try {
+      // Set provider login flag BEFORE calling loginWithPhoneOtp
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('loginAsProvider', '1');
+        console.log('🔍 [PROVIDER-LOGIN] Set loginAsProvider flag to 1 BEFORE login');
+      }
+      
       await loginWithPhoneOtp('+91' + emailOrPhone, otp, userId);
       
       // Enhanced role detection for provider login
@@ -127,6 +139,11 @@ export default function ProviderLoginPage() {
     setLoading(true);
     
     try {
+      // Set provider login flag for role detection
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('loginAsProvider', '1');
+      }
+      
       // For now, redirect to provider onboarding for email users
       // You can implement email/password authentication later
       router.push('/provider/onboarding');

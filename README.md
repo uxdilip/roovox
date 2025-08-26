@@ -1,6 +1,6 @@
 # Sniket - Device Repair Service Platform
 
-A modern, full-stack service booking platform for device repairs built with Next.js 14, TypeScript, Appwrite, and Tailwind CSS.
+A modern, full-stack service booking platform for device repairs built with Next.js 14, TypeScript, Appwrite, and Tailwind CSS. Features both traditional series-based pricing and innovative Smart Tier Pricing for flexible, market-driven service costs.
 
 ## 🚀 Features
 
@@ -13,23 +13,38 @@ A modern, full-stack service booking platform for device repairs built with Next
 - **Payment Integration**: Ready for Stripe integration
 - **Admin Dashboard**: Comprehensive admin controls
 
+### **Smart Tier Pricing System** 🆕
+- **Market-Based Classification**: Automatic device complexity classification based on market prices
+- **Three-Tier Structure**: Basic, Standard, and Premium pricing tiers
+- **Provider Flexibility**: Simple 3-tier pricing setup per issue type
+- **Customer Transparency**: Exact pricing based on device complexity
+- **Fiverr-Style Negotiation**: Chat-based price negotiation and custom offers
+- **Automatic Tier Assignment**: System automatically categorizes devices into complexity tiers
+
+### **Dual Pricing Models**
+- **Series-Based Pricing**: Traditional model-specific pricing (existing)
+- **Smart Tier Pricing**: New simplified tier-based system (new)
+- **Provider Choice**: Providers can use either or both systems
+
 ### Technical Features
 - **PWA Ready**: Progressive Web App capabilities
 - **Responsive Design**: Mobile-first responsive design
 - **TypeScript**: Full type safety throughout the application
-- **Modern UI**: Built with shadcn/ui components
+- **Modern UI**: Built with shadcn/ui and Aceternity UI components
 - **Performance Optimized**: Fast loading and smooth interactions
+- **External API Integration**: PhoneDB API for device specifications and pricing
 
 ## 🛠 Tech Stack
 
 - **Frontend**: Next.js 14, TypeScript, Tailwind CSS
 - **Backend**: Appwrite (BaaS)
-- **UI Components**: shadcn/ui
+- **UI Components**: shadcn/ui, Aceternity UI
 - **Icons**: Lucide React
 - **Styling**: Tailwind CSS
 - **Authentication**: Appwrite Auth
 - **Database**: Appwrite Database
 - **File Storage**: Appwrite Storage
+- **External APIs**: PhoneDB API for device data
 
 ## 📦 Installation
 
@@ -66,7 +81,7 @@ A modern, full-stack service booking platform for device repairs built with Next
 
 ### Collections Structure
 
-#### Users Collection
+#### user Collection
 - User profiles with contact information
 - Role-based access (customer/provider/admin)
 - Address information with coordinates
@@ -77,15 +92,31 @@ A modern, full-stack service booking platform for device repairs built with Next
 - Working hours and ratings
 - Verification status
 
-#### Devices Collection
-- Device categories (phone/laptop)
-- Brand and model information
-- Common issues and specifications
+#### **PHONES Collection** 🆕
+- Device models with brand and specifications
+- **market_price_inr**: Current market price in INR
+- **complexity_tier**: Automatic classification (basic/standard/premium)
+- **price_source**: Source of pricing data
+- **last_price_update**: Timestamp of last price update
+
+#### **LAPTOPS Collection** 🆕
+- Device models with brand and specifications
+- **market_price_inr**: Current market price in INR
+- **complexity_tier**: Automatic classification (basic/standard/premium)
+- **price_source**: Source of pricing data
+- **last_price_update**: Timestamp of last price update
 
 #### Services Collection
 - Service offerings per device
 - Pricing and part quality options
 - Warranty information
+
+#### **SERVICES_OFFERED Collection** 🆕
+- Provider's service offerings
+- **pricing_type**: 'series' | 'tier' | 'custom'
+- **tier_pricing**: Basic/Standard/Premium prices per issue
+- **series_pricing**: Traditional series-based pricing
+- **custom_pricing**: Provider-specific custom pricing
 
 #### Bookings Collection
 - Complete booking lifecycle
@@ -111,6 +142,13 @@ A modern, full-stack service booking platform for device repairs built with Next
 ### Devices
 - `GET /api/devices` - List devices with filters
 - `GET /api/devices/[id]` - Get device details
+
+### **Smart Tier Pricing** 🆕
+- `POST /api/update-phone-prices` - Update phone market prices and complexity tiers
+- `GET /api/update-phone-prices?action=statistics` - Get phone update statistics
+- `POST /api/update-laptop-prices` - Update laptop market prices and complexity tiers
+- `GET /api/update-laptop-prices?action=statistics` - Get laptop update statistics
+- `GET /api/laptops` - Fetch all laptop models
 
 ### Bookings
 - `POST /api/bookings` - Create new booking
@@ -159,12 +197,66 @@ A modern, full-stack service booking platform for device repairs built with Next
 - Hover states and animations
 - Mobile-optimized interactions
 
+## 🏗️ Project Structure
+
+### **App Routes**
+```
+app/
+├── (public)/              # Public landing pages
+│   ├── page.tsx          # Homepage with marketing
+│   ├── providers/        # Provider signup landing
+│   └── become-provider/  # Provider registration
+├── (customer)/           # Customer area
+│   └── book/            # Service booking flow
+├── (provider)/           # Provider area
+│   ├── dashboard/       # Provider dashboard
+│   ├── services/        # Service management
+│   └── tier-pricing/    # Smart Tier Pricing (new)
+├── (auth)/              # Authentication
+│   └── login/           # Login page
+└── admin/               # Admin dashboard
+```
+
+### **Key Components**
+```
+components/
+├── provider/             # Provider-specific components
+│   ├── QuickSeriesSetup.tsx      # Traditional series setup
+│   ├── SeriesManagement.tsx      # Series management
+│   ├── CustomSeriesCreator.tsx   # Custom series creation
+│   └── services/                 # Service management
+├── booking/              # Customer booking components
+│   ├── DeviceSelector.tsx        # Device selection
+│   ├── ServiceSelector.tsx       # Service selection
+│   ├── ProviderSelector.tsx      # Provider selection
+│   └── ProviderCard.tsx          # Provider display
+└── ui/                  # Reusable UI components
+```
+
+### **Core Libraries**
+```
+lib/
+├── appwrite.ts          # Appwrite client configuration
+├── appwrite-services.ts # Database service functions
+├── api/                 # External API integrations
+│   └── phonedb-api.ts   # PhoneDB API for device data
+├── data/                # Static data and price information
+│   ├── top-phone-prices.ts    # Phone market prices
+│   └── laptop-prices.ts       # Laptop market prices
+├── scripts/             # Database update scripts
+│   ├── update-phone-prices.ts # Phone price updates
+│   └── update-laptop-prices.ts # Laptop price updates
+└── utils/               # Utility functions
+    └── phone-classification.ts # Device classification logic
+```
+
 ## 🚀 Deployment
 
 ### Prerequisites
 - Appwrite project setup
 - Environment variables configured
 - Database collections created
+- **PhoneDB API access** (for device pricing data)
 
 ### Build
 ```bash
@@ -232,9 +324,39 @@ For support and questions:
 
 ## 🚀 Future Enhancements
 
-- Real-time location tracking
-- Advanced payment features
-- Multi-language support
-- Enhanced analytics dashboard
-- AI-powered diagnostics
-- Integration with more payment providers
+- **Real-time location tracking**
+- **Advanced payment features**
+- **Multi-language support**
+- **Enhanced analytics dashboard**
+- **AI-powered diagnostics**
+- **Integration with more payment providers**
+- **Advanced tier pricing analytics**
+- **Dynamic pricing based on demand**
+- **Provider performance-based tier adjustments**
+
+## 📈 **Smart Tier Pricing Implementation Status** 🆕
+
+### **Phase 1: Data Foundation** ✅ COMPLETED
+- ✅ Phone market prices and complexity tiers implemented
+- ✅ Laptop market prices and complexity tiers implemented
+- ✅ Automatic device classification system
+- ✅ Database schema updates for PHONES and LAPTOPS collections
+- ✅ Price update scripts and API endpoints
+
+### **Phase 2: Provider Interface** 🚧 IN PROGRESS
+- 🔄 Provider tier pricing dashboard design
+- 🔄 Brand-based pricing setup interface
+- 🔄 Issue-specific tier pricing configuration
+- 🔄 Integration with existing provider services
+
+### **Phase 3: Customer Experience** 📋 PLANNED
+- 📋 Tier-based pricing display in customer flow
+- 📋 Fiverr-style chat and negotiation
+- 📋 Custom offer creation and acceptance
+- 📋 Seamless integration with existing booking system
+
+### **Phase 4: Analytics & Optimization** 📋 PLANNED
+- 📋 Provider performance analytics
+- 📋 Market price trend analysis
+- 📋 Dynamic tier adjustment recommendations
+- 📋 A/B testing for pricing strategies

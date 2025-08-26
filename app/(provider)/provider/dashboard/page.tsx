@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
-import ProviderServicesPage from "../services/page";
+
 import { databases, DATABASE_ID, COLLECTIONS } from "@/lib/appwrite";
 import { Query } from "appwrite";
 import { Star, CheckCircle, AlertCircle, MapPin, Calendar, DollarSign, Clock, Smartphone, User, CreditCard } from "lucide-react";
@@ -18,25 +18,31 @@ import dynamic from "next/dynamic";
 import { toast } from "sonner";
 import Link from "next/link";
 import ProviderCommissionTab from "@/components/provider/ProviderCommissionTab";
+import NewTierPricingTab from "@/components/provider/NewTierPricingTab";
+import ProviderChatTab from "@/components/provider/ProviderChatTab";
 import { EnhancedTabs } from "@/components/ui/enhanced-tabs";
 
 const ServiceSetupStep = dynamic(() => import("@/components/provider/onboarding/steps/ServiceSetupStep"), { ssr: false });
 
 export default function ProviderDashboardPage() {
-  const { user, roles, isLoading } = useAuth();
-  const [tab, setTab] = useState("overview");
+  const { user, roles, isLoading, isAuthComplete } = useAuth();
   const router = useRouter();
+  
+  // Initialize tab state - always start with "overview"
+  const [tab, setTab] = useState("overview");
 
   // --- Overview Tab State ---
   const [profile, setProfile] = useState<any>(null);
   const [providerStatus, setProviderStatus] = useState<any>(null);
   const [businessSetup, setBusinessSetup] = useState<any>(null);
   const [stats, setStats] = useState<any>(null);
-  const [loadingOverview, setLoadingOverview] = useState(true);
+  const [isDataLoading, setIsDataLoading] = useState(false);
+  const [dataError, setDataError] = useState<string | null>(null);
+  const [hasCachedData, setHasCachedData] = useState(false);
+  const [isBackgroundRefreshing, setIsBackgroundRefreshing] = useState(false);
 
   // --- Bookings Tab State ---
   const [bookings, setBookings] = useState<any[]>([]);
-  const [loadingBookings, setLoadingBookings] = useState(false);
   const [bookingsTab, setBookingsTab] = useState("upcoming");
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -47,6 +53,243 @@ export default function ProviderDashboardPage() {
   const [declineModalOpen, setDeclineModalOpen] = useState(false);
   const [declineReason, setDeclineReason] = useState("");
   const [bookingToDecline, setBookingToDecline] = useState<any>(null);
+
+  // Smart Retry and Circuit Breaker
+  const [retryCount, setRetryCount] = useState(0);
+  const [lastFailureTime, setLastFailureTime] = useState(0);
+  const [circuitBreakerState, setCircuitBreakerState] = useState<'CLOSED' | 'OPEN' | 'HALF_OPEN'>('CLOSED');
+
+  // Cache management
+  const CACHE_KEY = 'provider-dashboard-data';
+  const CACHE_EXPIRY = 5 * 60 * 1000; // 5 minutes
+
+  const getFromCache = () => {
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (!cached) return null;
+      
+      const { data, timestamp } = JSON.parse(cached);
+      if (Date.now() - timestamp > CACHE_EXPIRY) {
+        localStorage.removeItem(CACHE_KEY);
+        return null;
+      }
+      
+      return data;
+    } catch {
+      return null;
+    }
+  };
+
+  const setCache = (data: any) => {
+    try {
+      const cacheData = {
+        data,
+        timestamp: Date.now()
+      };
+      localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
+    } catch {
+      // Ignore cache errors
+    }
+  };
+
+  const clearCache = () => {
+    try {
+      localStorage.removeItem(CACHE_KEY);
+    } catch {
+      // Ignore cache errors
+    }
+  };
+
+  // Connection-aware timeout strategy
+  const getAdaptiveTimeout = () => {
+    if (typeof navigator !== 'undefined' && 'connection' in navigator) {
+      const connection = (navigator as any).connection;
+      
+      if (connection?.effectiveType === '4g') {
+        return 2000; // Fast connection = shorter timeout
+      } else if (connection?.effectiveType === '3g') {
+        return 4000; // Medium connection = medium timeout
+      } else {
+        return 8000; // Slow connection = longer timeout
+      }
+    }
+    
+    // Default timeout based on common connection speeds
+    return 3000;
+  };
+
+  // Smart retry with exponential backoff
+  const executeWithRetry = async (fn: () => Promise<any>, maxRetries = 2) => {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        return await fn();
+      } catch (error) {
+        if (attempt === maxRetries) throw error;
+        
+        // Exponential backoff: 500ms, 1000ms, 2000ms
+        const delay = 500 * Math.pow(2, attempt - 1);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        
+        setRetryCount(attempt);
+      }
+    }
+  };
+
+  // Progressive data loading
+  const loadDataProgressively = async () => {
+    try {
+      setIsBackgroundRefreshing(true);
+      
+      // Phase 1: Load critical user data first (fastest)
+      const userRes = await databases.listDocuments(
+        DATABASE_ID,
+        "User",
+        [Query.equal("user_id", user!.id), Query.limit(1)]
+      );
+      const userDoc = userRes.documents[0];
+      setProfile(userDoc);
+      
+      // Phase 2: Load provider status (fast)
+      const providerRes = await databases.listDocuments(
+        DATABASE_ID,
+        "providers",
+        [Query.equal("providerId", user!.id), Query.limit(1)]
+      );
+      const providerDoc = providerRes.documents[0];
+      setProviderStatus(providerDoc);
+      
+      // Phase 3: Load business setup (medium)
+      const businessRes = await databases.listDocuments(
+        DATABASE_ID,
+        "business_setup",
+        [Query.equal("user_id", user!.id), Query.limit(1)]
+      );
+      const businessDoc = businessRes.documents[0];
+      
+      // Process business setup data
+      let onboarding: any = {};
+      try {
+        onboarding = businessDoc ? JSON.parse(businessDoc.onboarding_data || '{}') : {};
+        ['personalDetails', 'businessSetup', 'serviceSetup'].forEach(key => {
+          if ((onboarding as any)[key] && typeof (onboarding as any)[key] === 'string') {
+            try { (onboarding as any)[key] = JSON.parse((onboarding as any)[key]); } catch {}
+          }
+        });
+        if ((onboarding as any).businessSetup && (onboarding as any).businessSetup.business && typeof (onboarding as any).businessSetup.business === 'string') {
+          try { (onboarding as any).businessSetup.business = JSON.parse((onboarding as any).businessSetup.business); } catch {}
+        }
+        if ((onboarding as any).serviceSetup && typeof (onboarding as any).serviceSetup === 'string') {
+          try { (onboarding as any).serviceSetup = JSON.parse((onboarding as any).serviceSetup); } catch {}
+        }
+      } catch { onboarding = {}; }
+      
+      setBusinessSetup(onboarding);
+      
+      // Phase 4: Load booking stats (slowest)
+      const bookingsRes = await databases.listDocuments(
+        DATABASE_ID,
+        "bookings",
+        [Query.equal("provider_id", user!.id)]
+      );
+      const bookings = bookingsRes.documents as any[];
+      
+      // Stats calculations
+      const totalBookings = bookings.length;
+      const completedBookings = bookings.filter((b: any) => b.status === "completed");
+      const totalRevenue = completedBookings.reduce((sum: number, b: any) => sum + (b.total_amount || 0), 0);
+      const ratedBookings = bookings.filter((b: any) => b.rating && b.rating > 0);
+      const averageRating = ratedBookings.length > 0 ? (ratedBookings.reduce((sum: number, b: any) => sum + b.rating, 0) / ratedBookings.length) : null;
+      
+      const statsData = { totalBookings, averageRating, totalRevenue };
+      setStats(statsData);
+      
+      // Update cache with fresh data
+      const freshData = {
+        profile: userDoc,
+        providerStatus: providerDoc,
+        businessSetup: onboarding,
+        stats: statsData
+      };
+      setCache(freshData);
+      
+      // Reset circuit breaker on success
+      setCircuitBreakerState('CLOSED');
+      setRetryCount(0);
+      
+    } catch (error) {
+      console.error('Error in progressive loading:', error);
+      
+      // Update circuit breaker state
+      setLastFailureTime(Date.now());
+      if (retryCount >= 2) {
+        setCircuitBreakerState('OPEN');
+      }
+      
+      // Don't show error to user, keep showing cached data
+      console.warn('Background refresh failed, using cached data');
+    } finally {
+      setIsBackgroundRefreshing(false);
+    }
+  };
+
+  // Main data fetching with cache-first strategy
+  const fetchDataWithCache = async () => {
+    try {
+      // Step 1: Check cache first
+      const cached = getFromCache();
+      if (cached) {
+        console.log('✅ Using cached data');
+        setProfile(cached.profile);
+        setProviderStatus(cached.providerStatus);
+        setBusinessSetup(cached.businessSetup);
+        setStats(cached.stats);
+        setHasCachedData(true);
+        setIsDataLoading(false);
+        
+        // Step 2: Refresh data in background (stale-while-revalidate)
+        setTimeout(() => {
+          if (user && isAuthComplete) {
+            loadDataProgressively();
+          }
+        }, 100);
+        
+        return;
+      }
+      
+      // Step 3: No cache, load fresh data
+      console.log('🔄 No cache, loading fresh data');
+      setIsDataLoading(true);
+      setDataError(null);
+      
+      // Check circuit breaker
+      if (circuitBreakerState === 'OPEN') {
+        const timeSinceLastFailure = Date.now() - lastFailureTime;
+        if (timeSinceLastFailure < 30000) { // 30 second cooldown
+          throw new Error('Circuit breaker is OPEN');
+        } else {
+          setCircuitBreakerState('HALF_OPEN');
+        }
+      }
+      
+      // Load data progressively with retry
+      await executeWithRetry(() => loadDataProgressively());
+      
+      setHasCachedData(true);
+      
+    } catch (error) {
+      console.error('Error in fetchDataWithCache:', error);
+      
+      if (error instanceof Error && error.message === 'Circuit breaker is OPEN') {
+        setDataError('Service temporarily unavailable. Please try again in a few moments.');
+      } else {
+        setDataError('Unable to load data. Please check your connection and try again.');
+      }
+      
+      setHasCachedData(false);
+    } finally {
+      setIsDataLoading(false);
+    }
+  };
 
   // Redirect to home if logged out
   useEffect(() => {
@@ -62,85 +305,39 @@ export default function ProviderDashboardPage() {
     }
   }, [user, roles, isLoading, router]);
 
+
+
+  // Fixed: Wait for auth to complete and user to be available before fetching data
   useEffect(() => {
-    if (tab !== "overview" || !user) return;
+    if (!user || !isAuthComplete) return;
+    
     let isMounted = true;
-    setLoadingOverview(true);
-    const fetchData = async () => {
-      try {
-        // Fetch all data in parallel for maximum speed
-        const [userRes, providerRes, businessRes, bookingsRes] = await Promise.all([
-          // 1. User profile
-          databases.listDocuments(
-            DATABASE_ID,
-            "User",
-            [Query.equal("user_id", user.id), Query.limit(1)]
-          ),
-          // 2. Provider status
-          databases.listDocuments(
-            DATABASE_ID,
-            "providers",
-            [Query.equal("providerId", user.id), Query.limit(1)]
-          ),
-          // 3. Business setup
-          databases.listDocuments(
-            DATABASE_ID,
-            "business_setup",
-            [Query.equal("user_id", user.id), Query.limit(1)]
-          ),
-          // 4. Booking stats
-          databases.listDocuments(
-            DATABASE_ID,
-            "bookings",
-            [Query.equal("provider_id", user.id)]
-          )
-        ]);
-
-        const userDoc = userRes.documents[0];
-        const providerDoc = providerRes.documents[0];
-        const businessDoc = businessRes.documents[0];
-        const bookings = bookingsRes.documents;
-
-        // Process business setup data
-        let onboarding: any = {};
-        try {
-          onboarding = businessDoc ? JSON.parse(businessDoc.onboarding_data || '{}') : {};
-          // Deep-parse any stringified fields
-          ['personalDetails', 'businessSetup', 'serviceSetup'].forEach(key => {
-            if ((onboarding as any)[key] && typeof (onboarding as any)[key] === 'string') {
-              try { (onboarding as any)[key] = JSON.parse((onboarding as any)[key]); } catch {}
-            }
-          });
-          if ((onboarding as any).businessSetup && (onboarding as any).businessSetup.business && typeof (onboarding as any).businessSetup.business === 'string') {
-            try { (onboarding as any).businessSetup.business = JSON.parse((onboarding as any).businessSetup.business); } catch {}
-          }
-          if ((onboarding as any).serviceSetup && typeof (onboarding as any).serviceSetup === 'string') {
-            try { (onboarding as any).serviceSetup = JSON.parse((onboarding as any).serviceSetup); } catch {}
-          }
-        } catch { onboarding = {}; }
-
-        // Stats calculations
-        const totalBookings = bookings.length;
-        const completedBookings = bookings.filter(b => b.status === "completed");
-        const totalRevenue = completedBookings.reduce((sum, b) => sum + (b.total_amount || 0), 0);
-        const ratedBookings = bookings.filter(b => b.rating && b.rating > 0);
-        const averageRating = ratedBookings.length > 0 ? (ratedBookings.reduce((sum, b) => sum + b.rating, 0) / ratedBookings.length) : null;
-
-        if (isMounted) {
-          setProfile(userDoc);
-          setProviderStatus(providerDoc);
-          setBusinessSetup(onboarding);
-          setStats({ totalBookings, averageRating, totalRevenue });
-          setLoadingOverview(false);
-        }
-      } catch (error) {
-        console.error('Error fetching overview data:', error);
-        setLoadingOverview(false);
+    const timer = setTimeout(() => {
+      if (isMounted) {
+        fetchDataWithCache();
       }
+    }, 50);
+    
+    return () => { 
+      isMounted = false;
+      clearTimeout(timer);
     };
-    fetchData();
-    return () => { isMounted = false; };
-  }, [tab, user]);
+  }, [tab, user, isAuthComplete]);
+
+  // Clear cache when user changes
+  useEffect(() => {
+    if (user) {
+      // Clear old cache when user changes
+      clearCache();
+    }
+  }, [user?.id]);
+
+  // Add refresh function for manual refresh
+  const handleRefresh = () => {
+    clearCache();
+    setDataError(null);
+    fetchDataWithCache();
+  };
 
   useEffect(() => {
     if (tab !== "bookings" || !user) return;
@@ -149,12 +346,10 @@ export default function ProviderDashboardPage() {
       if (!user) return;
 
       try {
-        setLoadingBookings(true);
-        
         // Fetch bookings for this provider
         const bookingsResponse = await databases.listDocuments(
-          process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
-          process.env.NEXT_PUBLIC_APPWRITE_BOOKINGS_COLLECTION_ID!,
+          DATABASE_ID,
+          COLLECTIONS.BOOKINGS,
           [Query.equal("provider_id", user.id)]
         );
 
@@ -171,13 +366,13 @@ export default function ProviderDashboardPage() {
             // Try customers collection first, then User collection as fallback
             const [customerResponse, userResponse] = await Promise.all([
               databases.listDocuments(
-                process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+                DATABASE_ID,
                 COLLECTIONS.CUSTOMERS,
                 [Query.equal("user_id", customerId), Query.limit(1)]
               ).catch(() => ({ documents: [] })),
               databases.listDocuments(
-                process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
-                'User',
+                DATABASE_ID,
+                COLLECTIONS.USERS,
                 [Query.equal("user_id", customerId), Query.limit(1)]
               ).catch(() => ({ documents: [] }))
             ]);
@@ -196,15 +391,25 @@ export default function ProviderDashboardPage() {
         // Batch fetch all device data in parallel
         const deviceDataPromises = uniqueDeviceIds.map(async (deviceId) => {
           try {
+            // Handle generic device IDs from new tier pricing system
+            if (deviceId === 'phone' || deviceId === 'laptop') {
+              return {
+                deviceId,
+                deviceBrand: deviceId === 'phone' ? 'Smartphone' : 'Laptop',
+                deviceModel: 'Device',
+                deviceImage: ""
+              };
+            }
+
             // Try Phones collection first, then Laptops collection as fallback
             const deviceResponse = await databases.getDocument(
-              process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
-              'Phones',
+              DATABASE_ID,
+              COLLECTIONS.PHONES,
               deviceId
             ).catch(() => 
               databases.getDocument(
-                process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
-                'Laptops',
+                DATABASE_ID,
+                COLLECTIONS.LAPTOPS,
                 deviceId
               ).catch(() => null)
             );
@@ -228,8 +433,8 @@ export default function ProviderDashboardPage() {
         const paymentDataPromises = uniqueBookingIds.map(async (bookingId) => {
           try {
             const paymentsResponse = await databases.listDocuments(
-              process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
-              'payments',
+              DATABASE_ID,
+              COLLECTIONS.PAYMENTS,
               [Query.equal("booking_id", bookingId)]
             );
             
@@ -257,14 +462,35 @@ export default function ProviderDashboardPage() {
         const deviceMap = new Map(deviceData.map(d => [d.deviceId, d]));
         const paymentMap = new Map(paymentData.map(p => [p.bookingId, p]));
 
-        // Combine all data efficiently
+        // ✅ FIXED: Combine all data efficiently with device_info fallback
         const bookingsWithDetails = bookingsResponse.documents.map(booking => {
           const customerName = customerMap.get(booking.customer_id) || "Unknown Customer";
           const deviceInfo = deviceMap.get(booking.device_id) || { deviceBrand: "Unknown Device", deviceModel: "", deviceImage: "" };
           const paymentInfo = paymentMap.get(booking.$id) || { paymentMethod: "Online", paymentStatus: "pending" };
 
-          // ✅ FIXED: Create device_display field
-          const deviceDisplay = `${deviceInfo.deviceBrand} ${deviceInfo.deviceModel}`.trim();
+          // ✅ FIXED: Use device_info if available, otherwise fall back to device lookup
+          let finalDeviceDisplay = `${deviceInfo.deviceBrand} ${deviceInfo.deviceModel}`.trim();
+          
+          // ✅ DEBUG: Log device_info for troubleshooting
+          console.log('🔍 [PROVIDER DASHBOARD] Booking device_info:', {
+            booking_id: booking.$id,
+            device_info: booking.device_info,
+            device_id: booking.device_id,
+            deviceInfo: deviceInfo
+          });
+          
+          if (booking.device_info) {
+            try {
+              const parsedDeviceInfo = JSON.parse(booking.device_info);
+              console.log('🔍 [PROVIDER DASHBOARD] Parsed device_info:', parsedDeviceInfo);
+              if (parsedDeviceInfo.brand && parsedDeviceInfo.model) {
+                finalDeviceDisplay = `${parsedDeviceInfo.brand} ${parsedDeviceInfo.model}`;
+                console.log('🔍 [PROVIDER DASHBOARD] Using device_info:', finalDeviceDisplay);
+              }
+            } catch (error) {
+              console.warn('Error parsing device_info:', error);
+            }
+          }
 
           return {
             ...booking,
@@ -272,7 +498,7 @@ export default function ProviderDashboardPage() {
             device_brand: deviceInfo.deviceBrand,
             device_model: deviceInfo.deviceModel,
             device_image: deviceInfo.deviceImage,
-            device_display: deviceDisplay, // ✅ FIXED: Add device_display field
+            device_display: finalDeviceDisplay, // ✅ FIXED: Use device_info when available
             payment_method: paymentInfo.paymentMethod,
             payment_status: paymentInfo.paymentStatus
           };
@@ -283,8 +509,6 @@ export default function ProviderDashboardPage() {
         }
       } catch (error) {
         console.error("Error fetching bookings:", error);
-      } finally {
-        setLoadingBookings(false);
       }
     };
     fetchBookings();
@@ -302,14 +526,39 @@ export default function ProviderDashboardPage() {
       filtered = filtered.filter(b => b.status === "cancelled");
     }
 
-    // Apply search filter
+    // ✅ FIXED: Apply search filter including selected_issues
     if (searchTerm.trim()) {
       const query = searchTerm.toLowerCase();
-      filtered = filtered.filter(b => 
-        (b.device_display || b.device || "").toLowerCase().includes(query) ||
-        (b.customer_name || "").toLowerCase().includes(query) ||
-        (b.issues || []).some((issue: string) => issue.toLowerCase().includes(query))
-      );
+      filtered = filtered.filter(b => {
+        // Check device display
+        if ((b.device_display || b.device || "").toLowerCase().includes(query)) return true;
+        
+        // Check customer name
+        if ((b.customer_name || "").toLowerCase().includes(query)) return true;
+        
+        // Check selected_issues (the actual field from database)
+        if (b.selected_issues) {
+          try {
+            let issues: any[] = [];
+            if (typeof b.selected_issues === 'string') {
+              issues = JSON.parse(b.selected_issues);
+            } else if (Array.isArray(b.selected_issues)) {
+              issues = b.selected_issues;
+            }
+            
+            if (issues.some((issue: any) => 
+              (issue.name || issue.id || '').toLowerCase().includes(query)
+            )) return true;
+          } catch (error) {
+            console.warn('Error parsing selected_issues for search:', error);
+          }
+        }
+        
+        // Fallback to old issues field
+        if ((b.issues || []).some((issue: string) => issue.toLowerCase().includes(query))) return true;
+        
+        return false;
+      });
     }
 
     // Apply status filter
@@ -418,11 +667,35 @@ export default function ProviderDashboardPage() {
     );
   };
 
-  // Helper: get issues as string
+  // ✅ FIXED: Helper to get issues as string from selected_issues
   const issuesString = (booking: any) => {
+    // First try to parse selected_issues (the actual field from database)
+    if (booking.selected_issues) {
+      try {
+        // If it's a JSON string, parse it
+        if (typeof booking.selected_issues === 'string') {
+          const parsed = JSON.parse(booking.selected_issues);
+          if (Array.isArray(parsed)) {
+            // Extract service names from the objects
+            const serviceNames = parsed.map(issue => issue.name || issue.id || 'Unknown Service');
+            return serviceNames.join(", ");
+          }
+        }
+        // If it's already an array
+        if (Array.isArray(booking.selected_issues)) {
+          const serviceNames = booking.selected_issues.map((issue: any) => issue.name || issue.id || 'Unknown Service');
+          return serviceNames.join(", ");
+        }
+      } catch (error) {
+        console.warn('Error parsing selected_issues:', error);
+      }
+    }
+    
+    // Fallback to other fields
     if (Array.isArray(booking.issues)) return booking.issues.join(", ");
     if (typeof booking.issues === "string") return booking.issues;
     if (booking.issue_description) return booking.issue_description;
+    
     return "-";
   };
 
@@ -453,9 +726,70 @@ export default function ProviderDashboardPage() {
               <CardTitle>Overview</CardTitle>
             </CardHeader>
             <CardContent>
-              {loadingOverview ? (
-                <div className="py-10 text-center text-muted-foreground">Loading...</div>
-              ) : (
+              {/* Loading State */}
+              {isDataLoading && !hasCachedData && (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-4">
+                        <div className="flex-1 space-y-3">
+                          <div className="h-6 bg-gray-200 rounded animate-pulse"></div>
+                          <div className="h-5 bg-gray-200 rounded animate-pulse w-3/4"></div>
+                          <div className="h-4 bg-gray-200 rounded animate-pulse w-1/2"></div>
+                          <div className="h-4 bg-gray-200 rounded animate-pulse w-1/2"></div>
+                        </div>
+                        <div className="flex flex-col gap-2 items-end">
+                          <div className="h-6 w-20 bg-gray-200 rounded animate-pulse"></div>
+                          <div className="h-6 w-24 bg-gray-200 rounded animate-pulse"></div>
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        <div className="h-4 bg-gray-200 rounded animate-pulse w-3/4"></div>
+                        <div className="h-4 bg-gray-200 rounded animate-pulse w-2/3"></div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      {[1, 2, 3].map((i) => (
+                        <div key={i} className="bg-muted p-4 rounded-lg">
+                          <div className="h-4 bg-gray-200 rounded animate-pulse mb-2"></div>
+                          <div className="h-8 bg-gray-200 rounded animate-pulse"></div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Background Refresh Indicator */}
+              {isBackgroundRefreshing && hasCachedData && (
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-center gap-2 text-blue-700">
+                    <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                    <span className="text-sm">Refreshing data in background...</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Error State - Only show if no cached data */}
+              {dataError && !hasCachedData && !isDataLoading && (
+                <div className="text-center py-8">
+                  <div className="text-red-600 mb-4">
+                    <AlertCircle className="h-12 w-12 mx-auto mb-2" />
+                    <p className="text-lg font-medium">{dataError}</p>
+                  </div>
+                  <div className="flex gap-2 justify-center">
+                    <Button onClick={handleRefresh} variant="outline">
+                      Try Again
+                    </Button>
+                    <Button onClick={() => window.location.reload()} variant="outline">
+                      Refresh Page
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Content State - Show if we have data (cached or fresh) */}
+              {(hasCachedData || (!isDataLoading && !dataError)) && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   {/* Profile Info */}
                   <div className="space-y-4">
@@ -570,9 +904,7 @@ export default function ProviderDashboardPage() {
                   </ShadTabsTrigger>
                 </ShadTabsList>
                 <ShadTabsContent value="upcoming">
-                  {loadingBookings ? (
-                    <div className="py-10 text-center text-muted-foreground">Loading...</div>
-                  ) : bookingsByTab.length === 0 ? (
+                  {bookingsByTab.length === 0 ? (
                     <div className="py-10 text-center text-muted-foreground">No upcoming bookings.</div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -651,9 +983,7 @@ export default function ProviderDashboardPage() {
                   )}
                 </ShadTabsContent>
                 <ShadTabsContent value="completed">
-                  {loadingBookings ? (
-                    <div className="py-10 text-center text-muted-foreground">Loading...</div>
-                  ) : bookingsByTab.length === 0 ? (
+                  {bookingsByTab.length === 0 ? (
                     <div className="py-10 text-center text-muted-foreground">No completed bookings.</div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -709,9 +1039,7 @@ export default function ProviderDashboardPage() {
                   )}
                 </ShadTabsContent>
                 <ShadTabsContent value="cancelled">
-                  {loadingBookings ? (
-                    <div className="py-10 text-center text-muted-foreground">Loading...</div>
-                  ) : bookingsByTab.length === 0 ? (
+                  {bookingsByTab.length === 0 ? (
                     <div className="py-10 text-center text-muted-foreground">No cancelled bookings.</div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -782,21 +1110,7 @@ export default function ProviderDashboardPage() {
         </motion.div>
       )
     },
-    {
-      value: "services",
-      label: "Services",
-      content: (
-        <motion.div
-          key="services"
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -16 }}
-          transition={{ duration: 0.25 }}
-        >
-          <ProviderServicesPage />
-        </motion.div>
-      )
-    },
+
     {
       value: "commission",
       label: "Commission",
@@ -809,6 +1123,36 @@ export default function ProviderDashboardPage() {
           transition={{ duration: 0.25 }}
         >
           <ProviderCommissionTab />
+        </motion.div>
+      )
+    },
+    {
+      value: "chat",
+      label: "Chat",
+      content: (
+        <motion.div
+          key="chat"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -16 }}
+          transition={{ duration: 0.25 }}
+        >
+          <ProviderChatTab />
+        </motion.div>
+      )
+    },
+    {
+      value: "tier-pricing",
+      label: "Service",
+      content: (
+        <motion.div
+          key="tier-pricing"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -16 }}
+          transition={{ duration: 0.25 }}
+        >
+                          <NewTierPricingTab />
         </motion.div>
       )
     }
@@ -933,52 +1277,89 @@ export default function ProviderDashboardPage() {
 
   return (
     <div className="max-w-6xl mx-auto py-10 px-4">
-      {/* Edit Availability Modal */}
-      {editAvailabilityOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-          <div className="bg-white rounded-lg shadow-lg max-w-lg w-full p-6 relative">
-            <button className="absolute top-2 right-2 text-gray-500 hover:text-gray-700" onClick={() => setEditAvailabilityOpen(false)}>&times;</button>
-            <ServiceSetupStep
-              data={availabilityEditData || {}}
-              setData={setAvailabilityEditData}
-              onNext={async () => {
-                setEditAvailabilityOpen(false);
-                setTab('overview');
-                // Refetch dashboard data
-                setLoadingOverview(true);
-                // Wait a moment for DB update
-                setTimeout(() => setLoadingOverview(false), 1200);
-              }}
-              onPrev={() => setEditAvailabilityOpen(false)}
-            />
-          </div>
-        </div>
-      )}
-      {/* Decline Reason Modal */}
-      {declineModalOpen && bookingToDecline && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-          <div className="bg-white rounded-lg shadow-lg max-w-md w-full p-6 relative">
-            <h3 className="text-lg font-semibold mb-4">Reason for Declining Booking</h3>
-            <textarea
-              className="w-full p-2 border rounded-md mb-4"
-              rows={4}
-              value={declineReason}
-              onChange={(e) => setDeclineReason(e.target.value)}
-              placeholder="Enter reason for declining the booking..."
-            />
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setDeclineModalOpen(false)}>Cancel</Button>
-              <Button variant="destructive" onClick={handleDeclineSubmit}>Decline</Button>
+      {/* Main Loading State */}
+      {isLoading && (
+        <div className="space-y-6">
+          <div className="h-8 bg-gray-200 rounded animate-pulse w-1/3"></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-4">
+              <div className="h-6 bg-gray-200 rounded animate-pulse"></div>
+              <div className="h-5 bg-gray-200 rounded animate-pulse w-3/4"></div>
+              <div className="h-4 bg-gray-200 rounded animate-pulse w-1/2"></div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="bg-muted p-4 rounded-lg">
+                  <div className="h-4 bg-gray-200 rounded animate-pulse mb-2"></div>
+                  <div className="h-8 bg-gray-200 rounded animate-pulse"></div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
       )}
-              <EnhancedTabs 
-                tabs={tabs} 
-                defaultValue={tab} 
-                className="w-full"
-                onTabChange={setTab}
-              />
-          </div>
+
+      {/* Dashboard Content */}
+      {!isLoading && (
+        <>
+          {/* Edit Availability Modal */}
+          {editAvailabilityOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+              <div className="bg-white rounded-lg shadow-lg max-w-lg w-full p-6 relative">
+                <button className="absolute top-2 right-2 text-gray-500 hover:text-gray-700" onClick={() => setEditAvailabilityOpen(false)}>&times;</button>
+                <ServiceSetupStep
+                  data={availabilityEditData || {}}
+                  setData={setAvailabilityEditData}
+                  onNext={async () => {
+                    setEditAvailabilityOpen(false);
+                    setTab('overview');
+                    // Refresh data after availability update
+                    handleRefresh();
+                  }}
+                  onPrev={() => setEditAvailabilityOpen(false)}
+                />
+              </div>
+            </div>
+          )}
+          {/* Decline Reason Modal */}
+          {declineModalOpen && bookingToDecline && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+              <div className="bg-white rounded-lg shadow-lg max-w-md w-full p-6 relative">
+                <h3 className="text-lg font-semibold mb-4">Reason for Declining Booking</h3>
+                <textarea
+                  className="w-full p-2 border rounded-md mb-4"
+                  rows={4}
+                  value={declineReason}
+                  onChange={(e) => setDeclineReason(e.target.value)}
+                  placeholder="Enter reason for declining the booking..."
+                />
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setDeclineModalOpen(false)}>Cancel</Button>
+                  <Button variant="destructive" onClick={handleDeclineSubmit}>Decline</Button>
+                </div>
+              </div>
+            </div>
+          )}
+          <EnhancedTabs 
+            tabs={tabs} 
+            defaultValue={tab} 
+            className="w-full"
+            onTabChange={(newTab) => {
+              console.log('🔄 [TAB-CHANGE] Switching to:', newTab);
+              setTab(newTab);
+            }}
+          />
+          {/* Data Loading Indicator */}
+          {isDataLoading && tab === "overview" && (
+            <div className="mt-4 text-center">
+              <div className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+                <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                {hasCachedData ? 'Refreshing data...' : 'Loading dashboard data...'}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
   );
 }

@@ -35,7 +35,7 @@ export function BookingDashboard({ providerId }: BookingDashboardProps) {
   const [bookings, setBookings] = useState<any[]>([]);
   const [filteredBookings, setFilteredBookings] = useState<any[]>([]);
   const [stats, setStats] = useState<any>({});
-  const [loading, setLoading] = useState(true);
+
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -53,7 +53,6 @@ export function BookingDashboard({ providerId }: BookingDashboardProps) {
 
   const fetchBookings = async () => {
     try {
-      setLoading(true);
       const bookingsData = await getBookingsByProviderId(providerId);
       setBookings(bookingsData);
     } catch (error) {
@@ -62,8 +61,6 @@ export function BookingDashboard({ providerId }: BookingDashboardProps) {
         description: "Failed to fetch bookings",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -84,8 +81,9 @@ export function BookingDashboard({ providerId }: BookingDashboardProps) {
       filtered = filtered.filter(booking => 
         booking.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         booking.customer_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        booking.device_brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        booking.device_model?.toLowerCase().includes(searchTerm.toLowerCase())
+        (booking.device_brand || '')?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (booking.device_model || '')?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (booking.device_id || '')?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
@@ -166,13 +164,7 @@ export function BookingDashboard({ providerId }: BookingDashboardProps) {
     await fetchStats();
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
+
 
   return (
     <div className="space-y-6">

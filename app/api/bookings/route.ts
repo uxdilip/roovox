@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { databases, DATABASE_ID, COLLECTIONS } from '@/lib/appwrite';
 import { ID, Query } from 'appwrite';
-import { NotificationService } from '@/lib/notification-service';
-import { buildNotificationData } from '@/lib/notification-helpers';
+import { notificationService } from '@/lib/notifications';
 
 export async function POST(request: NextRequest) {
   try {
@@ -61,33 +60,55 @@ export async function POST(request: NextRequest) {
       }
     );
 
-          // Send notifications asynchronously (don't block the response)
-      try {
-        console.log('🔔 Starting notification process for new booking...');
-        const notificationData = await buildNotificationData(booking);
-        console.log('📧 Notification data built:', {
-          customerEmail: notificationData.customerEmail,
-          providerEmail: notificationData.providerEmail,
-          bookingId: notificationData.bookingId
-        });
-
-        // Send new booking notification to provider
-        console.log('📤 Sending provider notification...');
-        NotificationService.sendNewBookingNotificationToProvider(notificationData)
-          .then(() => console.log('✅ Provider notification sent successfully'))
-          .catch(error => console.error('❌ Failed to send provider notification:', error));
-
-        // If booking is confirmed, send confirmation to customer
-        if (bookingData.status === 'confirmed') {
-          console.log('📤 Sending customer confirmation...');
-          NotificationService.sendBookingConfirmationToCustomer(notificationData)
-            .then(() => console.log('✅ Customer confirmation sent successfully'))
-            .catch(error => console.error('❌ Failed to send customer confirmation:', error));
+    // 🔔 NEW: Create in-app notifications using fresh system
+    try {
+      console.log('🔔 Creating notifications for new booking...');
+      
+      // Create notification for customer
+      await notificationService.createNotification({
+        type: 'booking',
+        category: 'business',
+        priority: 'high',
+        title: 'New Booking Created',
+        message: `Your booking has been created successfully`,
+        userId: bookingData.customer_id,
+        userType: 'customer',
+        relatedId: booking.$id,
+        relatedType: 'booking',
+        metadata: {
+          bookingId: booking.$id,
+          providerId: bookingData.provider_id,
+          deviceId: bookingData.device_id,
+          serviceId: bookingData.service_id,
+          totalAmount: bookingData.total_amount
         }
-      } catch (error) {
-        console.error('❌ Failed to send notifications:', error);
-        // Don't fail the booking creation if notifications fail
-      }
+      });
+
+      // Create notification for provider
+      await notificationService.createNotification({
+        type: 'booking',
+        category: 'business',
+        priority: 'high',
+        title: 'New Booking Received',
+        message: `You have received a new booking request`,
+        userId: bookingData.provider_id,
+        userType: 'provider',
+        relatedId: booking.$id,
+        relatedType: 'booking',
+        metadata: {
+          bookingId: booking.$id,
+          customerId: bookingData.customer_id,
+          deviceId: bookingData.device_id,
+          serviceId: bookingData.service_id,
+          totalAmount: bookingData.total_amount
+        }
+      });
+
+      console.log('✅ Fresh notifications created successfully');
+    } catch (error) {
+      console.error('❌ Failed to create notifications:', error);
+      // Don't fail the booking creation if notifications fail
+    }
 
     return NextResponse.json({ success: true, booking });
   } catch (error: any) {
@@ -169,33 +190,56 @@ export async function PUT(request: NextRequest) {
       }
     );
 
-    // Send notifications based on status changes
+    // 🔔 NEW: Create notifications for status changes using fresh system
     try {
-      const notificationData = await buildNotificationData(updatedBooking);
-      
-      // Handle different status changes
       if (updateData.status) {
-        switch (updateData.status) {
-          case 'confirmed':
-            NotificationService.sendBookingConfirmationToCustomer(notificationData)
-              .catch(error => console.error('Failed to send confirmation:', error));
-            break;
-          case 'in_progress':
-            NotificationService.sendServiceStartedNotification(notificationData)
-              .catch(error => console.error('Failed to send service started notification:', error));
-            break;
-          case 'completed':
-            NotificationService.sendServiceCompletedNotification(notificationData)
-              .catch(error => console.error('Failed to send service completed notification:', error));
-            break;
-          case 'cancelled':
-            NotificationService.sendBookingCancelledNotification(notificationData, updateData.cancellation_reason)
-              .catch(error => console.error('Failed to send cancellation notification:', error));
-            break;
-        }
+        console.log('🔔 Creating status change notification for:', updateData.status);
+        
+        // Get device name from the booking data
+        const deviceName = updatedBooking.device_name || 'device';
+        
+        // Create notification for customer
+        await notificationService.createNotification({
+          type: 'booking',
+          category: 'business',
+          priority: 'medium',
+          title: 'Booking Status Updated',
+          message: getStatusChangeMessage(updateData.status, deviceName),
+          userId: updatedBooking.customer_id,
+          userType: 'customer',
+          relatedId: bookingId,
+          relatedType: 'booking',
+          metadata: {
+            bookingId,
+            status: updateData.status,
+            deviceName,
+            previousStatus: updatedBooking.status
+          }
+        });
+
+        // Create notification for provider
+        await notificationService.createNotification({
+          type: 'booking',
+          category: 'business',
+          priority: 'medium',
+          title: 'Booking Status Updated',
+          message: getProviderStatusMessage(updateData.status, deviceName),
+          userId: updatedBooking.provider_id,
+          userType: 'provider',
+          relatedId: bookingId,
+          relatedType: 'booking',
+          metadata: {
+            bookingId,
+            status: updateData.status,
+            deviceName,
+            previousStatus: updatedBooking.status
+          }
+        });
+
+        console.log('✅ Status change notifications created successfully');
       }
     } catch (error) {
-      console.error('Failed to send status change notifications:', error);
+      console.error('Failed to create status change notifications:', error);
       // Don't fail the update if notifications fail
     }
 
@@ -203,5 +247,36 @@ export async function PUT(request: NextRequest) {
   } catch (error: any) {
     console.error('Error updating booking:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+// 🔔 NEW: Helper functions for notification messages
+function getStatusChangeMessage(status: string, deviceName: string): string {
+  switch (status) {
+    case 'confirmed':
+      return `Your ${deviceName} repair has been confirmed by the provider`;
+    case 'in_progress':
+      return `Your ${deviceName} repair has started`;
+    case 'completed':
+      return `Your ${deviceName} repair has been completed`;
+    case 'cancelled':
+      return `Your ${deviceName} repair has been cancelled`;
+    case 'disputed':
+      return `Your ${deviceName} repair has been disputed`;
+    default:
+      return `Your ${deviceName} repair status has been updated`;
+  }
+}
+
+function getProviderStatusMessage(status: string, deviceName: string): string {
+  switch (status) {
+    case 'confirmed':
+      return `Customer confirmed ${deviceName} repair booking`;
+    case 'cancelled':
+      return `Customer cancelled ${deviceName} repair booking`;
+    case 'disputed':
+      return `Customer disputed ${deviceName} repair booking`;
+    default:
+      return `${deviceName} repair status updated`;
   }
 }

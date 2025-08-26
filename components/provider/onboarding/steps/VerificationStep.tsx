@@ -17,8 +17,8 @@ interface VerificationStepProps {
 }
 
 const DOCS = [
-  { key: 'aadhaar', label: 'Aadhaar Card', required: true },
-  { key: 'pan', label: 'PAN Card', required: true },
+  { key: 'aadhaar', label: 'Aadhaar Card', required: false },
+  { key: 'pan', label: 'PAN Card', required: false },
   { key: 'gst', label: 'GST Certificate', required: false },
   { key: 'shop_reg', label: 'Shop License or Registration Certificate', required: false },
 ];
@@ -104,18 +104,24 @@ const VerificationStep: React.FC<VerificationStepProps> = ({ data, setData, onNe
     }
   };
 
-  // Validation: Aadhaar and PAN required
-  const isValid = kycDocs.aadhaar && kycDocs.pan;
+  // Validation: At least one document required from any of the available options
+  const isValid = Object.values(kycDocs).some(doc => !!doc);
 
   return (
     <form className="space-y-8" onSubmit={e => { e.preventDefault(); if (isValid) onNext(); }}>
       <h2 className="text-2xl font-bold mb-6 text-center">Document Verification</h2>
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+        <p className="text-blue-800 text-center text-sm">
+          <strong>Flexible Document Requirements:</strong> Please upload at least one document for verification. 
+          You can choose from Aadhaar Card, PAN Card, GST Certificate, or Shop License based on what you have available.
+        </p>
+      </div>
       <div className="grid gap-6 md:grid-cols-2">
         {DOCS.map(doc => (
           <Card key={doc.key}>
             <CardHeader>
               <CardTitle>
-                <Label>{doc.label} {doc.required && <span className="text-red-500">*</span>}</Label>
+                <Label>{doc.label}</Label>
               </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-2">
@@ -146,7 +152,7 @@ const VerificationStep: React.FC<VerificationStepProps> = ({ data, setData, onNe
       </div>
       {!isValid && (
         <div className="bg-red-50 border border-red-300 text-red-700 rounded p-4 mb-4 space-y-2 text-center">
-          Aadhaar Card and PAN Card are required.
+          Please upload at least one document for verification. You can choose from Aadhaar Card, PAN Card, GST Certificate, or Shop License.
         </div>
       )}
       <div className="flex justify-between mt-8">

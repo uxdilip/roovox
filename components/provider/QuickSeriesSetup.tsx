@@ -39,8 +39,7 @@ export default function QuickSeriesSetup({ providerId, onSuccess, onCancel }: Qu
   const [selectedSeries, setSelectedSeries] = useState<SeriesData | null>(null);
   const [issues, setIssues] = useState<IssueData[]>([]);
   const [pricing, setPricing] = useState<Record<string, { price: number; warranty: string }>>({});
-  const [loading, setLoading] = useState(false);
-  const [loadingIssues, setLoadingIssues] = useState(false);
+
 
   // Popular series data
   const popularSeries = [
@@ -53,7 +52,6 @@ export default function QuickSeriesSetup({ providerId, onSuccess, onCancel }: Qu
   ];
 
   const handleSeriesSelect = async (seriesName: string, brand: string, deviceType: 'phone' | 'laptop') => {
-    setLoadingIssues(true);
     try {
       // Find the actual series data
       const allSeries = await getModelSeries();
@@ -80,7 +78,6 @@ export default function QuickSeriesSetup({ providerId, onSuccess, onCancel }: Qu
       const category = categoriesRes.documents.find((c: any) => c.name.toLowerCase() === deviceType);
       if (!category) {
         setIssues([]);
-        setLoadingIssues(false);
         return;
       }
 
@@ -112,8 +109,6 @@ export default function QuickSeriesSetup({ providerId, onSuccess, onCancel }: Qu
         description: "Failed to load series data.",
         variant: "destructive",
       });
-    } finally {
-      setLoadingIssues(false);
     }
   };
 
@@ -130,7 +125,6 @@ export default function QuickSeriesSetup({ providerId, onSuccess, onCancel }: Qu
   const handleCreateSeriesPricing = async () => {
     if (!selectedSeries) return;
 
-    setLoading(true);
     try {
       const promises = issues.map(async (issue) => {
         const issuePricing = pricing[issue.$id];
@@ -197,8 +191,6 @@ export default function QuickSeriesSetup({ providerId, onSuccess, onCancel }: Qu
         description: "Failed to create series pricing.",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -217,9 +209,9 @@ export default function QuickSeriesSetup({ providerId, onSuccess, onCancel }: Qu
           </Button>
         </div>
 
-        {loadingIssues ? (
+        {issues.length === 0 ? (
           <div className="text-center py-8">
-            <div className="text-muted-foreground">Loading issues...</div>
+            <div className="text-muted-foreground">No issues found for this device type.</div>
           </div>
         ) : (
           <div className="space-y-4">
@@ -286,10 +278,9 @@ export default function QuickSeriesSetup({ providerId, onSuccess, onCancel }: Qu
             <div className="flex gap-3 pt-4">
               <Button 
                 onClick={handleCreateSeriesPricing}
-                disabled={loading}
                 className="flex-1"
               >
-                {loading ? "Creating..." : `Create Pricing for ${selectedSeries.name}`}
+                {`Create Pricing for ${selectedSeries.name}`}
               </Button>
               <Button variant="outline" onClick={onCancel}>
                 Cancel

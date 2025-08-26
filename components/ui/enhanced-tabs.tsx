@@ -1,7 +1,7 @@
 "use client";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
-import React, { ReactNode, useState } from "react";
+import React, { ReactNode, useState, useEffect } from "react";
 
 interface EnhancedTabsProps {
   tabs: {
@@ -22,6 +22,13 @@ export const EnhancedTabs = ({
   onTabChange,
 }: EnhancedTabsProps) => {
   const [activeTab, setActiveTab] = useState(defaultValue || tabs[0]?.value);
+
+  // Update internal state when defaultValue changes
+  useEffect(() => {
+    if (defaultValue && defaultValue !== activeTab) {
+      setActiveTab(defaultValue);
+    }
+  }, [defaultValue, activeTab]);
 
   const handleTabChange = (value: string) => {
     setActiveTab(value);

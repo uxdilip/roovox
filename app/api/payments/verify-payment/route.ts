@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { databases, DATABASE_ID } from '@/lib/appwrite';
+import { databases, DATABASE_ID, COLLECTIONS } from '@/lib/appwrite';
 import crypto from 'crypto';
+import { updateOfferOnBookingComplete } from '@/lib/offer-services';
 
 export async function POST(req: NextRequest) {
   try {
@@ -41,18 +42,84 @@ export async function POST(req: NextRequest) {
     // Create booking document after successful payment
     let booking;
     try {
-      // Create the complete booking with all data from the client
+      // Include ALL required fields from the Appwrite bookings collection schema
+      const completeBookingData = {
+        // Required fields
+        customer_id: booking_data.customer_id,
+        provider_id: booking_data.provider_id,
+        device_id: booking_data.device_id || 'default_device',
+        service_id: booking_data.service_id || 'default_service',
+        status: 'confirmed', // required enum (confirmed for online payments)
+        appointment_time: (() => {
+          try {
+            console.log('🔍 [VERIFY-PAYMENT] Parsing appointment time:', {
+              date: booking_data.date,
+              time: booking_data.time
+            });
+            
+            // Ensure we have valid date and time
+            if (!booking_data.date || !booking_data.time) {
+              console.error('Missing date or time:', { date: booking_data.date, time: booking_data.time });
+              throw new Error('Missing date or time');
+            }
+            
+            // Parse time like "10:00 AM" to 24-hour format
+            const timeStr = booking_data.time;
+            let [time, period] = timeStr.split(' ');
+            let [hours, minutes] = time.split(':').map(Number);
+            
+            if (period === 'PM' && hours !== 12) hours += 12;
+            if (period === 'AM' && hours === 12) hours = 0;
+            
+            const dateStr = booking_data.date + 'T' + 
+              hours.toString().padStart(2, '0') + ':' + 
+              minutes.toString().padStart(2, '0') + ':00';
+            
+            console.log('🔍 [VERIFY-PAYMENT] Created datetime string:', dateStr);
+            
+            const finalDate = new Date(dateStr);
+            if (isNaN(finalDate.getTime())) {
+              throw new Error('Invalid date created: ' + dateStr);
+            }
+            
+            const isoString = finalDate.toISOString();
+            console.log('🔍 [VERIFY-PAYMENT] Final ISO string:', isoString);
+            
+            return isoString;
+          } catch (error) {
+            console.error('Error parsing appointment time:', error);
+            // Fallback to default time
+            const fallbackDate = new Date(booking_data.date + 'T09:00:00');
+            console.log('🔍 [VERIFY-PAYMENT] Using fallback date:', fallbackDate.toISOString());
+            return fallbackDate.toISOString();
+          }
+        })(), // required datetime
+        total_amount: booking_data.total_amount,
+        payment_status: 'completed', // required enum (completed for online payments)
+        location_type: booking_data.location_type || 'provider_location', // required enum - use the mapped value
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        
+        // ✅ FIXED: Store device_info for better device display
+        ...(booking_data.device_info && { device_info: booking_data.device_info }),
+        
+        // Optional fields (if available)
+        ...(booking_data.issue_description && { issue_description: booking_data.issue_description }),
+        ...(booking_data.part_quality && { part_quality: booking_data.part_quality }),
+        ...(booking_data.customer_address && { customer_address: booking_data.customer_address }),
+        ...(booking_data.selected_issues && { selected_issues: booking_data.selected_issues }),
+        ...(booking_data.warranty && { warranty: booking_data.warranty }),
+        ...(booking_data.serviceMode && { serviceMode: booking_data.serviceMode }),
+      };
+
+      console.log('🔍 [VERIFY-PAYMENT] Complete booking data:', completeBookingData);
+
+      // Create the complete booking with all required fields
       booking = await databases.createDocument(
         DATABASE_ID,
-        'bookings',
+        COLLECTIONS.BOOKINGS,
         'unique()',
-        {
-          ...booking_data,
-          payment_status: 'completed',
-          status: 'confirmed',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }
+        completeBookingData
       );
     } catch (error: any) {
       console.error('Error creating booking:', error);
@@ -63,7 +130,7 @@ export async function POST(req: NextRequest) {
     try {
       await databases.createDocument(
         DATABASE_ID,
-        'payments',
+        COLLECTIONS.PAYMENTS,
         'unique()',
         {
           booking_id: booking.$id,
@@ -83,6 +150,23 @@ export async function POST(req: NextRequest) {
     } catch (error: any) {
       console.error('Error creating payment document:', error);
       return NextResponse.json({ success: false, error: 'Failed to create payment record: ' + error.message }, { status: 500 });
+    }
+
+    // ✅ NEW: Update offer status when booking is completed
+    if (booking_data.offerId) {
+      try {
+        console.log('🎯 [VERIFY-PAYMENT] Updating offer status for offer:', booking_data.offerId);
+        const offerUpdateResult = await updateOfferOnBookingComplete(booking_data.offerId, booking.$id);
+        
+        if (offerUpdateResult.success) {
+          console.log('✅ [VERIFY-PAYMENT] Offer status updated successfully');
+        } else {
+          console.error('❌ [VERIFY-PAYMENT] Failed to update offer status:', offerUpdateResult.error);
+        }
+      } catch (error) {
+        console.error('❌ [VERIFY-PAYMENT] Error updating offer status:', error);
+        // Don't fail the booking if offer update fails
+      }
     }
 
     return NextResponse.json({ success: true });
