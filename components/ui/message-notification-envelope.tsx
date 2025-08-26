@@ -86,13 +86,21 @@ export function MessageNotificationEnvelope({ variant = 'default' }: MessageNoti
                 onClick={() => handleNotificationClick(notification.id)}
               >
                 <div className="flex items-start justify-between w-full mb-1">
-                  <span className="font-medium text-sm">{notification.title}</span>
+                  {/* 🆕 NEW: Show sender name instead of generic title */}
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">
+                      {notification.senderName || 'Unknown Sender'}
+                    </span>
+                  </div>
                   <span className="text-xs text-gray-500">
-                    {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
+                    {formatDistanceToNow(new Date(notification.lastMessageAt || notification.createdAt), { addSuffix: true })}
                   </span>
                 </div>
                 
-                <p className="text-sm text-gray-600">{notification.message}</p>
+                {/* 🆕 NEW: Show message preview instead of generic message */}
+                <p className="text-sm text-gray-600">
+                  {notification.messagePreview || notification.message}
+                </p>
                 
                 {/* Show if unread */}
                 {!notification.read && (

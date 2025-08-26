@@ -1,5 +1,6 @@
 // 🆕 Fresh Notification System - Built from Scratch
 // This service handles all notifications without duplicates or self-notifications
+// 🚀 ENHANCED: Now with Fiverr-style smart grouping and message previews!
 
 import { client, databases, DATABASE_ID } from './appwrite';
 import { ID, Query } from 'appwrite';
@@ -19,6 +20,12 @@ export interface Notification {
   read: boolean;
   createdAt: string;
   metadata?: Record<string, any>;
+  // 🆕 NEW: Fiverr-style fields for smart grouping
+  senderId?: string;
+  senderName?: string;
+  messagePreview?: string;
+  lastMessageAt?: string;
+  uniqueKey?: string; // For deduplication: "chat_{senderId}_{recipientId}"
 }
 
 export interface CreateNotificationData {
@@ -32,6 +39,10 @@ export interface CreateNotificationData {
   relatedId?: string;
   relatedType?: string;
   metadata?: Record<string, any>;
+  // 🆕 NEW: Fiverr-style fields
+  senderId?: string;
+  senderName?: string;
+  messagePreview?: string;
 }
 
 // Notification Service Class
@@ -39,9 +50,8 @@ class NotificationService {
   private subscriptions = new Map<string, () => void>();
 
   /**
-   * Create a new notification
-   * CRITICAL: This prevents self-notifications by design
-   * NEW: Also prevents notifications when user is actively viewing the chat
+   * 🚀 ENHANCED: Create or update notification with Fiverr-style smart grouping
+   * This prevents duplicate notifications from the same sender and shows message previews
    */
   async createNotification(
     data: CreateNotificationData, 
@@ -50,9 +60,9 @@ class NotificationService {
       activeConversationId?: string | null;
       isInChatTab?: boolean;
     }
-  ): Promise<{ success: boolean; notification?: Notification; error?: string; skipped?: boolean }> {
+  ): Promise<{ success: boolean; notification?: Notification; error?: string; skipped?: boolean; updated?: boolean }> {
     try {
-      // 🔔 NEW: Smart notification logic - check if user is actively viewing this conversation
+      // Smart notification logic - check if user is actively viewing this conversation
       if (options?.skipIfActiveChat && data.relatedId) {
         const isActive = await this.isUserActiveInChat(data.userId, data.relatedId);
         
@@ -61,8 +71,13 @@ class NotificationService {
         }
       }
 
-      // Smart logic enabled - check if user is actively viewing this conversation
+      // 🆕 NEW: Fiverr-style smart grouping for chat messages
+      if (data.type === 'message' && data.senderId && data.relatedId) {
+        const result = await this.createOrUpdateChatNotification(data);
+        return result;
+      }
 
+      // 🔔 Original logic for non-chat notifications (bookings, payments, etc.)
       const notificationData = {
         type: data.type,
         category: data.category,
@@ -102,7 +117,6 @@ class NotificationService {
         metadata: result.metadata ? JSON.parse(result.metadata) : {}
       };
 
-
       return { success: true, notification };
 
     } catch (error) {
@@ -112,7 +126,112 @@ class NotificationService {
   }
 
   /**
-   * Get notifications for a user
+   * 🆕 NEW: Fiverr-style smart grouping for chat notifications
+   * Creates new notification OR updates existing one with latest message
+   */
+  private async createOrUpdateChatNotification(data: CreateNotificationData): Promise<{ success: boolean; notification?: Notification; error?: string; updated?: boolean }> {
+    try {
+      const uniqueKey = `chat_${data.senderId}_${data.userId}`;
+      const existingNotifications = await databases.listDocuments(
+        DATABASE_ID, 'notifications', [
+          Query.equal('unique_key', uniqueKey),
+          Query.equal('user_id', data.userId),
+          Query.equal('type', 'message'),
+          Query.limit(1)
+        ]
+      );
+
+      if (existingNotifications.documents.length > 0) {
+        const existing = existingNotifications.documents[0];
+        const updateData: any = {
+          message: data.message,
+          message_preview: data.messagePreview || data.message,
+          last_message_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          metadata: data.metadata ? JSON.stringify(data.metadata) : existing.metadata
+        };
+        const updatedNotification = await databases.updateDocument(DATABASE_ID, 'notifications', existing.$id, updateData);
+        
+        const notification: Notification = {
+          id: updatedNotification.$id,
+          type: updatedNotification.type,
+          category: updatedNotification.category,
+          priority: updatedNotification.priority,
+          title: updatedNotification.title,
+          message: updatedNotification.message,
+          userId: updatedNotification.user_id,
+          userType: updatedNotification.user_type,
+          relatedId: updatedNotification.related_id,
+          relatedType: updatedNotification.related_type,
+          read: updatedNotification.is_read,
+          createdAt: updatedNotification.created_at,
+          metadata: updatedNotification.metadata,
+          senderId: updatedNotification.sender_id,
+          senderName: updatedNotification.sender_name,
+          messagePreview: updatedNotification.message_preview,
+          lastMessageAt: updatedNotification.last_message_at,
+          uniqueKey: updatedNotification.unique_key
+        };
+        
+        return { success: true, notification, updated: true };
+      } else {
+        const notificationData: any = {
+          type: data.type,
+          category: data.category,
+          priority: data.priority,
+          title: data.title,
+          message: data.message,
+          user_id: data.userId,
+          user_type: data.userType,
+          related_id: data.relatedId,
+          related_type: data.relatedType,
+          is_read: false,
+          sender_id: data.senderId,
+          sender_name: data.senderName,
+          message_preview: data.messagePreview || data.message,
+          last_message_at: new Date().toISOString(),
+          unique_key: uniqueKey,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+
+        if (data.metadata) {
+          notificationData.metadata = JSON.stringify(data.metadata);
+        }
+
+        const result = await databases.createDocument(DATABASE_ID, 'notifications', ID.unique(), notificationData);
+        
+        const notification: Notification = {
+          id: result.$id,
+          type: result.type,
+          category: result.category,
+          priority: result.priority,
+          title: result.title,
+          message: result.message,
+          userId: result.user_id,
+          userType: result.user_type,
+          relatedId: result.related_id,
+          relatedType: result.related_type,
+          read: result.is_read,
+          createdAt: result.created_at,
+          metadata: result.metadata,
+          senderId: result.sender_id,
+          senderName: result.sender_name,
+          messagePreview: result.message_preview,
+          lastMessageAt: result.last_message_at,
+          uniqueKey: result.unique_key
+        };
+        
+        return { success: true, notification, updated: false };
+      }
+    } catch (error) {
+      console.error('Error in smart chat notification:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
+  /**
+   * Get notifications for a user with Fiverr-style formatting
    */
   async getUserNotifications(userId: string, userType: string, limit: number = 50): Promise<{ success: boolean; notifications?: Notification[]; error?: string }> {
     try {
@@ -120,11 +239,10 @@ class NotificationService {
         DATABASE_ID,
         'notifications',
         [
-          // Only get notifications for this specific user
-          // This prevents self-notifications from appearing
           Query.equal('user_id', userId),
           Query.equal('user_type', userType),
-          Query.orderDesc('created_at'),
+          Query.orderDesc('last_message_at'), // 🆕 NEW: Order by last message time for chat notifications
+          Query.orderDesc('created_at'), // Fallback for non-chat notifications
           Query.limit(limit)
         ]
       );
@@ -142,13 +260,19 @@ class NotificationService {
         relatedType: doc.related_type,
         read: doc.read,
         createdAt: doc.created_at,
-        metadata: doc.metadata ? JSON.parse(doc.metadata) : {}
+        metadata: doc.metadata ? JSON.parse(doc.metadata) : {},
+        // 🆕 NEW: Fiverr-style fields (with graceful fallbacks)
+        senderId: doc.sender_id,
+        senderName: doc.sender_name,
+        messagePreview: doc.message_preview,
+        lastMessageAt: doc.last_message_at,
+        uniqueKey: doc.unique_key
       }));
 
       return { success: true, notifications };
 
     } catch (error) {
-      // Silently handle notification fetch errors
+      console.error('Error fetching notifications:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
   }
@@ -171,7 +295,7 @@ class NotificationService {
       return { success: true };
 
     } catch (error) {
-      // Silently handle mark as read errors
+      console.error('Error marking notification as read:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
   }
@@ -194,7 +318,7 @@ class NotificationService {
       return { success: true, count: result.documents.length };
 
     } catch (error) {
-      // Silently handle unread count errors
+      console.error('🔔 [FRESH] Error getting unread count:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
   }
@@ -212,8 +336,6 @@ class NotificationService {
     
     // Remove existing subscription to prevent duplicates
     this.unsubscribe(subscriptionKey);
-    
-
     
     const unsubscribe = client.subscribe(
       `databases.${DATABASE_ID}.collections.notifications.documents`,
@@ -237,7 +359,45 @@ class NotificationService {
               relatedType: notification.related_type,
               read: notification.read,
               createdAt: notification.created_at,
-              metadata: notification.metadata ? JSON.parse(notification.metadata) : {}
+              metadata: notification.metadata ? JSON.parse(notification.metadata) : {},
+              // 🆕 NEW: Fiverr-style fields (with graceful fallbacks)
+              senderId: notification.sender_id,
+              senderName: notification.sender_name,
+              messagePreview: notification.message_preview,
+              lastMessageAt: notification.last_message_at,
+              uniqueKey: notification.unique_key
+            };
+            
+            callback(notificationData);
+          }
+        }
+        
+        // 🆕 NEW: Handle updates for Fiverr-style grouping
+        if (response.events.includes('databases.*.collections.*.documents.*.update')) {
+          const notification = response.payload as any;
+          
+          // Only process updates for this specific user
+          if (notification.user_id === userId && notification.user_type === userType) {
+            const notificationData: Notification = {
+              id: notification.$id,
+              type: notification.type,
+              category: notification.category,
+              priority: notification.priority,
+              title: notification.title,
+              message: notification.message,
+              userId: notification.user_id,
+              userType: notification.user_type,
+              relatedId: notification.related_id,
+              relatedType: notification.related_type,
+              read: notification.read,
+              createdAt: notification.created_at,
+              metadata: notification.metadata ? JSON.parse(notification.metadata) : {},
+              // 🆕 NEW: Fiverr-style fields
+              senderId: notification.sender_id,
+              senderName: notification.sender_name,
+              messagePreview: notification.message_preview,
+              lastMessageAt: notification.last_message_at,
+              uniqueKey: notification.unique_key
             };
             
             callback(notificationData);
@@ -259,7 +419,6 @@ class NotificationService {
     if (unsubscribe) {
       unsubscribe();
       this.subscriptions.delete(subscriptionKey);
-
     }
   }
 
@@ -269,7 +428,6 @@ class NotificationService {
   cleanup(): void {
     this.subscriptions.forEach(unsubscribe => unsubscribe());
     this.subscriptions.clear();
-
   }
 
   // 🔔 NEW: Track active chat sessions (localStorage only for now)

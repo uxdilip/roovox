@@ -1,5 +1,4 @@
 import { databases, DATABASE_ID, COLLECTIONS } from './appwrite';
-import { NotificationData } from './notification-service';
 import { Query } from 'appwrite';
 
 export async function fetchCustomerData(customerId: string) {
@@ -21,7 +20,7 @@ export async function fetchCustomerData(customerId: string) {
         };
       }
     } catch (error) {
-      console.log('Customer not found in customers collection, trying user collection...');
+      // Silently handle customer fetch errors
     }
     
     // Fallback to user collection
@@ -110,7 +109,7 @@ export async function fetchProviderData(providerId: string) {
         }
       }
     } catch (error) {
-      console.log('Provider not found in business_setup collection...');
+      // Silently handle business_setup fetch errors
     }
     
     // Try providers collection
@@ -202,44 +201,4 @@ export async function fetchDeviceData(deviceId: string) {
   }
 }
 
-export async function buildNotificationData(booking: any): Promise<NotificationData> {
-  try {
-    const [customerData, providerData, deviceData] = await Promise.all([
-      fetchCustomerData(booking.customer_id),
-      fetchProviderData(booking.provider_id),
-      fetchDeviceData(booking.device_id),
-    ]);
-
-    // Extract service info from booking's selected_issues field
-    let serviceName = 'Service';
-    try {
-      if (booking.selected_issues) {
-        const selectedIssues = JSON.parse(booking.selected_issues);
-        if (Array.isArray(selectedIssues) && selectedIssues.length > 0) {
-          serviceName = selectedIssues.map((issue: any) => issue.name).join(', ');
-        }
-      }
-    } catch (parseError) {
-      console.error('Error parsing selected_issues:', parseError);
-    }
-
-    return {
-      bookingId: booking.$id,
-      customerName: customerData.name,
-      customerEmail: customerData.email,
-      customerPhone: customerData.phone,
-      providerName: providerData.name,
-      providerEmail: providerData.email,
-      providerPhone: providerData.phone,
-      serviceName: serviceName,
-      appointmentTime: booking.appointment_time,
-      totalAmount: booking.total_amount,
-      serviceLocation: booking.customer_address || 'Service Location',
-      deviceInfo: deviceData.info,
-      issueDescription: booking.issue_description || 'No description provided',
-    };
-  } catch (error) {
-    console.error('Error building notification data:', error);
-    throw new Error('Failed to build notification data');
-  }
-} 
+ 

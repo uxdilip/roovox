@@ -146,18 +146,18 @@ export class RealtimeChatService {
     };
 
           // Mark this optimistic message to avoid real-time duplicate
-      const messageKey = `${senderId}_${content}_${senderType}`;
-      
-      // Use conversation-specific optimistic message tracking
-      const recentOptimisticMessages = (this as any)[`recentOptimisticMessages_${conversationId}`];
-      
-      if (recentOptimisticMessages) {
-        recentOptimisticMessages.add(messageKey);
-        // Remove after 10 seconds to prevent memory leaks
-        setTimeout(() => {
-          recentOptimisticMessages?.delete(messageKey);
-        }, 10000);
-      }
+    const messageKey = `${senderId}_${content}_${senderType}`;
+    
+    // Use conversation-specific optimistic message tracking
+    const recentOptimisticMessages = (this as any)[`recentOptimisticMessages_${conversationId}`];
+    
+    if (recentOptimisticMessages) {
+      recentOptimisticMessages.add(messageKey);
+      // Remove after 10 seconds to prevent memory leaks
+      setTimeout(() => {
+        recentOptimisticMessages?.delete(messageKey);
+      }, 10000);
+    }
 
     // Show optimistic update immediately
     onOptimisticUpdate?.(tempMessage);
@@ -249,20 +249,92 @@ export class RealtimeChatService {
             // Get sender name for notification
             let senderName = 'Someone';
             try {
-              const senderUser = await databases.listDocuments(
-                DATABASE_ID,
-                'User',
-                [Query.equal('user_id', message.sender_id), Query.limit(1)]
-              );
+              // Detect sender type and fetch appropriate name
+              const senderType = message.sender_type || 'customer';
               
-              if (senderUser.documents.length > 0) {
-                senderName = senderUser.documents[0].name;
+              if (senderType === 'provider') {
+                // Provider: Fetch business name from business_setup collection
+                try {
+                  const businessSetupResponse = await databases.listDocuments(
+                    DATABASE_ID,
+                    'business_setup',
+                    [Query.equal('user_id', message.sender_id), Query.limit(1)]
+                  );
+                  
+                  if (businessSetupResponse.documents.length > 0) {
+                    const onboardingData = businessSetupResponse.documents[0].onboarding_data;
+                    if (onboardingData) {
+                      try {
+                        const parsedData = JSON.parse(onboardingData);
+                        if (parsedData.businessInfo?.businessName) {
+                          senderName = parsedData.businessInfo.businessName;
+                        }
+                      } catch (parseError) {
+                        // Silently handle parsing errors
+                      }
+                    }
+                  }
+                  
+                  // Fallback to User collection if no business name found
+                  if (senderName === 'Someone') {
+                    const userResponse = await databases.listDocuments(
+                      DATABASE_ID,
+                      'User',
+                      [Query.equal('user_id', message.sender_id), Query.limit(1)]
+                    );
+                    
+                    if (userResponse.documents.length > 0) {
+                      senderName = userResponse.documents[0].name;
+                    }
+                  }
+                } catch (businessError) {
+                  // Fallback to User collection
+                  const userResponse = await databases.listDocuments(
+                    DATABASE_ID,
+                    'User',
+                    [Query.equal('user_id', message.sender_id), Query.limit(1)]
+                  );
+                  
+                  if (userResponse.documents.length > 0) {
+                    senderName = userResponse.documents[0].name;
+                  }
+                }
+              } else {
+                // Customer: Fetch customer name from customers collection
+                try {
+                  const customerResponse = await databases.listDocuments(
+                    DATABASE_ID,
+                    'customers',
+                    [Query.equal('user_id', message.sender_id), Query.limit(1)]
+                  );
+                  
+                  if (customerResponse.documents.length > 0) {
+                    senderName = customerResponse.documents[0].full_name;
+                  }
+                } catch (customerError) {
+                  // Silently handle customer fetch errors
+                }
+                
+                // Fallback to User collection if customer not found
+                if (senderName === 'Someone') {
+                  const senderUser = await databases.listDocuments(
+                    DATABASE_ID,
+                    'User',
+                    [Query.equal('user_id', message.sender_id), Query.limit(1)]
+                  );
+                  
+                  if (senderUser.documents.length > 0) {
+                    senderName = senderUser.documents[0].name;
+                  }
+                }
               }
+              
             } catch (error) {
-              // Silently handle sender name fetch errors
+              console.error('Error fetching sender name:', error);
+              // Keep default 'Someone' if all queries fail
             }
 
-            // Create notification for recipient with smart logic
+            // 🚀 ENHANCED: Create Fiverr-style notification with smart grouping
             await notificationService.createNotification({
               type: 'message',
               category: 'chat',
@@ -273,6 +345,10 @@ export class RealtimeChatService {
               userType: recipientType,
               relatedId: conversationId,
               relatedType: 'conversation',
+              // 🆕 NEW: Fiverr-style fields for smart grouping
+              senderId: message.sender_id,
+              senderName: senderName,
+              messagePreview: content, // Show actual message content instead of generic text
               metadata: {
                 messageId: message.$id,
                 senderId: message.sender_id,
@@ -285,6 +361,7 @@ export class RealtimeChatService {
           }
         }
       } catch (notificationError) {
+        console.error('Error creating notification:', notificationError);
         // Silently handle notification errors
       }
 

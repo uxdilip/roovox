@@ -109,32 +109,30 @@ export async function createCustomerRequest(
     console.log('✅ Negotiation chat created:', chatDoc.$id);
 
     // Send email notifications (don't fail if emails fail)
-    try {
-      // Get provider and customer email addresses
-      const providerUser = await databases.listDocuments(
-        DATABASE_ID,
-        'User',
-        [
-          // Note: We'll filter client-side for now
-        ]
-      );
+    // Get provider and customer email addresses
+    const providerUser = await databases.listDocuments(
+      DATABASE_ID,
+      'User',
+      [
+        // Note: We'll filter client-side for now
+      ]
+    );
 
-      const customerUser = await databases.listDocuments(
-        DATABASE_ID,
-        'User',
-        [
-          // Note: We'll filter client-side for now
-        ]
-      );
+    const customerUser = await databases.listDocuments(
+      DATABASE_ID,
+      'User',
+      [
+        // Note: We'll filter client-side for now
+      ]
+    );
 
-      const provider = providerUser.documents.find((u: any) => u.user_id === requestData.provider_id);
-      const customer = customerUser.documents.find((u: any) => u.user_id === customerId);
+    const provider = providerUser.documents.find((u: any) => u.user_id === requestData.provider_id);
+    const customer = customerUser.documents.find((u: any) => u.user_id === customerId);
 
-      // Email notifications removed - using in-app notifications instead
-      console.log('📧 Email notifications disabled - using in-app notifications');
+    // Email notifications removed - using in-app notifications instead
+    console.log('📧 Email notifications disabled - using in-app notifications');
 
       // 🔔 NEW: Create in-app notifications
-      try {
       console.log('🔔 Creating in-app notifications for quote request...');
       
       // Notify provider about new quote request
@@ -176,10 +174,6 @@ export async function createCustomerRequest(
       });
 
       console.log('✅ In-app notifications created successfully');
-    } catch (notificationError) {
-      console.error('❌ Error creating in-app notifications (non-fatal):', notificationError);
-      // Continue without failing the request creation
-    }
 
     return {
       success: true,
@@ -396,3 +390,4 @@ export async function hasActiveNegotiation(
     };
   }
 }
+
