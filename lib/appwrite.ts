@@ -77,4 +77,6 @@ export const COLLECTIONS = {
   CUSTOM_SERIES: 'custom_series',
   CUSTOM_SERIES_SERVICES: 'custom_series_services',
   OFFERS: '68a74c1a001346172533',
+  // 🔔 NEW: Notifications collection
+  NOTIFICATIONS: 'notifications',
 };

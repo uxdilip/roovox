@@ -20,6 +20,7 @@ const RATE_LIMIT = {
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
+  isAuthComplete: boolean;
   loginWithPhoneOtp: (phone: string, otp?: string, userId?: string) => Promise<{ userId?: string } | void>;
   logout: () => Promise<void>;
   setUser?: React.Dispatch<React.SetStateAction<User | null>>;
@@ -41,6 +42,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAuthComplete, setIsAuthComplete] = useState(false);
   const [roles, setRoles] = useState<string[]>([]);
   const [activeRole, setActiveRoleState] = useState<'customer' | 'provider'>('customer');
   const [showLocationPrompt, setShowLocationPrompt] = useState(false);
@@ -127,6 +129,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const checkAuth = async () => {
     console.log('🔍 checkAuth called');
+    setIsLoading(true);
+    setIsAuthComplete(false);
+    
     try {
       const session = await account.get();
       // Session found
@@ -219,6 +224,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       console.log('🔍 checkAuth completed, setting isLoading to false');
       setIsLoading(false);
+      setIsAuthComplete(true);
     }
   };
 
@@ -258,13 +264,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // Always fetch the current session after login
       const accountDetails = await account.get();
+      
+      // Check if this is a provider login
+      const isProviderLogin = typeof window !== 'undefined' && localStorage.getItem('loginAsProvider') === '1';
+      const userRoles = isProviderLogin ? ['customer', 'provider'] : ['customer'];
+      
+      console.log('🔍 [AUTH] Phone OTP login - isProviderLogin:', isProviderLogin, 'userRoles:', userRoles);
+      
       try {
         await createUserDocument({
           userId: accountDetails.$id,
           name: 'Phone User',
           email: `phone_${accountDetails.$id}@noemail.local`,
           phone: phone,
-          roles: ['customer']
+          roles: userRoles
         });
       } catch (error) {
         console.log('User document may already exist or error creating:', error);
@@ -276,7 +289,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         name: accountDetails.name || 'Phone User',
         email: accountDetails.email || `phone_${accountDetails.$id}@noemail.local`,
         phone: phone,
-        role: 'customer' as const,
+        role: isProviderLogin ? 'provider' as const : 'customer' as const,
         address: {
           street: '',
           city: userDoc?.address?.city || '',
@@ -444,7 +457,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setShowLocationPrompt,
       canRequestOtp,
       getOtpAttempts,
-      clearOtpAttempts
+      clearOtpAttempts,
+      isAuthComplete
     }}>
       {children}
     </AuthContext.Provider>
