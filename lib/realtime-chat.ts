@@ -249,11 +249,11 @@ export class RealtimeChatService {
             // Get sender name for notification
             let senderName = 'Someone';
             try {
-              // Detect sender type and fetch appropriate name
+              // 🆕 ENHANCED: Detect sender type and fetch appropriate name
               const senderType = message.sender_type || 'customer';
               
               if (senderType === 'provider') {
-                // Provider: Fetch business name from business_setup collection
+                // 🏢 PROVIDER: Fetch business name from business_setup collection
                 try {
                   const businessSetupResponse = await databases.listDocuments(
                     DATABASE_ID,
@@ -270,7 +270,7 @@ export class RealtimeChatService {
                           senderName = parsedData.businessInfo.businessName;
                         }
                       } catch (parseError) {
-                        // Silently handle parsing errors
+                        // Silent fallback
                       }
                     }
                   }
@@ -300,7 +300,7 @@ export class RealtimeChatService {
                   }
                 }
               } else {
-                // Customer: Fetch customer name from customers collection
+                // 👤 CUSTOMER: Fetch customer name from customers collection
                 try {
                   const customerResponse = await databases.listDocuments(
                     DATABASE_ID,
@@ -312,7 +312,7 @@ export class RealtimeChatService {
                     senderName = customerResponse.documents[0].full_name;
                   }
                 } catch (customerError) {
-                  // Silently handle customer fetch errors
+                  // Silent fallback
                 }
                 
                 // Fallback to User collection if customer not found
@@ -330,12 +330,12 @@ export class RealtimeChatService {
               }
               
             } catch (error) {
-              console.error('Error fetching sender name:', error);
+              console.error('🔔 [FIVERR] Error fetching sender name:', error);
               // Keep default 'Someone' if all queries fail
             }
 
             // 🚀 ENHANCED: Create Fiverr-style notification with smart grouping
-            await notificationService.createNotification({
+            const notificationResult = await notificationService.createNotification({
               type: 'message',
               category: 'chat',
               priority: 'medium',
@@ -358,10 +358,12 @@ export class RealtimeChatService {
             }, {
               skipIfActiveChat: true
             });
+
+            // Silent success - no debug logging needed
           }
         }
       } catch (notificationError) {
-        console.error('Error creating notification:', notificationError);
+        console.error('🔔 [FIVERR] Error creating notification:', notificationError);
         // Silently handle notification errors
       }
 
