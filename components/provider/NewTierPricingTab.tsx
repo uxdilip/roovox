@@ -243,35 +243,50 @@ const BrandCard: React.FC<BrandCardProps> = ({
   const totalIssues = issues.length;
 
   // Simple placeholder function for price inputs
-  const getPlaceholder = (priceType: 'basic' | 'standard' | 'premium'): string => {
+  const getPlaceholder = (issue: any, priceType: 'basic' | 'standard' | 'premium'): string => {
+    console.log(`🔍 getPlaceholder called with issue:`, issue?.name, `priceType:`, priceType);
+    
+    if (!priceType) {
+      console.warn(`⚠️ getPlaceholder received undefined priceType, using default`);
+      return '500';
+    }
+    
     const basePrices = {
       basic: 500,
       standard: 800,
       premium: 1200
     };
-    return basePrices[priceType].toString();
+    
+    const price = basePrices[priceType];
+    if (price === undefined) {
+      console.warn(`⚠️ getPlaceholder received invalid priceType: ${priceType}, using default`);
+      return '500';
+    }
+    
+    return price.toString();
   };
 
   console.log(`📊 ${brand} stats:`, { selectedCount, totalIssues, isEditMode });
 
   return (
-    <Card className={`transition-all duration-200 ${isEditMode ? 'ring-2 ring-blue-500 shadow-lg' : ''}`}>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <CardTitle className="text-lg font-semibold">{brand} {deviceType === 'phones' ? 'phones' : 'laptops'}</CardTitle>
+    <Card className={`transition-all duration-200 ${isEditMode ? 'ring-2 ring-blue-500 shadow-lg' : ''} mx-2 sm:mx-0`}>
+      <CardHeader className="pb-3 px-4 sm:px-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <CardTitle className="text-base sm:text-lg font-semibold">{brand} {deviceType === 'phones' ? 'phones' : 'laptops'}</CardTitle>
             <Badge variant="secondary" className="text-xs">
               {selectedCount} {selectedCount === 1 ? 'service' : 'services'}
             </Badge>
           </div>
           
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-center sm:justify-end">
             {!isEditMode ? (
               <>
                 <Button 
                   variant="outline" 
                   size="sm"
                   onClick={() => setIsEditMode(true)}
+                  className="text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-2"
                 >
                   Edit
                 </Button>
@@ -279,6 +294,7 @@ const BrandCard: React.FC<BrandCardProps> = ({
                   variant="destructive" 
                   size="sm"
                   onClick={handleDeleteBrand}
+                  className="text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-2"
                 >
                   Delete Brand
                 </Button>
@@ -289,7 +305,7 @@ const BrandCard: React.FC<BrandCardProps> = ({
                   size="sm"
                   onClick={handleSave}
                   disabled={!hasChanges || isSaving}
-                  className="bg-green-600 hover:bg-green-700"
+                  className="bg-green-600 hover:bg-green-700 text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-2"
                 >
                   {isSaving ? 'Saving...' : 'Save Changes'}
                 </Button>
@@ -298,6 +314,7 @@ const BrandCard: React.FC<BrandCardProps> = ({
                   size="sm"
                   onClick={handleCancel}
                   disabled={isSaving}
+                  className="text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-2"
                 >
                   Cancel
                 </Button>
@@ -307,21 +324,21 @@ const BrandCard: React.FC<BrandCardProps> = ({
         </div>
       </CardHeader>
       
-      <CardContent className="pt-0">
+      <CardContent className="pt-0 px-4 sm:px-6">
         <div className="space-y-3">
           {editedIssues.map((issue) => (
-            <div key={issue.id} className="flex items-center gap-3 p-3 rounded-lg border hover:bg-gray-50">
-              <div className="flex items-center gap-2 min-w-0 flex-1">
+            <div key={issue.id} className="flex flex-col sm:flex-row items-start sm:items-center gap-3 p-3 sm:p-4 rounded-lg border hover:bg-gray-50">
+              <div className="flex items-center gap-2 min-w-0 flex-1 w-full sm:w-auto">
                 <input
                   type="checkbox"
                   checked={issue.isSelected}
                   onChange={(e) => handleIssueToggle(issue.id, e.target.checked)}
                   disabled={!isEditMode}
-                  className="h-4 w-4 text-blue-600 rounded border-gray-300"
+                  className="h-4 w-4 text-blue-600 rounded border-gray-300 flex-shrink-0"
                 />
                 
                 <div className="flex items-center gap-2 min-w-0 flex-1">
-                  <span className="font-medium text-gray-900 truncate">
+                  <span className="font-medium text-gray-900 truncate text-sm sm:text-base">
                     {issue.name}
                   </span>
                   {issue.partType && (
@@ -335,50 +352,52 @@ const BrandCard: React.FC<BrandCardProps> = ({
                 </div>
               </div>
               
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
                 {isEditMode ? (
                   <>
-                    <div className="text-center">
-                      <label className="text-xs text-gray-500 mb-1 block">Basic</label>
-                      <Input
-                        type="number"
-                        placeholder={getPlaceholder(issue, 'basic')}
-                        value={issue.basicPrice || ''}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePriceChange(issue.id, 'basic', e.target.value)}
-                        className="w-20 h-8 text-center"
-                        min="100"
-                      />
-                    </div>
-                    
-                    <div className="text-center">
-                      <label className="text-xs text-gray-500 mb-1 block">Standard</label>
-                      <Input
-                        type="number"
-                        placeholder={getPlaceholder(issue, 'standard')}
-                        value={issue.standardPrice || ''}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePriceChange(issue.id, 'standard', e.target.value)}
-                        className="w-20 h-8 text-center"
-                        min="100"
-                      />
-                    </div>
-                    
-                    <div className="text-center">
-                      <label className="text-xs text-gray-500 mb-1 block">Premium</label>
-                      <Input
-                        type="number"
-                        placeholder={getPlaceholder(issue, 'premium')}
-                        value={issue.premiumPrice || ''}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePriceChange(issue.id, 'premium', e.target.value)}
-                        className="w-20 h-8 text-center"
-                        min="100"
-                      />
+                    <div className="grid grid-cols-3 gap-2 w-full sm:w-auto">
+                      <div className="text-center">
+                        <label className="text-xs text-gray-500 mb-1 block">Basic</label>
+                        <Input
+                          type="number"
+                          placeholder={getPlaceholder(issue, 'basic')}
+                          value={issue.basicPrice || ''}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePriceChange(issue.id, 'basic', e.target.value)}
+                          className="w-full sm:w-20 h-8 text-center text-sm"
+                          min="100"
+                        />
+                      </div>
+                      
+                      <div className="text-center">
+                        <label className="text-xs text-gray-500 mb-1 block">Standard</label>
+                        <Input
+                          type="number"
+                          placeholder={getPlaceholder(issue, 'standard')}
+                          value={issue.standardPrice || ''}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePriceChange(issue.id, 'standard', e.target.value)}
+                          className="w-full sm:w-20 h-8 text-center text-sm"
+                          min="100"
+                        />
+                      </div>
+                      
+                      <div className="text-center">
+                        <label className="text-xs text-gray-500 mb-1 block">Premium</label>
+                        <Input
+                          type="number"
+                          placeholder={getPlaceholder(issue, 'premium')}
+                          value={issue.premiumPrice || ''}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePriceChange(issue.id, 'premium', e.target.value)}
+                          className="w-full sm:w-20 h-8 text-center text-sm"
+                          min="100"
+                        />
+                      </div>
                     </div>
                     
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => handleDeleteService(issue.name)}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50 text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-2 w-full sm:w-auto mt-2 sm:mt-0"
                       disabled={isSaving}
                     >
                       Remove
@@ -386,19 +405,21 @@ const BrandCard: React.FC<BrandCardProps> = ({
                   </>
                 ) : (
                   <>
-                    <div className="text-center">
-                      <div className="text-xs text-gray-500">Basic</div>
-                      <div className="font-semibold text-gray-900">₹{issue.basicPrice || 0}</div>
-                    </div>
-                    
-                    <div className="text-center">
-                      <div className="text-xs text-gray-500">Standard</div>
-                      <div className="font-semibold text-gray-900">₹{issue.standardPrice || 0}</div>
-                    </div>
-                    
-                    <div className="text-center">
-                      <div className="text-xs text-gray-500">Premium</div>
-                      <div className="font-semibold text-gray-900">₹{issue.premiumPrice || 0}</div>
+                    <div className="grid grid-cols-3 gap-2 w-full sm:w-auto">
+                      <div className="text-center">
+                        <div className="text-xs text-gray-500">Basic</div>
+                        <div className="font-semibold text-gray-900 text-sm sm:text-base">₹{issue.basicPrice || 0}</div>
+                      </div>
+                      
+                      <div className="text-center">
+                        <div className="text-xs text-gray-500">Standard</div>
+                        <div className="font-semibold text-gray-900 text-sm sm:text-base">₹{issue.standardPrice || 0}</div>
+                      </div>
+                      
+                      <div className="text-center">
+                        <div className="text-xs text-gray-500">Premium</div>
+                        <div className="font-semibold text-gray-900 text-sm sm:text-base">₹{issue.premiumPrice || 0}</div>
+                      </div>
                     </div>
                   </>
                 )}
@@ -412,7 +433,7 @@ const BrandCard: React.FC<BrandCardProps> = ({
             <Button
               variant="outline"
               size="sm"
-              className="w-full"
+              className="w-full text-sm sm:text-base py-2 sm:py-2"
               onClick={() => {
                 // TODO: Implement add service functionality
                 toast.info('Add service functionality coming soon!');
@@ -953,30 +974,31 @@ export default function NewTierPricingTab() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 px-2 sm:px-0">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h3 className="text-xl sm:text-2xl font-bold text-gray-900">Tier Pricing Setup</h3>
-          <p className="text-gray-600 mt-1 text-sm sm:text-base">Set Basic, Standard, and Premium prices for all your services at once</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+        <div className="text-center sm:text-left">
+          <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">Tier Pricing Setup</h3>
+          <p className="text-gray-600 mt-1 text-xs sm:text-sm lg:text-base">Set Basic, Standard, and Premium prices for all your services at once</p>
         </div>
         
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto">
+            <Button className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto text-sm sm:text-base">
               <Plus className="w-4 h-4 mr-2" />
               Add Tier Pricing
             </Button>
           </DialogTrigger>
 
-          <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto w-[95vw] max-w-none mx-4">
-            <DialogHeader>
-              <DialogTitle className="text-xl font-bold">Setup Tier Pricing</DialogTitle>
+          <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-[90vw] md:w-[80vw] lg:w-[70vw] mx-2 sm:mx-4">
+            <DialogHeader className="text-center sm:text-left">
+              <DialogTitle className="text-lg sm:text-xl font-bold">Setup Tier Pricing</DialogTitle>
+              <p className="text-sm text-gray-600 mt-2">Configure pricing for your services</p>
             </DialogHeader>
             
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               {/* Device Type Selection */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
                   <Label htmlFor="device-type">Device Type</Label>
                   <Select 
@@ -1044,17 +1066,17 @@ export default function NewTierPricingTab() {
               {pricingData.brand && (
                 <div className="space-y-4">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <h4 className="text-lg font-semibold">Select Issues & Set Pricing</h4>
+                    <h4 className="text-base sm:text-lg font-semibold text-center sm:text-left">Select Issues & Set Pricing</h4>
                     {totalCount > 0 && (
                       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                        <span className="text-sm text-gray-600">
+                        <span className="text-sm text-gray-600 text-center sm:text-left">
                           {selectedCount} of {totalCount} selected
                         </span>
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => handleSelectAll(selectedCount < totalCount)}
-                          className="w-full sm:w-auto"
+                          className="w-full sm:w-auto text-sm"
                         >
                           {selectedCount < totalCount ? 'Select All' : 'Deselect All'}
                         </Button>
@@ -1063,12 +1085,97 @@ export default function NewTierPricingTab() {
                   </div>
 
                   {loading ? (
-                    <div className="flex items-center justify-center py-8">
+                    <div className="flex flex-col items-center justify-center py-8 space-y-4">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                      <span className="ml-2 text-gray-600">Loading issues...</span>
+                      <span className="text-gray-600 text-center">Loading issues...</span>
+                      <div className="text-xs text-gray-500 text-center max-w-xs">
+                        Fetching available services for {pricingData.brand} {pricingData.deviceType}
+                      </div>
                     </div>
                   ) : (
                     <div className="border rounded-lg overflow-hidden">
+                      {/* Mobile Card Layout */}
+                      <div className="lg:hidden space-y-4 p-4">
+                        {pricingData.issues.length === 0 ? (
+                          <div className="text-center py-8">
+                            <div className="text-gray-400 mb-2">
+                              <Smartphone className="w-12 h-12 mx-auto" />
+                            </div>
+                            <h3 className="text-lg font-medium text-gray-900 mb-2">No issues found</h3>
+                            <p className="text-sm text-gray-600">
+                              Try selecting a different brand or device type
+                            </p>
+                          </div>
+                        ) : (
+                          pricingData.issues.map((issue) => (
+                            <Card key={issue.id} className="p-4">
+                              <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <Checkbox
+                                      checked={issue.isSelected}
+                                      onCheckedChange={(checked: boolean | string) => 
+                                        handleIssueUpdate(issue.id, { isSelected: !!checked })
+                                      }
+                                    />
+                                    <span className="font-medium text-sm">{issue.name}</span>
+                                    {issue.partType && (
+                                      <Badge 
+                                        variant="outline" 
+                                        className="text-xs"
+                                      >
+                                        {issue.partType}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+                                
+                                {issue.isSelected && (
+                                  <div className="grid grid-cols-3 gap-2">
+                                    <div>
+                                      <label className="text-xs text-gray-500 block mb-1">Basic</label>
+                                      <Input
+                                        type="number"
+                                        placeholder={getPlaceholder(issue, 'basic')}
+                                        value={issue.basicPrice || ''}
+                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
+                                          handleIssueUpdate(issue.id, { basicPrice: parseInt(e.target.value) || 0 })
+                                        }
+                                        className="text-sm text-center"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="text-xs text-gray-500 block mb-1">Standard</label>
+                                      <Input
+                                        type="number"
+                                        placeholder={getPlaceholder(issue, 'standard')}
+                                        value={issue.standardPrice || ''}
+                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
+                                          handleIssueUpdate(issue.id, { standardPrice: parseInt(e.target.value) || 0 })
+                                        }
+                                        className="text-sm text-center"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="text-xs text-gray-500 block mb-1">Premium</label>
+                                      <Input
+                                        type="number"
+                                        placeholder={getPlaceholder(issue, 'premium')}
+                                        value={issue.premiumPrice || ''}
+                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
+                                          handleIssueUpdate(issue.id, { premiumPrice: parseInt(e.target.value) || 0 })
+                                        }
+                                        className="text-sm text-center"
+                                      />
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </Card>
+                          ))
+                        )}
+                      </div>
+                      
                       {/* Desktop Table */}
                       <div className="hidden lg:block">
                         {/* Table Header */}
@@ -1499,26 +1606,46 @@ export default function NewTierPricingTab() {
                   </div>
                 </div>
               )}
+              
+              {/* Mobile-Friendly Save Button */}
+              <div className="pt-4 border-t">
+                <Button
+                  onClick={handleSave}
+                  disabled={loading || selectedCount === 0}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 text-base"
+                >
+                  {loading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Saving...
+                    </>
+                  ) : (
+                    `Save ${selectedCount} Service${selectedCount !== 1 ? 's' : ''}`
+                  )}
+                </Button>
+              </div>
             </div>
           </DialogContent>
         </Dialog>
       </div>
 
       {/* Current Tier Pricing Display */}
-      <div className="space-y-4">
-        <h4 className="text-lg font-semibold text-gray-900">Current Tier Pricing</h4>
+      <div className="space-y-3 sm:space-y-4">
+        <h4 className="text-base sm:text-lg font-semibold text-gray-900 text-center sm:text-left">Current Tier Pricing</h4>
         
         {existingPricings.length === 0 ? (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <DollarSign className="w-12 h-12 text-gray-400 mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No tier pricing set up yet</h3>
-              <p className="text-gray-600 text-center mb-4">
+          <Card className="mx-2 sm:mx-0">
+            <CardContent className="flex flex-col items-center justify-center py-8 sm:py-12 px-4 sm:px-6">
+              <div className="bg-blue-50 rounded-full p-4 mb-4">
+                <DollarSign className="w-10 h-10 sm:w-12 sm:h-12 text-blue-500" />
+              </div>
+              <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-2 text-center">No tier pricing set up yet</h3>
+              <p className="text-gray-600 text-center mb-6 text-sm sm:text-base px-2 sm:px-0 max-w-md">
                 Start by adding tier pricing for your devices. You can set Basic, Standard, and Premium prices for multiple issues at once.
               </p>
               <Button 
                 onClick={() => setIsModalOpen(true)}
-                className="bg-blue-600 hover:bg-blue-700"
+                className="bg-blue-600 hover:bg-blue-700 text-sm sm:text-base w-full sm:w-auto shadow-lg hover:shadow-xl transition-all duration-200"
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Add Your First Tier Pricing
@@ -1526,7 +1653,7 @@ export default function NewTierPricingTab() {
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {/* Group by device type and brand */}
             {Object.entries(
               existingPricings.reduce((acc, pricing) => {
