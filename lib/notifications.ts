@@ -26,6 +26,8 @@ export interface Notification {
   messagePreview?: string;
   lastMessageAt?: string;
   uniqueKey?: string; // For deduplication: "chat_{senderId}_{recipientId}"
+  // 🆕 NEW: Flag to skip toast notifications (e.g., when user is actively viewing conversation)
+  skipToast?: boolean;
 }
 
 export interface CreateNotificationData {
@@ -43,6 +45,8 @@ export interface CreateNotificationData {
   senderId?: string;
   senderName?: string;
   messagePreview?: string;
+  // 🆕 NEW: Flag to skip toast notifications (e.g., when user is actively viewing conversation)
+  skipToast?: boolean;
 }
 
 // Notification Service Class
@@ -62,23 +66,23 @@ class NotificationService {
     }
   ): Promise<{ success: boolean; notification?: Notification; error?: string; skipped?: boolean; updated?: boolean }> {
     try {
-      // 🔔 NEW: Smart notification logic - check if user is actively viewing this conversation
+      // 🔔 FIXED: Smart notification logic - check if user is actively viewing this conversation
+      let shouldSkipToast = false;
       if (options?.skipIfActiveChat && data.relatedId) {
         const isActive = await this.isUserActiveInChat(data.userId, data.relatedId);
         
         if (isActive) {
-          console.log('🔔 [FRESH] Skipping notification - user is actively viewing this conversation:', {
-            conversationId: data.relatedId,
-            userId: data.userId,
-            isActive
-          });
-          return { success: true, skipped: true };
+          shouldSkipToast = true;
+          // 🆕 FIXED: Don't return early - still create the notification for database and real-time
         }
       }
 
       // 🆕 NEW: Fiverr-style smart grouping for chat messages
       if (data.type === 'message' && data.senderId && data.relatedId) {
-        const result = await this.createOrUpdateChatNotification(data);
+        // 🆕 FIXED: Pass skipToast flag through the data object
+        const dataWithSkipToast = { ...data, skipToast: shouldSkipToast };
+        const result = await this.createOrUpdateChatNotification(dataWithSkipToast);
+        
         return result;
       }
 
@@ -122,6 +126,9 @@ class NotificationService {
         metadata: result.metadata ? JSON.parse(result.metadata) : {}
       };
 
+      // 🆕 FIXED: Add skipToast flag to the result for toast component to use
+      (notification as any).skipToast = shouldSkipToast;
+
       return { success: true, notification };
 
     } catch (error) {
@@ -134,7 +141,7 @@ class NotificationService {
    * 🆕 NEW: Fiverr-style smart grouping for chat notifications
    * Creates new notification OR updates existing one with latest message
    */
-  private async createOrUpdateChatNotification(data: CreateNotificationData): Promise<{ success: boolean; notification?: Notification; error?: string; updated?: boolean }> {
+  private async createOrUpdateChatNotification(data: CreateNotificationData, options?: { skipIfActiveChat?: boolean }): Promise<{ success: boolean; notification?: Notification; error?: string; updated?: boolean }> {
     try {
       // Create unique key for this sender-recipient pair
       const uniqueKey = `chat_${data.senderId}_${data.userId}`;
@@ -170,13 +177,6 @@ class NotificationService {
           updateData
         );
 
-        console.log('🔔 [FIVERR] Updated existing notification:', {
-          notificationId: existing.$id,
-          senderId: data.senderId,
-          recipientId: data.userId,
-          messagePreview: data.messagePreview || data.message
-        });
-
         const notification: Notification = {
           id: updatedNotification.$id,
           type: updatedNotification.type,
@@ -197,6 +197,9 @@ class NotificationService {
           lastMessageAt: updatedNotification.last_message_at,
           uniqueKey: updatedNotification.unique_key
         };
+
+        // 🆕 FIXED: Add skipToast flag to the result for toast component to use
+        (notification as any).skipToast = (data as any).skipToast || false;
 
         return { success: true, notification, updated: true };
 
@@ -231,13 +234,6 @@ class NotificationService {
           notificationData
         );
 
-        console.log('🔔 [FIVERR] Created new notification:', {
-          notificationId: result.$id,
-          senderId: data.senderId,
-          recipientId: data.userId,
-          messagePreview: data.messagePreview || data.message
-        });
-
         const notification: Notification = {
           id: result.$id,
           type: result.type,
@@ -258,6 +254,9 @@ class NotificationService {
           lastMessageAt: result.last_message_at,
           uniqueKey: result.unique_key
         };
+
+        // 🆕 FIXED: Add skipToast flag to the result for toast component to use
+        (notification as any).skipToast = (data as any).skipToast || false;
 
         return { success: true, notification, updated: false };
       }

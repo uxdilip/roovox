@@ -251,7 +251,6 @@ export class RealtimeChatService {
             try {
               // 🆕 ENHANCED: Detect sender type and fetch appropriate name
               const senderType = message.sender_type || 'customer';
-              console.log('🔔 [FIVERR] Sender type detected:', senderType);
               
               if (senderType === 'provider') {
                 // 🏢 PROVIDER: Fetch business name from business_setup collection
@@ -269,10 +268,9 @@ export class RealtimeChatService {
                         const parsedData = JSON.parse(onboardingData);
                         if (parsedData.businessInfo?.businessName) {
                           senderName = parsedData.businessInfo.businessName;
-                          console.log('🔔 [FIVERR] Found provider business name from business_setup:', senderName);
                         }
                       } catch (parseError) {
-                        console.log('🔔 [FIVERR] Error parsing business_setup onboarding_data:', parseError);
+                        // Silent fallback
                       }
                     }
                   }
@@ -287,11 +285,9 @@ export class RealtimeChatService {
                     
                     if (userResponse.documents.length > 0) {
                       senderName = userResponse.documents[0].name;
-                      console.log('🔔 [FIVERR] Found provider name from User collection (fallback):', senderName);
                     }
                   }
                 } catch (businessError) {
-                  console.log('🔔 [FIVERR] Error fetching business_setup, trying User collection...');
                   // Fallback to User collection
                   const userResponse = await databases.listDocuments(
                     DATABASE_ID,
@@ -301,7 +297,6 @@ export class RealtimeChatService {
                   
                   if (userResponse.documents.length > 0) {
                     senderName = userResponse.documents[0].name;
-                    console.log('🔔 [FIVERR] Found provider name from User collection (fallback):', senderName);
                   }
                 }
               } else {
@@ -315,10 +310,9 @@ export class RealtimeChatService {
                   
                   if (customerResponse.documents.length > 0) {
                     senderName = customerResponse.documents[0].full_name;
-                    console.log('🔔 [FIVERR] Found customer name from customers collection:', senderName);
                   }
                 } catch (customerError) {
-                  console.log('🔔 [FIVERR] Customer not found in customers collection, trying User collection...');
+                  // Silent fallback
                 }
                 
                 // Fallback to User collection if customer not found
@@ -331,12 +325,9 @@ export class RealtimeChatService {
                   
                   if (senderUser.documents.length > 0) {
                     senderName = senderUser.documents[0].name;
-                    console.log('🔔 [FIVERR] Found customer name from User collection (fallback):', senderName);
                   }
                 }
               }
-              
-              console.log('🔔 [FIVERR] Final sender name for notification:', senderName);
               
             } catch (error) {
               console.error('🔔 [FIVERR] Error fetching sender name:', error);
@@ -344,7 +335,7 @@ export class RealtimeChatService {
             }
 
             // 🚀 ENHANCED: Create Fiverr-style notification with smart grouping
-            await notificationService.createNotification({
+            const notificationResult = await notificationService.createNotification({
               type: 'message',
               category: 'chat',
               priority: 'medium',
@@ -367,6 +358,8 @@ export class RealtimeChatService {
             }, {
               skipIfActiveChat: true
             });
+
+            // Silent success - no debug logging needed
           }
         }
       } catch (notificationError) {
