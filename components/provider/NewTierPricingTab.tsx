@@ -268,25 +268,25 @@ const BrandCard: React.FC<BrandCardProps> = ({
 
   console.log(`📊 ${brand} stats:`, { selectedCount, totalIssues, isEditMode });
 
-  return (
-    <Card className={`transition-all duration-200 ${isEditMode ? 'ring-2 ring-blue-500 shadow-lg' : ''} mx-2 sm:mx-0`}>
-      <CardHeader className="pb-3 px-4 sm:px-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
-          <div className="flex items-center gap-2 sm:gap-3">
-            <CardTitle className="text-base sm:text-lg font-semibold">{brand} {deviceType === 'phones' ? 'phones' : 'laptops'}</CardTitle>
-            <Badge variant="secondary" className="text-xs">
-              {selectedCount} {selectedCount === 1 ? 'service' : 'services'}
-            </Badge>
-          </div>
-          
-          <div className="flex items-center gap-2 w-full sm:w-auto justify-center sm:justify-end">
+      return (
+      <Card className={`transition-all duration-200 ${isEditMode ? 'ring-2 ring-blue-500 shadow-lg' : ''} mx-2 sm:mx-0`}>
+        <CardHeader className="pb-3 px-4 sm:px-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+              <CardTitle className="text-base sm:text-lg font-semibold truncate">{brand} {deviceType === 'phones' ? 'phones' : 'laptops'}</CardTitle>
+              <Badge variant="secondary" className="text-xs flex-shrink-0">
+                {selectedCount} {selectedCount === 1 ? 'service' : 'services'}
+              </Badge>
+            </div>
+            
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-center sm:justify-end">
             {!isEditMode ? (
               <>
                 <Button 
                   variant="outline" 
                   size="sm"
                   onClick={() => setIsEditMode(true)}
-                  className="text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-2"
+                  className="text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-2 w-full sm:w-auto"
                 >
                   Edit
                 </Button>
@@ -294,7 +294,7 @@ const BrandCard: React.FC<BrandCardProps> = ({
                   variant="destructive" 
                   size="sm"
                   onClick={handleDeleteBrand}
-                  className="text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-2"
+                  className="text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-2 w-full sm:w-auto"
                 >
                   Delete Brand
                 </Button>
@@ -305,7 +305,7 @@ const BrandCard: React.FC<BrandCardProps> = ({
                   size="sm"
                   onClick={handleSave}
                   disabled={!hasChanges || isSaving}
-                  className="bg-green-600 hover:bg-green-700 text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-2"
+                  className="bg-green-600 hover:bg-green-700 text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-2 w-full sm:w-auto"
                 >
                   {isSaving ? 'Saving...' : 'Save Changes'}
                 </Button>
@@ -314,7 +314,7 @@ const BrandCard: React.FC<BrandCardProps> = ({
                   size="sm"
                   onClick={handleCancel}
                   disabled={isSaving}
-                  className="text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-2"
+                  className="text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-2 w-full sm:w-auto"
                 >
                   Cancel
                 </Button>
@@ -324,7 +324,7 @@ const BrandCard: React.FC<BrandCardProps> = ({
         </div>
       </CardHeader>
       
-      <CardContent className="pt-0 px-4 sm:px-6">
+              <CardContent className="pt-0 px-3 sm:px-6">
         <div className="space-y-3">
           {editedIssues.map((issue) => (
             <div key={issue.id} className="flex flex-col sm:flex-row items-start sm:items-center gap-3 p-3 sm:p-4 rounded-lg border hover:bg-gray-50">
@@ -973,8 +973,8 @@ export default function NewTierPricingTab() {
     }
   };
 
-  return (
-    <div className="space-y-4 sm:space-y-6 px-2 sm:px-0">
+      return (
+      <div className="space-y-4 sm:space-y-6 px-3 sm:px-0">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         <div className="text-center sm:text-left">
@@ -1046,21 +1046,21 @@ export default function NewTierPricingTab() {
                 </div>
               </div>
 
-              {/* OEM/HQ Info Banner */}
-              {pricingData.issues.some(issue => issue.partType) && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <div className="flex items-start space-x-3">
-                    <InfoIcon className="w-5 h-5 text-blue-500 mt-0.5" />
-                    <div>
-                      <h4 className="font-medium text-blue-900">OEM vs HQ Pricing</h4>
-                      <p className="text-sm text-blue-700 mt-1">
-                        Screen Replacement offers two quality options: <strong>OEM</strong> (Original Equipment Manufacturer) parts are premium quality, 
-                        while <strong>HQ</strong> (High Quality) parts are cost-effective alternatives. Price them accordingly.
-                      </p>
+                              {/* OEM/HQ Info Banner */}
+                {pricingData.issues.some(issue => issue.partType) && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
+                    <div className="flex items-start space-x-2 sm:space-x-3">
+                      <InfoIcon className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <h4 className="font-medium text-blue-900 text-sm sm:text-base">OEM vs HQ Pricing</h4>
+                        <p className="text-xs sm:text-sm text-blue-700 mt-1">
+                          Screen Replacement offers two quality options: <strong>OEM</strong> (Original Equipment Manufacturer) parts are premium quality, 
+                          while <strong>HQ</strong> (High Quality) parts are cost-effective alternatives. Price them accordingly.
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
 
               {/* Issues Selection */}
               {pricingData.brand && (
@@ -1094,8 +1094,8 @@ export default function NewTierPricingTab() {
                     </div>
                   ) : (
                     <div className="border rounded-lg overflow-hidden">
-                      {/* Mobile Card Layout */}
-                      <div className="lg:hidden space-y-4 p-4">
+                      {/* Mobile & Tablet Card Layout */}
+                      <div className="lg:hidden space-y-4 p-3 sm:p-4">
                         {pricingData.issues.length === 0 ? (
                           <div className="text-center py-8">
                             <div className="text-gray-400 mb-2">
@@ -1108,25 +1108,28 @@ export default function NewTierPricingTab() {
                           </div>
                         ) : (
                           pricingData.issues.map((issue) => (
-                            <Card key={issue.id} className="p-4">
+                            <Card key={issue.id} className="p-3 sm:p-4">
                               <div className="space-y-3">
                                 <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-2">
+                                  <div className="flex items-center gap-2 min-w-0 flex-1">
                                     <Checkbox
                                       checked={issue.isSelected}
                                       onCheckedChange={(checked: boolean | string) => 
                                         handleIssueUpdate(issue.id, { isSelected: !!checked })
                                       }
+                                      className="flex-shrink-0"
                                     />
-                                    <span className="font-medium text-sm">{issue.name}</span>
-                                    {issue.partType && (
-                                      <Badge 
-                                        variant="outline" 
-                                        className="text-xs"
-                                      >
-                                        {issue.partType}
-                                      </Badge>
-                                    )}
+                                    <div className="min-w-0 flex-1">
+                                      <span className="font-medium text-sm block truncate">{issue.name}</span>
+                                      {issue.partType && (
+                                        <Badge 
+                                          variant="outline" 
+                                          className="text-xs mt-1"
+                                        >
+                                          {issue.partType}
+                                        </Badge>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
                                 
@@ -1141,7 +1144,7 @@ export default function NewTierPricingTab() {
                                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
                                           handleIssueUpdate(issue.id, { basicPrice: parseInt(e.target.value) || 0 })
                                         }
-                                        className="text-sm text-center"
+                                        className="text-sm text-center h-10"
                                       />
                                     </div>
                                     <div>
@@ -1153,7 +1156,7 @@ export default function NewTierPricingTab() {
                                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
                                           handleIssueUpdate(issue.id, { standardPrice: parseInt(e.target.value) || 0 })
                                         }
-                                        className="text-sm text-center"
+                                        className="text-sm text-center h-10"
                                       />
                                     </div>
                                     <div>
@@ -1165,7 +1168,7 @@ export default function NewTierPricingTab() {
                                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
                                           handleIssueUpdate(issue.id, { premiumPrice: parseInt(e.target.value) || 0 })
                                         }
-                                        className="text-sm text-center"
+                                        className="text-sm text-center h-10"
                                       />
                                     </div>
                                   </div>
@@ -1287,195 +1290,11 @@ export default function NewTierPricingTab() {
                         </div>
                       </div>
 
-                      {/* Mobile Card Layout */}
-                      <div className="lg:hidden space-y-4">
-                        {pricingData.issues.map((issue) => (
-                          <div key={issue.id} className="border rounded-lg p-4 space-y-3">
-                            <div className="flex items-center gap-3">
-                              <Checkbox
-                                checked={issue.isSelected}
-                                onCheckedChange={(checked: boolean | string) => 
-                                  handleIssueUpdate(issue.id, { isSelected: !!checked })
-                                }
-                              />
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="font-medium">{issue.name}</span>
-                                  {issue.partType && (
-                                    <Badge 
-                                      variant="outline" 
-                                      className={
-                                        issue.partType === 'OEM' 
-                                          ? 'bg-green-50 text-green-700 border-green-200' 
-                                          : 'bg-orange-50 text-orange-700 border-orange-200'
-                                      }
-                                    >
-                                      {issue.partType}
-                                    </Badge>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
 
-                            {issue.isSelected && (
-                              <div className="grid grid-cols-3 gap-3">
-                                <div className="space-y-1">
-                                  <label className="text-xs text-gray-500 font-medium">Basic (₹)</label>
-                                  <Input
-                                    type="number"
-                                    placeholder={getPlaceholder(issue, 'basic')}
-                                    value={issue.basicPrice || ''}
-                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
-                                      handleIssueUpdate(issue.id, { basicPrice: parseInt(e.target.value) || 0 })
-                                    }
-                                    className="h-10 text-center"
-                                  />
-                                </div>
-                                
-                                <div className="space-y-1">
-                                  <label className="text-xs text-gray-500 font-medium">Standard (₹)</label>
-                                  <Input
-                                    type="number"
-                                    placeholder={getPlaceholder(issue, 'standard')}
-                                    value={issue.standardPrice || ''}
-                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
-                                      handleIssueUpdate(issue.id, { standardPrice: parseInt(e.target.value) || 0 })
-                                    }
-                                    className="h-10 text-center"
-                                  />
-                                </div>
-                                
-                                <div className="space-y-1">
-                                  <label className="text-xs text-gray-500 font-medium">Premium (₹)</label>
-                                  <Input
-                                    type="number"
-                                    placeholder={getPlaceholder(issue, 'premium')}
-                                    value={issue.premiumPrice || ''}
-                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
-                                      handleIssueUpdate(issue.id, { premiumPrice: parseInt(e.target.value) || 0 })
-                                    }
-                                    className="h-10 text-center"
-                                  />
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Status Badge */}
-                            <div className="flex justify-end">
-                              {issue.isSelected && issue.basicPrice && issue.standardPrice && issue.premiumPrice ? (
-                                <Badge variant="default" className="bg-green-100 text-green-800">
-                                  <CheckCircle2 className="w-3 h-3 mr-1" />
-                                  Ready
-                                </Badge>
-                              ) : issue.isSelected ? (
-                                <Badge variant="outline" className="text-orange-600 border-orange-300">
-                                  Incomplete
-                                </Badge>
-                              ) : (
-                                <Badge variant="outline" className="text-gray-500">
-                                  Not Selected
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
                     </div>
                   )}
 
-                  {/* Mobile Card Layout */}
-                  <div className="lg:hidden space-y-4">
-                    {pricingData.issues.map((issue) => (
-                      <div key={issue.id} className="border rounded-lg p-4 space-y-3">
-                        <div className="flex items-center gap-3">
-                          <Checkbox
-                            checked={issue.isSelected}
-                            onCheckedChange={(checked: boolean | string) => 
-                              handleIssueUpdate(issue.id, { isSelected: !!checked })
-                            }
-                          />
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-medium">{issue.name}</span>
-                              {issue.partType && (
-                                <Badge 
-                                  variant="outline" 
-                                  className={
-                                    issue.partType === 'OEM' 
-                                      ? 'bg-green-50 text-green-700 border-green-200' 
-                                      : 'bg-orange-50 text-orange-700 border-orange-200'
-                                  }
-                                >
-                                  {issue.partType}
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                        </div>
 
-                        {issue.isSelected && (
-                          <div className="grid grid-cols-3 gap-3">
-                            <div className="space-y-1">
-                              <label className="text-xs text-gray-500 font-medium">Basic (₹)</label>
-                              <Input
-                                type="number"
-                                placeholder={getPlaceholder(issue, 'basic')}
-                                value={issue.basicPrice || ''}
-                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
-                                  handleIssueUpdate(issue.id, { basicPrice: parseInt(e.target.value) || 0 })
-                                }
-                                className="h-10 text-center"
-                              />
-                            </div>
-                            
-                            <div className="space-y-1">
-                              <label className="text-xs text-gray-500 font-medium">Standard (₹)</label>
-                              <Input
-                                type="number"
-                                placeholder={getPlaceholder(issue, 'standard')}
-                                value={issue.standardPrice || ''}
-                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
-                                  handleIssueUpdate(issue.id, { standardPrice: parseInt(e.target.value) || 0 })
-                                }
-                                className="h-10 text-center"
-                              />
-                            </div>
-                            
-                            <div className="space-y-1">
-                              <label className="text-xs text-gray-500 font-medium">Premium (₹)</label>
-                              <Input
-                                type="number"
-                                placeholder={getPlaceholder(issue, 'premium')}
-                                value={issue.premiumPrice || ''}
-                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
-                                  handleIssueUpdate(issue.id, { premiumPrice: parseInt(e.target.value) || 0 })
-                                }
-                                className="h-10 text-center"
-                              />
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Status Badge */}
-                        <div className="flex justify-end">
-                          {issue.isSelected && issue.basicPrice && issue.standardPrice && issue.premiumPrice ? (
-                            <Badge variant="default" className="bg-green-100 text-green-800">
-                              <CheckCircle2 className="w-3 h-3 mr-1" />
-                              Ready
-                            </Badge>
-                          ) : issue.isSelected ? (
-                            <Badge variant="outline" className="text-orange-600 border-orange-300">
-                              Incomplete
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="text-gray-500">
-                              Not Selected
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
                 </div>
               )}
 
@@ -1514,20 +1333,20 @@ export default function NewTierPricingTab() {
                 </Button>
               </div>
 
-              {/* 🚀 NEW: Bulk Pricing Section */}
-              {pricingData.brand && pricingData.issues.length > 0 && (
-                <div className="mt-6 p-4 border rounded-lg bg-gray-50">
-                  <div className="flex items-center gap-2 mb-4">
-                    <Copy className="w-5 h-5 text-blue-600" />
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      Apply {pricingData.brand} Pricing to Other Brands
-                    </h3>
-                  </div>
-                  
-                  <p className="text-gray-600 mb-4">
-                    Set pricing once for {pricingData.brand} and apply it to multiple brands at once. 
-                    You can still set individual pricing for any brand later.
-                  </p>
+                              {/* 🚀 NEW: Bulk Pricing Section */}
+                {pricingData.brand && pricingData.issues.length > 0 && (
+                  <div className="mt-6 p-3 sm:p-4 border rounded-lg bg-gray-50">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Copy className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 flex-shrink-0" />
+                      <h3 className="text-base sm:text-lg font-semibold text-gray-900">
+                        Apply {pricingData.brand} Pricing to Other Brands
+                      </h3>
+                    </div>
+                    
+                    <p className="text-gray-600 mb-4 text-sm">
+                      Set pricing once for {pricingData.brand} and apply it to multiple brands at once. 
+                      You can still set individual pricing for any brand later.
+                    </p>
 
                   {/* Brand Selection */}
                   <div className="space-y-4">

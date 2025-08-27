@@ -142,8 +142,8 @@ export default function ProviderDashboardPage() {
       
       // Phase 1: Load critical user data first (fastest)
       const userRes = await databases.listDocuments(
-        DATABASE_ID,
-        "User",
+            DATABASE_ID,
+            "User",
         [Query.equal("user_id", user!.id), Query.limit(1)]
       );
       const userDoc = userRes.documents[0];
@@ -151,8 +151,8 @@ export default function ProviderDashboardPage() {
       
       // Phase 2: Load provider status (fast)
       const providerRes = await databases.listDocuments(
-        DATABASE_ID,
-        "providers",
+            DATABASE_ID,
+            "providers",
         [Query.equal("providerId", user!.id), Query.limit(1)]
       );
       const providerDoc = providerRes.documents[0];
@@ -160,28 +160,28 @@ export default function ProviderDashboardPage() {
       
       // Phase 3: Load business setup (medium)
       const businessRes = await databases.listDocuments(
-        DATABASE_ID,
-        "business_setup",
+            DATABASE_ID,
+            "business_setup",
         [Query.equal("user_id", user!.id), Query.limit(1)]
       );
-      const businessDoc = businessRes.documents[0];
-      
-      // Process business setup data
-      let onboarding: any = {};
-      try {
-        onboarding = businessDoc ? JSON.parse(businessDoc.onboarding_data || '{}') : {};
-        ['personalDetails', 'businessSetup', 'serviceSetup'].forEach(key => {
-          if ((onboarding as any)[key] && typeof (onboarding as any)[key] === 'string') {
-            try { (onboarding as any)[key] = JSON.parse((onboarding as any)[key]); } catch {}
+        const businessDoc = businessRes.documents[0];
+
+        // Process business setup data
+        let onboarding: any = {};
+        try {
+          onboarding = businessDoc ? JSON.parse(businessDoc.onboarding_data || '{}') : {};
+          ['personalDetails', 'businessSetup', 'serviceSetup'].forEach(key => {
+            if ((onboarding as any)[key] && typeof (onboarding as any)[key] === 'string') {
+              try { (onboarding as any)[key] = JSON.parse((onboarding as any)[key]); } catch {}
+            }
+          });
+          if ((onboarding as any).businessSetup && (onboarding as any).businessSetup.business && typeof (onboarding as any).businessSetup.business === 'string') {
+            try { (onboarding as any).businessSetup.business = JSON.parse((onboarding as any).businessSetup.business); } catch {}
           }
-        });
-        if ((onboarding as any).businessSetup && (onboarding as any).businessSetup.business && typeof (onboarding as any).businessSetup.business === 'string') {
-          try { (onboarding as any).businessSetup.business = JSON.parse((onboarding as any).businessSetup.business); } catch {}
-        }
-        if ((onboarding as any).serviceSetup && typeof (onboarding as any).serviceSetup === 'string') {
-          try { (onboarding as any).serviceSetup = JSON.parse((onboarding as any).serviceSetup); } catch {}
-        }
-      } catch { onboarding = {}; }
+          if ((onboarding as any).serviceSetup && typeof (onboarding as any).serviceSetup === 'string') {
+            try { (onboarding as any).serviceSetup = JSON.parse((onboarding as any).serviceSetup); } catch {}
+          }
+        } catch { onboarding = {}; }
       
       setBusinessSetup(onboarding);
       
@@ -192,9 +192,9 @@ export default function ProviderDashboardPage() {
         [Query.equal("provider_id", user!.id)]
       );
       const bookings = bookingsRes.documents as any[];
-      
-      // Stats calculations
-      const totalBookings = bookings.length;
+
+        // Stats calculations
+        const totalBookings = bookings.length;
       const completedBookings = bookings.filter((b: any) => b.status === "completed");
       const totalRevenue = completedBookings.reduce((sum: number, b: any) => sum + (b.total_amount || 0), 0);
       const ratedBookings = bookings.filter((b: any) => b.rating && b.rating > 0);
@@ -276,7 +276,7 @@ export default function ProviderDashboardPage() {
       
       setHasCachedData(true);
       
-    } catch (error) {
+      } catch (error) {
       console.error('Error in fetchDataWithCache:', error);
       
       if (error instanceof Error && error.message === 'Circuit breaker is OPEN') {
@@ -790,7 +790,7 @@ export default function ProviderDashboardPage() {
 
               {/* Content State - Show if we have data (cached or fresh) */}
               {(hasCachedData || (!isDataLoading && !dataError)) && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   {/* Profile Info */}
                   <div className="space-y-4">
                     <div className="flex items-center gap-4">
@@ -905,9 +905,9 @@ export default function ProviderDashboardPage() {
                 </ShadTabsList>
                 <ShadTabsContent value="upcoming">
                   {bookingsByTab.length === 0 ? (
-                    <div className="py-10 text-center text-muted-foreground">No upcoming bookings.</div>
+                    <div className="py-8 sm:py-10 text-center text-muted-foreground text-sm sm:text-base">No upcoming bookings.</div>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                       {bookingsByTab.map(booking => (
                         <Card key={booking.$id} className="shadow-sm border hover:shadow-md transition-shadow">
                           <CardHeader className="flex flex-row items-center justify-between pb-3">
@@ -984,9 +984,9 @@ export default function ProviderDashboardPage() {
                 </ShadTabsContent>
                 <ShadTabsContent value="completed">
                   {bookingsByTab.length === 0 ? (
-                    <div className="py-10 text-center text-muted-foreground">No completed bookings.</div>
+                    <div className="py-8 sm:py-10 text-center text-muted-foreground text-sm sm:text-base">No completed bookings.</div>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                       {bookingsByTab.map(booking => (
                         <Card key={booking.$id} className="shadow-sm border hover:shadow-md transition-shadow">
                           <CardHeader className="flex flex-row items-center justify-between pb-3">
@@ -1040,9 +1040,9 @@ export default function ProviderDashboardPage() {
                 </ShadTabsContent>
                 <ShadTabsContent value="cancelled">
                   {bookingsByTab.length === 0 ? (
-                    <div className="py-10 text-center text-muted-foreground">No cancelled bookings.</div>
+                    <div className="py-8 sm:py-10 text-center text-muted-foreground text-sm sm:text-base">No cancelled bookings.</div>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                       {bookingsByTab.map(booking => (
                         <Card key={booking.$id} className="shadow-sm border hover:shadow-md transition-shadow">
                           <CardHeader className="flex flex-row items-center justify-between pb-3">
@@ -1152,7 +1152,7 @@ export default function ProviderDashboardPage() {
           exit={{ opacity: 0, y: -16 }}
           transition={{ duration: 0.25 }}
         >
-                          <NewTierPricingTab />
+          <NewTierPricingTab />
         </motion.div>
       )
     }
@@ -1302,53 +1302,53 @@ export default function ProviderDashboardPage() {
       {/* Dashboard Content */}
       {!isLoading && (
         <>
-          {/* Edit Availability Modal */}
-          {editAvailabilityOpen && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-              <div className="bg-white rounded-lg shadow-lg max-w-lg w-full p-6 relative">
-                <button className="absolute top-2 right-2 text-gray-500 hover:text-gray-700" onClick={() => setEditAvailabilityOpen(false)}>&times;</button>
-                <ServiceSetupStep
-                  data={availabilityEditData || {}}
-                  setData={setAvailabilityEditData}
-                  onNext={async () => {
-                    setEditAvailabilityOpen(false);
-                    setTab('overview');
+      {/* Edit Availability Modal */}
+      {editAvailabilityOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+          <div className="bg-white rounded-lg shadow-lg max-w-lg w-full p-6 relative">
+            <button className="absolute top-2 right-2 text-gray-500 hover:text-gray-700" onClick={() => setEditAvailabilityOpen(false)}>&times;</button>
+            <ServiceSetupStep
+              data={availabilityEditData || {}}
+              setData={setAvailabilityEditData}
+              onNext={async () => {
+                setEditAvailabilityOpen(false);
+                setTab('overview');
                     // Refresh data after availability update
                     handleRefresh();
-                  }}
-                  onPrev={() => setEditAvailabilityOpen(false)}
-                />
-              </div>
+              }}
+              onPrev={() => setEditAvailabilityOpen(false)}
+            />
+          </div>
+        </div>
+      )}
+      {/* Decline Reason Modal */}
+      {declineModalOpen && bookingToDecline && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+          <div className="bg-white rounded-lg shadow-lg max-w-md w-full p-6 relative">
+            <h3 className="text-lg font-semibold mb-4">Reason for Declining Booking</h3>
+            <textarea
+              className="w-full p-2 border rounded-md mb-4"
+              rows={4}
+              value={declineReason}
+              onChange={(e) => setDeclineReason(e.target.value)}
+              placeholder="Enter reason for declining the booking..."
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setDeclineModalOpen(false)}>Cancel</Button>
+              <Button variant="destructive" onClick={handleDeclineSubmit}>Decline</Button>
             </div>
-          )}
-          {/* Decline Reason Modal */}
-          {declineModalOpen && bookingToDecline && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-              <div className="bg-white rounded-lg shadow-lg max-w-md w-full p-6 relative">
-                <h3 className="text-lg font-semibold mb-4">Reason for Declining Booking</h3>
-                <textarea
-                  className="w-full p-2 border rounded-md mb-4"
-                  rows={4}
-                  value={declineReason}
-                  onChange={(e) => setDeclineReason(e.target.value)}
-                  placeholder="Enter reason for declining the booking..."
-                />
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setDeclineModalOpen(false)}>Cancel</Button>
-                  <Button variant="destructive" onClick={handleDeclineSubmit}>Decline</Button>
-                </div>
-              </div>
-            </div>
-          )}
-          <EnhancedTabs 
-            tabs={tabs} 
-            defaultValue={tab} 
-            className="w-full"
+          </div>
+        </div>
+      )}
+              <EnhancedTabs 
+                tabs={tabs} 
+                defaultValue={tab} 
+                className="w-full"
             onTabChange={(newTab) => {
               console.log('🔄 [TAB-CHANGE] Switching to:', newTab);
               setTab(newTab);
             }}
-          />
+              />
           {/* Data Loading Indicator */}
           {isDataLoading && tab === "overview" && (
             <div className="mt-4 text-center">
@@ -1360,6 +1360,6 @@ export default function ProviderDashboardPage() {
           )}
         </>
       )}
-    </div>
+          </div>
   );
 }
