@@ -61,8 +61,6 @@ export function useNotifications() {
   useEffect(() => {
     if (!user?.id || !activeRole || isSubscribedRef.current) return;
 
-
-    
     // Clean up any existing subscription
     if (subscriptionRef.current) {
       subscriptionRef.current();
@@ -74,29 +72,28 @@ export function useNotifications() {
       user.id,
       activeRole,
       (newNotification) => {
-
-        
         setNotifications(prev => {
-          // Prevent duplicate notifications
-          const exists = prev.find(n => n.id === newNotification.id);
-          if (exists) {
-
-            return prev;
+          // 🆕 FIXED: Check if this is a truly new notification or an update
+          const existingIndex = prev.findIndex(n => n.id === newNotification.id);
+          
+          if (existingIndex >= 0) {
+            // Update existing notification (for Fiverr-style grouping)
+            const updated = [...prev];
+            updated[existingIndex] = newNotification;
+            return updated;
+          } else {
+            // Add new notification at the beginning
+            const updated = [newNotification, ...prev];
+            
+            // Keep only latest 50 notifications
+            return updated.slice(0, 50);
           }
-          
-          // Add new notification at the beginning
-          const updated = [newNotification, ...prev];
-          
-          // Keep only latest 50 notifications
-          return updated.slice(0, 50);
         });
         
-        // Update unread count
-        setUnreadCount(prev => {
-          const newCount = prev + 1;
-
-          return newCount;
-        });
+        // 🆕 FIXED: Only increment unread count for truly new notifications
+        if (!newNotification.read) {
+          setUnreadCount(prev => prev + 1);
+        }
       }
     );
 
@@ -110,7 +107,6 @@ export function useNotifications() {
         subscriptionRef.current = null;
       }
       isSubscribedRef.current = false;
-
     };
   }, [user?.id, activeRole]);
 

@@ -20,7 +20,7 @@ export async function fetchCustomerData(customerId: string) {
         };
       }
     } catch (error) {
-      // Silently handle customer fetch errors
+      console.log('Customer not found in customers collection, trying user collection...');
     }
     
     // Fallback to user collection
@@ -109,7 +109,7 @@ export async function fetchProviderData(providerId: string) {
         }
       }
     } catch (error) {
-      // Silently handle business_setup fetch errors
+      console.log('Provider not found in business_setup collection...');
     }
     
     // Try providers collection

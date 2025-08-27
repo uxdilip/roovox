@@ -22,7 +22,7 @@ interface ToastNotification {
 
 export function ChatToastNotification({ 
   position = 'bottom-right', 
-  duration = 1000, 
+  duration = 4000, // 🆕 FIXED: Increased from 1000ms to 4000ms (4 seconds)
   soundEnabled = true 
 }: ChatToastNotificationProps) {
   const { chatNotifications } = useNotifications();
@@ -31,11 +31,47 @@ export function ChatToastNotification({
   const processedRef = useRef<Set<string>>(new Set());
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
+  // 🆕 DEBUG: Log duration prop to verify it's being used
+  useEffect(() => {
+    // Duration prop verification removed for production
+  }, [duration]);
+
+  // 🆕 FIXED: Load processed notifications from localStorage on mount
+  useEffect(() => {
+    if (user?.id && typeof window !== 'undefined') {
+      const storageKey = `toast_processed_${user.id}`;
+      const stored = localStorage.getItem(storageKey);
+      if (stored) {
+        try {
+          const processedIds = JSON.parse(stored);
+          processedRef.current = new Set(processedIds);
+        } catch (error) {
+          console.error('🔔 [TOAST DEBUG] Error loading processed notifications from localStorage:', error);
+        }
+      }
+    }
+  }, [user?.id]);
+
+  // 🆕 FIXED: Save processed notifications to localStorage
+  const saveProcessedToStorage = (notificationId: string) => {
+    if (user?.id && typeof window !== 'undefined') {
+      const storageKey = `toast_processed_${user.id}`;
+      processedRef.current.add(notificationId);
+      
+      try {
+        const processedIds = Array.from(processedRef.current);
+        localStorage.setItem(storageKey, JSON.stringify(processedIds));
+      } catch (error) {
+        console.error('🔔 [TOAST DEBUG] Error saving to localStorage:', error);
+      }
+    }
+  };
+
   // Create audio element for ding sound
   useEffect(() => {
     if (soundEnabled && typeof window !== 'undefined') {
       audioRef.current = new Audio();
-      audioRef.current.src = 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2m98OScTgwOUarm7blmGgU7k9n1unEiBC13yO/eizEIHWq+8+OWT';
+      audioRef.current.src = 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2m98OScT';
       audioRef.current.volume = 0.3;
     }
   }, [soundEnabled]);
@@ -54,74 +90,73 @@ export function ChatToastNotification({
   useEffect(() => {
     if (!user?.id || chatNotifications.length === 0) return;
 
-
-
-    // Find unread notifications that haven't been processed yet
-    const newUnreadNotifications = chatNotifications.filter(n => 
-      !n.read && !processedRef.current.has(n.id)
-    );
+    // 🆕 FIXED: Process notifications with smart filtering
+    const now = Date.now();
+    const newNotifications = chatNotifications.filter(n => {
+      // Skip if already processed
+      if (processedRef.current.has(n.id)) {
+        return false;
+      }
+      
+      // 🆕 FIXED: Skip very old notifications (older than 1 hour) to prevent flood on reload
+      const notificationTime = new Date(n.createdAt).getTime();
+      const isOld = (now - notificationTime) > (60 * 60 * 1000); // 1 hour
+      
+      if (isOld) {
+        // Mark old notifications as processed to avoid re-processing
+        processedRef.current.add(n.id);
+        return false;
+      }
+      
+      return true;
+    });
     
-
-    
-    if (newUnreadNotifications.length > 0) {
+    if (newNotifications.length > 0) {
       // Process each new notification
-      newUnreadNotifications.forEach(notification => {
-        // Extract sender name from metadata or message
-        let senderName = 'Someone';
-        if (notification.metadata?.senderName) {
-          senderName = notification.metadata.senderName;
-        } else if (notification.message.includes('from ')) {
-          senderName = notification.message.split('from ')[1];
+      newNotifications.forEach(notification => {
+        // 🆕 FIXED: Check if this notification should skip toast
+        if ((notification as any).skipToast) {
+          // Mark as processed but don't show toast
+          saveProcessedToStorage(notification.id);
+          return;
         }
 
-        // Create toast notification
+        // 🆕 FIXED: Use Fiverr-style fields for better content
+        const senderName = notification.senderName || 'Someone';
+        const messagePreview = notification.messagePreview || notification.message;
+
+        // Create toast notification with Fiverr-style format
         const newToast: ToastNotification = {
           id: notification.id,
-          title: notification.title,
-          message: notification.message,
-          senderName: notification.senderName || 'Someone',
+          title: `${senderName}: ${messagePreview}`, // 🆕 FIXED: "Sender: Message" format
+          message: messagePreview, // Show actual message content
+          senderName: senderName,
           timestamp: new Date()
         };
-
-        // 🆕 NEW: Use Fiverr-style content for better UX
-        const fiverrToast: ToastNotification = {
-          id: notification.id,
-          title: notification.senderName || 'New Message',
-          message: notification.messagePreview || notification.message,
-          senderName: notification.senderName || 'Someone',
-          timestamp: new Date()
-        };
-
-
 
         // Add to toasts array
         setToasts(prev => {
           // Prevent duplicate toasts
           const exists = prev.find(t => t.id === newToast.id);
           if (exists) {
-    
             return prev;
           }
           
-  
           return [...prev, newToast];
         });
 
-        // Mark as processed using ref to avoid re-render issues
-        processedRef.current.add(notification.id);
+        // 🆕 FIXED: Mark as processed and save to localStorage
+        saveProcessedToStorage(notification.id);
 
         // Play sound for new message
         playDingSound();
 
-        // Auto-remove toast after duration
+        // 🆕 FIXED: Auto-remove toast after duration (now 4 seconds)
         const toastId = newToast.id;
-
         
         setTimeout(() => {
-  
           setToasts(prev => {
             const filtered = prev.filter(t => t.id !== toastId);
-    
             return filtered;
           });
         }, duration);
