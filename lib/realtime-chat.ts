@@ -249,11 +249,12 @@ export class RealtimeChatService {
             // Get sender name for notification
             let senderName = 'Someone';
             try {
-              // Detect sender type and fetch appropriate name
+              // 🆕 ENHANCED: Detect sender type and fetch appropriate name
               const senderType = message.sender_type || 'customer';
+              console.log('🔔 [FIVERR] Sender type detected:', senderType);
               
               if (senderType === 'provider') {
-                // Provider: Fetch business name from business_setup collection
+                // 🏢 PROVIDER: Fetch business name from business_setup collection
                 try {
                   const businessSetupResponse = await databases.listDocuments(
                     DATABASE_ID,
@@ -268,9 +269,10 @@ export class RealtimeChatService {
                         const parsedData = JSON.parse(onboardingData);
                         if (parsedData.businessInfo?.businessName) {
                           senderName = parsedData.businessInfo.businessName;
+                          console.log('🔔 [FIVERR] Found provider business name from business_setup:', senderName);
                         }
                       } catch (parseError) {
-                        // Silently handle parsing errors
+                        console.log('🔔 [FIVERR] Error parsing business_setup onboarding_data:', parseError);
                       }
                     }
                   }
@@ -285,9 +287,11 @@ export class RealtimeChatService {
                     
                     if (userResponse.documents.length > 0) {
                       senderName = userResponse.documents[0].name;
+                      console.log('🔔 [FIVERR] Found provider name from User collection (fallback):', senderName);
                     }
                   }
                 } catch (businessError) {
+                  console.log('🔔 [FIVERR] Error fetching business_setup, trying User collection...');
                   // Fallback to User collection
                   const userResponse = await databases.listDocuments(
                     DATABASE_ID,
@@ -297,10 +301,11 @@ export class RealtimeChatService {
                   
                   if (userResponse.documents.length > 0) {
                     senderName = userResponse.documents[0].name;
+                    console.log('🔔 [FIVERR] Found provider name from User collection (fallback):', senderName);
                   }
                 }
               } else {
-                // Customer: Fetch customer name from customers collection
+                // 👤 CUSTOMER: Fetch customer name from customers collection
                 try {
                   const customerResponse = await databases.listDocuments(
                     DATABASE_ID,
@@ -310,9 +315,10 @@ export class RealtimeChatService {
                   
                   if (customerResponse.documents.length > 0) {
                     senderName = customerResponse.documents[0].full_name;
+                    console.log('🔔 [FIVERR] Found customer name from customers collection:', senderName);
                   }
                 } catch (customerError) {
-                  // Silently handle customer fetch errors
+                  console.log('🔔 [FIVERR] Customer not found in customers collection, trying User collection...');
                 }
                 
                 // Fallback to User collection if customer not found
@@ -325,12 +331,15 @@ export class RealtimeChatService {
                   
                   if (senderUser.documents.length > 0) {
                     senderName = senderUser.documents[0].name;
+                    console.log('🔔 [FIVERR] Found customer name from User collection (fallback):', senderName);
                   }
                 }
               }
               
+              console.log('🔔 [FIVERR] Final sender name for notification:', senderName);
+              
             } catch (error) {
-              console.error('Error fetching sender name:', error);
+              console.error('🔔 [FIVERR] Error fetching sender name:', error);
               // Keep default 'Someone' if all queries fail
             }
 
@@ -361,7 +370,7 @@ export class RealtimeChatService {
           }
         }
       } catch (notificationError) {
-        console.error('Error creating notification:', notificationError);
+        console.error('🔔 [FIVERR] Error creating notification:', notificationError);
         // Silently handle notification errors
       }
 

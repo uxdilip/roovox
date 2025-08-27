@@ -62,11 +62,16 @@ class NotificationService {
     }
   ): Promise<{ success: boolean; notification?: Notification; error?: string; skipped?: boolean; updated?: boolean }> {
     try {
-      // Smart notification logic - check if user is actively viewing this conversation
+      // 🔔 NEW: Smart notification logic - check if user is actively viewing this conversation
       if (options?.skipIfActiveChat && data.relatedId) {
         const isActive = await this.isUserActiveInChat(data.userId, data.relatedId);
         
         if (isActive) {
+          console.log('🔔 [FRESH] Skipping notification - user is actively viewing this conversation:', {
+            conversationId: data.relatedId,
+            userId: data.userId,
+            isActive
+          });
           return { success: true, skipped: true };
         }
       }
@@ -131,9 +136,14 @@ class NotificationService {
    */
   private async createOrUpdateChatNotification(data: CreateNotificationData): Promise<{ success: boolean; notification?: Notification; error?: string; updated?: boolean }> {
     try {
+      // Create unique key for this sender-recipient pair
       const uniqueKey = `chat_${data.senderId}_${data.userId}`;
+      
+      // Check if notification already exists for this sender-recipient pair
       const existingNotifications = await databases.listDocuments(
-        DATABASE_ID, 'notifications', [
+        DATABASE_ID,
+        'notifications',
+        [
           Query.equal('unique_key', uniqueKey),
           Query.equal('user_id', data.userId),
           Query.equal('type', 'message'),
@@ -142,7 +152,9 @@ class NotificationService {
       );
 
       if (existingNotifications.documents.length > 0) {
+        // 🎯 UPDATE: Existing notification found - update it with new message
         const existing = existingNotifications.documents[0];
+        
         const updateData: any = {
           message: data.message,
           message_preview: data.messagePreview || data.message,
@@ -150,8 +162,21 @@ class NotificationService {
           updated_at: new Date().toISOString(),
           metadata: data.metadata ? JSON.stringify(data.metadata) : existing.metadata
         };
-        const updatedNotification = await databases.updateDocument(DATABASE_ID, 'notifications', existing.$id, updateData);
-        
+
+        const updatedNotification = await databases.updateDocument(
+          DATABASE_ID,
+          'notifications',
+          existing.$id,
+          updateData
+        );
+
+        console.log('🔔 [FIVERR] Updated existing notification:', {
+          notificationId: existing.$id,
+          senderId: data.senderId,
+          recipientId: data.userId,
+          messagePreview: data.messagePreview || data.message
+        });
+
         const notification: Notification = {
           id: updatedNotification.$id,
           type: updatedNotification.type,
@@ -163,18 +188,20 @@ class NotificationService {
           userType: updatedNotification.user_type,
           relatedId: updatedNotification.related_id,
           relatedType: updatedNotification.related_type,
-          read: updatedNotification.is_read,
+          read: updatedNotification.read,
           createdAt: updatedNotification.created_at,
-          metadata: updatedNotification.metadata,
-          senderId: updatedNotification.sender_id,
-          senderName: updatedNotification.sender_name,
+          metadata: updatedNotification.metadata ? JSON.parse(updatedNotification.metadata) : {},
+          senderId: data.senderId,
+          senderName: data.senderName,
           messagePreview: updatedNotification.message_preview,
           lastMessageAt: updatedNotification.last_message_at,
           uniqueKey: updatedNotification.unique_key
         };
-        
+
         return { success: true, notification, updated: true };
+
       } else {
+        // 🆕 CREATE: New notification - first message from this sender
         const notificationData: any = {
           type: data.type,
           category: data.category,
@@ -185,7 +212,9 @@ class NotificationService {
           user_type: data.userType,
           related_id: data.relatedId,
           related_type: data.relatedType,
-          is_read: false,
+          read: false,
+          metadata: data.metadata ? JSON.stringify(data.metadata) : '{}',
+          // 🆕 NEW: Fiverr-style fields
           sender_id: data.senderId,
           sender_name: data.senderName,
           message_preview: data.messagePreview || data.message,
@@ -195,12 +224,20 @@ class NotificationService {
           updated_at: new Date().toISOString()
         };
 
-        if (data.metadata) {
-          notificationData.metadata = JSON.stringify(data.metadata);
-        }
+        const result = await databases.createDocument(
+          DATABASE_ID,
+          'notifications',
+          ID.unique(),
+          notificationData
+        );
 
-        const result = await databases.createDocument(DATABASE_ID, 'notifications', ID.unique(), notificationData);
-        
+        console.log('🔔 [FIVERR] Created new notification:', {
+          notificationId: result.$id,
+          senderId: data.senderId,
+          recipientId: data.userId,
+          messagePreview: data.messagePreview || data.message
+        });
+
         const notification: Notification = {
           id: result.$id,
           type: result.type,
@@ -212,20 +249,21 @@ class NotificationService {
           userType: result.user_type,
           relatedId: result.related_id,
           relatedType: result.related_type,
-          read: result.is_read,
+          read: result.read,
           createdAt: result.created_at,
-          metadata: result.metadata,
+          metadata: result.metadata ? JSON.parse(result.metadata) : {},
           senderId: result.sender_id,
           senderName: result.sender_name,
           messagePreview: result.message_preview,
           lastMessageAt: result.last_message_at,
           uniqueKey: result.unique_key
         };
-        
+
         return { success: true, notification, updated: false };
       }
+
     } catch (error) {
-      console.error('Error in smart chat notification:', error);
+      console.error('🔔 [FIVERR] ❌ Error in smart chat notification:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
   }
@@ -272,7 +310,7 @@ class NotificationService {
       return { success: true, notifications };
 
     } catch (error) {
-      console.error('Error fetching notifications:', error);
+      console.error('🔔 [FRESH] Error fetching notifications:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
   }
@@ -295,7 +333,7 @@ class NotificationService {
       return { success: true };
 
     } catch (error) {
-      console.error('Error marking notification as read:', error);
+      console.error('🔔 [FRESH] Error marking notification as read:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
   }
