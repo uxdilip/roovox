@@ -61,7 +61,15 @@ export function useRealtimeChat({ userId, userType }: UseRealtimeChatProps): Use
         setError(result.error || 'Failed to fetch conversations');
       }
     } catch (error) {
-      setError('An unexpected error occurred');
+      // Provide more specific error messaging for connection issues
+      if (error instanceof Error && error.message.includes('fetch')) {
+        setError('Unable to connect to chat service. Please check your internet connection.');
+      } else if (error instanceof Error && error.message.includes('Appwrite')) {
+        setError('Chat service is temporarily unavailable. Please try again later.');
+      } else {
+        setError('An unexpected error occurred');
+      }
+      setConnectionStatus('disconnected');
     } finally {
       setLoading(false);
     }

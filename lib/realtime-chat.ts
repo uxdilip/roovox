@@ -402,13 +402,14 @@ export class RealtimeChatService {
         callback({ userId, isTyping });
       }
       
-      // Also try to create a temporary document for real-time sync
-      // This is a workaround to use Appwrite's real-time features
-      // In production, you might use a dedicated typing indicators collection
-      // or implement WebSocket channels
+      // TODO: In production, implement real-time typing indicators using:
+      // 1. Appwrite's real-time channels with custom events
+      // 2. A dedicated typing_indicators collection with TTL
+      // 3. WebSocket channels for ephemeral data
+      // 
+      // For now, the local callback system works within the same browser session
+      // but won't sync across different users or browser tabs
       
-      // For now, we'll rely on the local callback system but ensure 
-      // it's properly connected across the application
     } catch (error) {
       console.error('Error sending typing indicator:', error);
     }
