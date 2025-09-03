@@ -34,6 +34,15 @@ function loadRazorpayScript() {
   });
 }
 
+function filterPaymentOptions(serviceMode: string) {
+  console.log('🔍 [PAYMENT] Filtering payment options for serviceMode:', serviceMode);
+  
+  // ✅ CORRECTED LOGIC: Both in-store and doorstep show both payment options
+  // This maintains the original behavior where both service types had both payment options
+  console.log('✅ [PAYMENT] Showing both payment options for all service types (original behavior)');
+  return PAYMENT_OPTIONS; // Both options available for all service types
+}
+
 export default function PaymentOptionsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -41,6 +50,25 @@ export default function PaymentOptionsPage() {
   const [loading, setLoading] = useState(false);
   const [amount, setAmount] = useState<number | null>(null);
   const [bookingData, setBookingData] = useState<any>(null);
+  const [availablePaymentOptions, setAvailablePaymentOptions] = useState(PAYMENT_OPTIONS);
+
+  // ✅ NEW: Function to filter payment options based on service type
+  const filterPaymentOptionsByServiceType = (data: any) => {
+    const serviceMode = data.serviceMode || 'doorstep'; // Default to doorstep if not specified
+    const filteredOptions = filterPaymentOptions(serviceMode);
+    setAvailablePaymentOptions(filteredOptions);
+    
+    // Reset selected option if it's no longer available
+    if (selected && !filteredOptions.some(opt => opt.value === selected)) {
+      setSelected(null);
+    }
+    
+    console.log('🔍 [PAYMENT] Payment options updated:', {
+      serviceMode,
+      availableOptions: filteredOptions.map(opt => opt.value),
+      previouslySelected: selected
+    });
+  };
 
   useEffect(() => {
     // Clean up old session data (older than 1 hour)
@@ -74,6 +102,10 @@ export default function PaymentOptionsPage() {
           setBookingData(data);
           // Use the price from offer data if available
           setAmount(data.price || data.total_amount || 0);
+          
+          // ✅ NEW: Filter payment options based on service type
+          filterPaymentOptionsByServiceType(data);
+          
           console.log('✅ Booking data loaded from sessionStorage:', data);
         } else {
           // Fallback: try to get from session key if provided
@@ -84,6 +116,10 @@ export default function PaymentOptionsPage() {
               const data = JSON.parse(storedData);
               setBookingData(data);
               setAmount(data.total_amount);
+              
+              // ✅ NEW: Filter payment options based on service type
+              filterPaymentOptionsByServiceType(data);
+              
               console.log('✅ Booking data loaded from session key:', data);
             } else {
               throw new Error('No booking data found in session');
@@ -261,7 +297,7 @@ export default function PaymentOptionsPage() {
           <div className="text-3xl font-bold text-primary mb-2">₹{amount !== null ? amount.toLocaleString() : "..."}</div>
         </div>
         <div className="space-y-6">
-          {PAYMENT_OPTIONS.map((opt) => (
+          {availablePaymentOptions.map((opt) => (
             <Card
               key={opt.value}
               className={`flex items-center gap-4 p-5 cursor-pointer border-2 transition-all rounded-xl shadow-sm ${selected === opt.value ? "border-primary bg-primary/5" : "border-gray-200 bg-white hover:border-primary/50"}`}

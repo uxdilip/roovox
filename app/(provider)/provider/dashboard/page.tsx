@@ -195,7 +195,7 @@ export default function ProviderDashboardPage() {
 
         // Stats calculations
         const totalBookings = bookings.length;
-      const completedBookings = bookings.filter((b: any) => b.status === "completed");
+      const completedBookings = bookings.filter((b: any) => ["completed", "pending_cod_collection"].includes(b.status));
       const totalRevenue = completedBookings.reduce((sum: number, b: any) => sum + (b.total_amount || 0), 0);
       const ratedBookings = bookings.filter((b: any) => b.rating && b.rating > 0);
       const averageRating = ratedBookings.length > 0 ? (ratedBookings.reduce((sum: number, b: any) => sum + b.rating, 0) / ratedBookings.length) : null;
@@ -521,7 +521,7 @@ export default function ProviderDashboardPage() {
     if (bookingsTab === "upcoming") {
       filtered = filtered.filter(b => ["pending", "confirmed", "in_progress"].includes(b.status));
     } else if (bookingsTab === "completed") {
-      filtered = filtered.filter(b => b.status === "completed");
+      filtered = filtered.filter(b => ["completed", "pending_cod_collection"].includes(b.status));
     } else if (bookingsTab === "cancelled") {
       filtered = filtered.filter(b => b.status === "cancelled");
     }
@@ -897,7 +897,7 @@ export default function ProviderDashboardPage() {
                     Upcoming ({bookings.filter(b => ["pending", "confirmed", "in_progress"].includes(b.status)).length})
                   </ShadTabsTrigger>
                   <ShadTabsTrigger value="completed" className="flex-1">
-                    Completed ({bookings.filter(b => b.status === "completed").length})
+                    Completed ({bookings.filter(b => ["completed", "pending_cod_collection"].includes(b.status)).length})
                   </ShadTabsTrigger>
                   <ShadTabsTrigger value="cancelled" className="flex-1">
                     Cancelled ({bookings.filter(b => b.status === "cancelled").length})
@@ -1175,45 +1175,38 @@ export default function ProviderDashboardPage() {
         }
         console.log('Setting status to cancelled with reason:', declineReason);
       } else if (action === "complete") {
-        // Check if this is a COD booking
-        if (booking.payment_status === "pending") {
-          if (booking.location_type === "doorstep") {
-            // COD + Doorstep: Mark as completed directly (platform handles verification)
-            update.status = "completed";
-            update.payment_status = "completed";
-            console.log('🔍 [BOOKING-ACTION] COD + Doorstep: Marking as completed (platform handles COD verification)');
-          } else {
-            // ✅ FIXED: COD + Instore: Mark as completed and create commission collection
-            update.status = "completed";
-            update.payment_status = "completed";
-            console.log('🔍 [BOOKING-ACTION] COD + Instore: Setting status to completed and payment_status to completed');
-            
-            // Create commission collection record
-            try {
-              await createCommissionCollection(booking.$id, booking.provider_id);
-              console.log('✅ Commission collection record created for booking:', booking.$id);
-            } catch (error) {
-              console.error('❌ Error creating commission collection:', error);
-              // Don't fail the booking completion if commission collection fails
-            }
-          }
-        } else {
-          // Online payment: Just mark as completed
-          update.status = "completed";
-          console.log('🔍 [BOOKING-ACTION] Online payment: Setting status to completed');
-        }
+        // Always use the API endpoint which handles COD logic properly
+        update.status = "completed";
+        console.log('🔍 [BOOKING-ACTION] Marking booking as completed via API');
       }
       update.updated_at = new Date().toISOString();
       console.log('Updating booking with:', update);
-      await databases.updateDocument(
-        DATABASE_ID,
-        "bookings",
-        booking.$id,
-        update
+      
+      // Use API endpoint instead of direct database update to ensure COD logic is applied
+      const response = await fetch(`/api/bookings?id=${booking.$id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(update),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to update booking');
+      }
+      
+      const updatedBooking = await response.json();
+      console.log('✅ Booking updated via API:', updatedBooking);
+      
+      // Update the booking in the local state instead of page reload
+      setBookings(prevBookings => 
+        prevBookings.map(b => 
+          b.$id === booking.$id ? { ...b, ...update } : b
+        )
       );
+      
       toast.success("Booking updated!");
-      // Refresh bookings
-      setBookings((prev) => prev.map(b => b.$id === booking.$id ? { ...b, ...update } : b));
+      
       // Close decline modal if it was open
       if (action === "decline") {
         setDeclineModalOpen(false);

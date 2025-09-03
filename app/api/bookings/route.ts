@@ -159,9 +159,117 @@ export async function PUT(request: NextRequest) {
     
     // Validate status if provided
     if (updateData.status) {
-      const validStatuses = ['pending', 'confirmed', 'in_progress', 'completed', 'cancelled'];
+      const validStatuses = ['pending', 'confirmed', 'in_progress', 'completed', 'cancelled', 'pending_cod_collection'];
       if (!validStatuses.includes(updateData.status)) {
         return NextResponse.json({ error: 'Invalid status value' }, { status: 400 });
+      }
+    }
+
+    // Special handling for COD orders when marking as completed
+    if (updateData.status === 'completed') {
+      // Get the current booking to check payment method
+      const currentBooking = await databases.getDocument(
+        DATABASE_ID,
+        COLLECTIONS.BOOKINGS,
+        bookingId
+      );
+      
+      // Check if this is a COD order by looking at payment records
+      try {
+        const paymentsResponse = await databases.listDocuments(
+          DATABASE_ID,
+          COLLECTIONS.PAYMENTS,
+          [Query.equal("booking_id", bookingId)]
+        );
+        
+        let isCODOrder = false;
+        let paymentRecord = null;
+        if (paymentsResponse.documents.length > 0) {
+          paymentRecord = paymentsResponse.documents[0];
+          console.log("🔍 Payment record found:", paymentRecord);
+          isCODOrder = paymentRecord.payment_method === "COD";
+        } else {
+          console.log("🔍 No payment record found, checking booking payment_status");
+          // Fallback: check booking's payment_status
+          isCODOrder = currentBooking.payment_status === "pending";
+        }
+        
+        console.log("🔍 COD Order Check:", { 
+          isCODOrder, 
+          bookingId, 
+          paymentRecords: paymentsResponse.documents.length,
+          location_type: currentBooking.location_type 
+        });
+        
+        // If this is a COD order
+        if (isCODOrder) {
+          // ✅ NEW: Different handling for doorstep vs in-store COD orders
+          if (currentBooking.location_type === 'provider_location') {
+            // In-store COD: Mark as completed and create commission collection
+            console.log("🏪 In-store COD order: Marking as completed and creating commission collection");
+            updateData.status = 'completed';
+            updateData.payment_status = 'completed';
+            
+            // Create commission collection record for in-store COD
+            try {
+              // Calculate commission (10% of total amount)
+              const commissionAmount = paymentRecord ? paymentRecord.commission_amount : (currentBooking.total_amount * 0.10);
+              
+              console.log('💰 Creating commission collection record:', {
+                booking_id: bookingId,
+                provider_id: currentBooking.provider_id,
+                commission_amount: commissionAmount
+              });
+              
+              // Create commission collection record directly
+              const commissionCollection = await databases.createDocument(
+                DATABASE_ID,
+                'commission_collections',
+                'unique()',
+                {
+                  booking_id: bookingId,
+                  provider_id: currentBooking.provider_id,
+                  commission_amount: commissionAmount,
+                  collection_method: 'upi',
+                  status: 'pending',
+                  due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString()
+                }
+              );
+              
+              console.log('✅ Commission collection created for in-store COD:', commissionCollection.$id);
+              
+              // Update payment record if it exists to mark commission tracking started
+              if (paymentRecord) {
+                try {
+                  await databases.updateDocument(
+                    DATABASE_ID,
+                    COLLECTIONS.PAYMENTS,
+                    paymentRecord.$id,
+                    {
+                      is_commission_settled: false,
+                      updated_at: new Date().toISOString()
+                    }
+                  );
+                  console.log('✅ Payment record updated for commission tracking');
+                } catch (paymentUpdateError) {
+                  console.error('⚠️ Error updating payment record (non-fatal):', paymentUpdateError);
+                }
+              }
+            } catch (commissionError) {
+              console.error('❌ Error creating commission collection (non-fatal):', commissionError);
+              // Don't fail the booking completion if commission creation fails
+            }
+          } else {
+            // Doorstep COD: Set to pending_cod_collection (existing behavior)
+            console.log("🚪 Doorstep COD order: Setting to pending_cod_collection");
+            updateData.status = 'pending_cod_collection';
+          }
+        }
+      } catch (error) {
+        console.error("Error checking payment method for COD handling:", error);
+        // Continue with original status if payment check fails
       }
     }
 
@@ -257,6 +365,8 @@ function getStatusChangeMessage(status: string, deviceName: string): string {
       return `Your ${deviceName} repair has been confirmed by the provider`;
     case 'in_progress':
       return `Your ${deviceName} repair has started`;
+    case 'pending_cod_collection':
+      return `Your ${deviceName} repair has been completed. Our team will collect the payment shortly.`;
     case 'completed':
       return `Your ${deviceName} repair has been completed`;
     case 'cancelled':
@@ -280,3 +390,6 @@ function getProviderStatusMessage(status: string, deviceName: string): string {
       return `${deviceName} repair status updated`;
   }
 }
+
+// Export PATCH as an alias to PUT for compatibility
+export const PATCH = PUT;
