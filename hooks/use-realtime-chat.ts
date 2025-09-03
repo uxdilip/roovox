@@ -80,19 +80,16 @@ export function useRealtimeChat({ userId, userType }: UseRealtimeChatProps): Use
       }
     );
 
-    // ✅ NEW: Monitor connection health
+    // Monitor connection health - check every 60 seconds instead of 30
     const connectionMonitor = setInterval(() => {
-      // If we haven't received updates in 30 seconds, mark as disconnected
-      setConnectionStatus('disconnected');
-      
-      // Try to reconnect
+      // Try to refresh conversations to check connectivity
       setConnectionStatus('reconnecting');
       loadConversations(); // This will trigger a refresh
       
       setTimeout(() => {
         setConnectionStatus('connected');
-      }, 2000);
-    }, 30000); // Check every 30 seconds
+      }, 3000); // Give more time for the connection to establish
+    }, 60000); // Check every 60 seconds for more reasonable monitoring
 
     return () => {
       unsubscribe();
@@ -124,15 +121,15 @@ export function useRealtimeChat({ userId, userType }: UseRealtimeChatProps): Use
 
     loadMessages();
 
-    // Aggressive fallback mechanism - check every 500ms
-    // This ensures messages are received even if real-time fails
+    // Fallback mechanism - check every 5 seconds instead of 500ms
+    // This ensures messages are received even if real-time fails without being too aggressive
     const fallbackInterval = setInterval(async () => {
       try {
         const result = await realtimeChat.getMessages(selectedConversation.id);
         if (result.success && result.messages) {
           const latestMessages = result.messages.reverse();
           setMessages(prev => {
-            // Only update if we have new messages
+            // Only update if we have new messages and avoid excessive updates
             if (latestMessages.length > prev.length) {
               return latestMessages;
             }
@@ -142,7 +139,7 @@ export function useRealtimeChat({ userId, userType }: UseRealtimeChatProps): Use
       } catch (error) {
         // Silently handle fallback errors
       }
-    }, 500); // Check every 500ms for faster fallback
+    }, 5000); // Check every 5 seconds for more reasonable fallback
 
     // Subscribe to new messages
     const unsubscribe = realtimeChat.subscribeToMessages(
