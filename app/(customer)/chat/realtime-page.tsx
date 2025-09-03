@@ -118,7 +118,7 @@ export default function RealtimeChatPage() {
     if (user?.id) {
       loadConversations();
     }
-  }, [user?.id]);
+  }, [user?.id, loadConversations]);
 
   // Subscribe to real-time conversation updates
   useEffect(() => {
@@ -186,7 +186,7 @@ export default function RealtimeChatPage() {
     );
 
     return () => unsubscribe();
-  }, [selectedConversation, scrollToBottom, userHasScrolled]);
+  }, [selectedConversation, scrollToBottom, userHasScrolled, loadMessages]);
 
   // Subscribe to typing indicators
   useEffect(() => {
@@ -213,7 +213,7 @@ export default function RealtimeChatPage() {
   }, [selectedConversation, user?.id]);
 
   // Load conversations
-  const loadConversations = async () => {
+  const loadConversations = useCallback(async () => {
     if (!user?.id) return;
 
     try {
@@ -236,10 +236,10 @@ export default function RealtimeChatPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.id, fetchProviderProfile]);
 
   // Load messages for a conversation
-  const loadMessages = async (conversationId: string) => {
+  const loadMessages = useCallback(async (conversationId: string) => {
     try {
       const result = await realtimeChat.getMessages(conversationId);
       
@@ -252,7 +252,7 @@ export default function RealtimeChatPage() {
     } catch (error) {
       setError('An unexpected error occurred');
     }
-  };
+  }, [scrollToBottom]);
 
   // Send message with optimistic updates
   const handleSendMessage = async () => {

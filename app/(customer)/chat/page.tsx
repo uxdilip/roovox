@@ -276,7 +276,7 @@ export default function ChatPage() {
         }
       }
     }
-  }, [conversations, selectedConversation, searchParams]);
+  }, [conversations, selectedConversation, searchParams, setSelectedConversation]);
 
   // Fetch offers when conversation is selected
   useEffect(() => {
