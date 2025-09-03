@@ -105,6 +105,7 @@ export default function CustomerDashboard() {
         // Extract unique provider IDs for batch fetching
         const uniqueProviderIds = [...new Set(bookingsResponse.documents.map(b => b.provider_id))];
         const uniqueDeviceIds = [...new Set(bookingsResponse.documents.map(b => b.device_id))];
+        const uniqueBookingIds = [...new Set(bookingsResponse.documents.map(b => b.$id))];
 
         // Batch fetch all provider data in parallel
         const providerDataPromises = uniqueProviderIds.map(async (providerId) => {
@@ -213,15 +214,38 @@ export default function CustomerDashboard() {
           }
         });
 
+        // Batch fetch all payment data in parallel
+        const paymentDataPromises = uniqueBookingIds.map(async (bookingId) => {
+          try {
+            const paymentsResponse = await databases.listDocuments(
+              process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+              'payments',
+              [Query.equal("booking_id", bookingId)]
+            );
+            
+            const payment = paymentsResponse.documents[0];
+            return {
+              bookingId,
+              paymentMethod: payment?.payment_method || "online", // Default to online if no record
+              paymentStatus: payment?.status || "pending"
+            };
+          } catch (error) {
+            console.error("Error fetching payment data:", error);
+            return { bookingId, paymentMethod: "online", paymentStatus: "pending" }; // Default to online
+          }
+        });
+
         // Wait for all batch operations to complete
-        const [providerData, deviceData] = await Promise.all([
+        const [providerData, deviceData, paymentData] = await Promise.all([
           Promise.all(providerDataPromises),
-          Promise.all(deviceDataPromises)
+          Promise.all(deviceDataPromises),
+          Promise.all(paymentDataPromises)
         ]);
 
         // Create lookup maps for fast access
         const providerMap = new Map(providerData.map(p => [p.providerId, p]));
         const deviceMap = new Map(deviceData.map(d => [d.deviceId, d]));
+        const paymentMap = new Map(paymentData.map(p => [p.bookingId, p]));
 
         // ✅ FIXED: Combine all data efficiently with device_info fallback
         const bookingsWithDetails = bookingsResponse.documents.map(booking => {
@@ -234,6 +258,10 @@ export default function CustomerDashboard() {
             deviceBrand: "Unknown Device", 
             deviceModel: "", 
             deviceImage: "" 
+          };
+          const paymentInfo = paymentMap.get(booking.$id) || { 
+            paymentMethod: "online", 
+            paymentStatus: "pending" 
           };
 
           // ✅ FIXED: Use device_info if available, otherwise fall back to device lookup
@@ -297,19 +325,8 @@ export default function CustomerDashboard() {
               image_url: deviceInfo.deviceImage
             },
             payment: {
-              // ✅ FIXED: Use same payment method logic as provider dashboard
-              payment_method: (() => {
-                // If we have a specific payment method from the database, use it
-                if (booking.payment_method) {
-                  return booking.payment_method;
-                }
-                // Otherwise, determine based on payment status (same logic as provider dashboard)
-                if (booking.payment_status === "pending") {
-                  return "COD"; // Pending payments are typically COD
-                } else {
-                  return "Online"; // Completed payments are typically online
-                }
-              })(),
+              // ✅ SIMPLE: Use actual payment method from payment record
+              payment_method: paymentInfo.paymentMethod,
               status: booking.payment_status || "pending"
             }
           };

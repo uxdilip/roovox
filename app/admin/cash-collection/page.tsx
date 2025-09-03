@@ -168,6 +168,13 @@ export default function CashCollectionPage() {
     try {
       setConfirmingBooking(bookingId);
       
+      // Get booking details for payment record
+      const bookingDetails = await databases.getDocument(
+        process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+        'bookings',
+        bookingId
+      );
+
       // Update booking status to completed
       await databases.updateDocument(
         process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
@@ -179,6 +186,49 @@ export default function CashCollectionPage() {
           updated_at: new Date().toISOString()
         }
       );
+
+      // Create or update payment record to maintain COD payment method
+      try {
+        const paymentsResponse = await databases.listDocuments(
+          process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+          'payments',
+          [Query.equal("booking_id", bookingId)]
+        );
+
+        if (paymentsResponse.documents.length > 0) {
+          // Update existing payment record
+          const paymentId = paymentsResponse.documents[0].$id;
+          await databases.updateDocument(
+            process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+            'payments',
+            paymentId,
+            {
+              status: 'completed',
+              payment_method: 'COD', // Ensure it stays as COD
+              updated_at: new Date().toISOString()
+            }
+          );
+        } else {
+          // Create new payment record
+          await databases.createDocument(
+            process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+            'payments',
+            'unique()',
+            {
+              booking_id: bookingId,
+              payment_method: 'COD',
+              status: 'completed',
+              amount: bookingDetails.total_amount,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            }
+          );
+        }
+        console.log('✅ Payment record updated/created for COD collection');
+      } catch (error) {
+        console.error('❌ Error updating payment record:', error);
+        // Don't fail the cash collection if payment record update fails
+      }
 
       toast({
         title: "Success",

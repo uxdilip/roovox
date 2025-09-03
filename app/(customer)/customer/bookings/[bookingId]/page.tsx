@@ -149,6 +149,44 @@ export default function BookingDetailsPage() {
           console.error("Error fetching provider details:", providerError);
         }
 
+        // Fetch payment details
+        let paymentData = null;
+        try {
+          const paymentsResponse = await databases.listDocuments(
+            process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+            'payments',
+            [Query.equal("booking_id", bookingResponse.$id)]
+          );
+          
+          console.log("🔍 Customer: Payment records found:", paymentsResponse.documents.length);
+          
+          if (paymentsResponse.documents.length > 0) {
+            const payment = paymentsResponse.documents[0];
+            console.log("🔍 Customer: Payment method from record:", payment.payment_method);
+            paymentData = {
+              payment_method: payment.payment_method,
+              status: payment.status,
+              transaction_id: payment.transaction_id
+            };
+          } else {
+            console.log("🔍 Customer: No payment record found, defaulting to online");
+            // Simple fallback: default to online if no payment record exists
+            paymentData = {
+              payment_method: "online",
+              status: bookingResponse.payment_status,
+              transaction_id: null
+            };
+          }
+        } catch (error) {
+          console.error("Error fetching payment details:", error);
+          // Simple fallback: default to online if payment fetch fails
+          paymentData = {
+            payment_method: "online",
+            status: bookingResponse.payment_status,
+            transaction_id: null
+          };
+        }
+
         // Set booking with all details
         const bookingData = {
           ...bookingResponse,
@@ -163,7 +201,8 @@ export default function BookingDetailsPage() {
             phone: providerPhone,
             averageRating: providerRating,
             totalReviews: providerReviews
-          }
+          },
+          payment: paymentData
         } as unknown as Booking;
         
         setBooking(bookingData);
@@ -222,6 +261,8 @@ export default function BookingDetailsPage() {
         return "bg-blue-100 text-blue-800 border-blue-200";
       case "completed":
         return "bg-green-100 text-green-800 border-green-200";
+      case "pending_cod_collection":
+        return "bg-yellow-100 text-yellow-800 border-yellow-200";
       case "cancelled":
         return "bg-red-100 text-red-800 border-red-200";
       default:
@@ -239,6 +280,23 @@ export default function BookingDetailsPage() {
         return "bg-red-100 text-red-800 border-red-200";
       default:
         return "bg-gray-100 text-gray-800 border-gray-200";
+    }
+  };
+
+  const getStatusDisplayText = (status: string) => {
+    switch (status) {
+      case "pending_cod_collection":
+        return "Service Completed - Cash Collection Pending";
+      case "confirmed":
+        return "Confirmed";
+      case "completed":
+        return "Completed";
+      case "cancelled":
+        return "Cancelled";
+      case "in_progress":
+        return "In Progress";
+      default:
+        return status.charAt(0).toUpperCase() + status.slice(1);
     }
   };
 
@@ -393,7 +451,7 @@ export default function BookingDetailsPage() {
                 </div>
               </div>
               <Badge className={`px-4 py-2 text-sm font-medium border ${getStatusColor(booking.status)}`}>
-                {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                {getStatusDisplayText(booking.status)}
               </Badge>
             </div>
 
@@ -516,6 +574,21 @@ export default function BookingDetailsPage() {
                     }
                   </Badge>
                 </div>
+
+                {/* Special message for COD orders pending collection */}
+                {booking.status === "pending_cod_collection" && booking.payment?.payment_method === "COD" && (
+                  <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="h-5 w-5 text-yellow-600" />
+                      <div>
+                        <p className="text-sm font-medium text-yellow-800">Service Completed</p>
+                        <p className="text-sm text-yellow-700">
+                          Your device has been repaired successfully. Our team will collect the payment of ₹{booking.total_amount.toLocaleString()} shortly.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {booking.payment?.transaction_id && (
                   <div className="pt-3 border-t border-gray-100">
