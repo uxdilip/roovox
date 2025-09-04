@@ -20,7 +20,6 @@ export async function fetchCustomerData(customerId: string) {
         };
       }
     } catch (error) {
-      console.log('Customer not found in customers collection, trying user collection...');
     }
     
     // Fallback to user collection
@@ -109,7 +108,6 @@ export async function fetchProviderData(providerId: string) {
         }
       }
     } catch (error) {
-      console.log('Provider not found in business_setup collection...');
     }
     
     // Try providers collection
@@ -131,7 +129,6 @@ export async function fetchProviderData(providerId: string) {
         }
       }
     } catch (error) {
-      console.log('Provider not found in providers collection...');
     }
     
     // Try user collection as fallback
@@ -151,7 +148,6 @@ export async function fetchProviderData(providerId: string) {
         };
       }
     } catch (error) {
-      console.log('Provider not found in user collection either');
     }
     
     throw new Error('Provider not found in any collection');

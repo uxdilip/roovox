@@ -19,7 +19,6 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    console.log('🔍 [VERIFY-COMMISSION] Verifying commission payment:', {
       commission_id,
       razorpay_payment_id,
       razorpay_order_id
@@ -96,7 +95,6 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      console.log('✅ [VERIFY-COMMISSION] Commission payment verified and completed');
 
       return NextResponse.json({ 
         success: true,

@@ -92,7 +92,6 @@ export function BookingForm({
         ? (!s.partType || normalizePartType(s.partType) === normalizePartType(issueObj.partType))
         : true; // For non-screen issues, always match part type
       
-      console.log('🔍 findProviderServiceMatch:', {
         serviceIssue: s.issue,
         selectedIssue: issueObj.name || issueObj.id,
         servicePartType: s.partType,
@@ -306,22 +305,18 @@ export function BookingForm({
       total_amount: selectedIssues && selectedIssues.length > 0
         ? selectedIssues.reduce((sum, issueObj) => {
             let price = Math.round((service.base_price || 0) * (partQuality.price_multiplier || 1));
-            console.log('🔍 Total amount calculation - Starting with base price:', price, 'for issue:', issueObj.name);
             
             // Use the same matching logic as ProviderCard
             const match = findProviderServiceMatch(issueObj);
             
             if (match && match.price) {
               price = match.price;
-              console.log('✅ Total amount calculation - Using provider price:', price, 'for issue:', issueObj.name);
             } else {
-              console.log('❌ Total amount calculation - No provider match found, using fallback price:', price, 'for issue:', issueObj.name);
             }
             return sum + price;
           }, 0)
         : (() => {
             let price = Math.round(service.base_price * partQuality.price_multiplier);
-            console.log('🔍 Total amount calculation (fallback) - Starting with base price:', price, 'for service:', service.name);
             
             // For single service, try to match using the service name
             if (providerServices && Array.isArray(providerServices)) {
@@ -331,9 +326,7 @@ export function BookingForm({
               
               if (match && match.price) {
                 price = match.price;
-                console.log('✅ Total amount calculation (fallback) - Using provider price:', price, 'for service:', service.name);
               } else {
-                console.log('❌ Total amount calculation (fallback) - No provider match found, using fallback price:', price, 'for service:', service.name);
               }
             }
             return price;
@@ -729,14 +722,12 @@ export function BookingForm({
                             // Use provider's warranty if available
                             if (match && match.warranty) {
                               warrantyText = match.warranty;
-                              console.log('✅ Using provider warranty:', match.warranty, 'for issue:', issueObj.name, 'match details:', {
                                 issue: match.issue,
                                 price: match.price,
                                 partType: match.partType,
                                 warranty: match.warranty
                               });
                             } else {
-                              console.log('❌ No provider warranty found for issue:', issueObj.name, 'match:', match);
                             }
                             
                             return (
@@ -765,9 +756,7 @@ export function BookingForm({
                         
                         if (match && match.price) {
                           price = match.price;
-                          console.log('✅ Using provider price:', price, 'for issue:', issueObj.name);
                         } else {
-                          console.log('❌ No provider match found, using fallback price:', price, 'for issue:', issueObj.name);
                         }
                         
                         return (

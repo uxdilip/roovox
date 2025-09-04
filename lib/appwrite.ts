@@ -20,22 +20,12 @@ export const GOOGLE_OAUTH_ENABLED = process.env.NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED
 
 // OAuth utility functions
 export const createGoogleOAuthSession = async (successUrl: string, failureUrl: string) => {
-  console.log('🔐 Attempting Google OAuth...', {
-    enabled: GOOGLE_OAUTH_ENABLED,
-    successUrl,
-    failureUrl,
-    endpoint: process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT,
-    projectId: process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID,
-    appUrl: process.env.NEXT_PUBLIC_APP_URL
-  });
-
   if (!GOOGLE_OAUTH_ENABLED) {
     throw new Error('Google OAuth is not enabled. Please contact support.');
   }
   
   try {
     const result = await account.createOAuth2Session('google' as any, successUrl, failureUrl);
-    console.log('✅ Google OAuth session created successfully:', result);
     return result;
   } catch (error) {
     console.error('❌ Google OAuth error:', error);

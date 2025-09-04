@@ -127,10 +127,6 @@ export const CustomQuoteRequestModal: React.FC<CustomQuoteRequestModalProps> = (
 
   // Handle form submission
   const handleFormSubmit = async (data: QuoteRequestFormData) => {
-    console.log('🔍 Form submission triggered with data:', data);
-    console.log('🔍 Form errors:', errors);
-    console.log('🔍 Form valid:', isValid);
-    console.log('🔍 isSubmitting:', isSubmitting);
     
     if (!user) {
       alert('Please log in to submit a quote request.');
@@ -138,7 +134,6 @@ export const CustomQuoteRequestModal: React.FC<CustomQuoteRequestModalProps> = (
     }
     
     // Don't check isValid, let's see what happens
-    console.log('🚀 Proceeding with submission...');
 
     setIsSubmitting(true);
     try {
@@ -159,7 +154,6 @@ export const CustomQuoteRequestModal: React.FC<CustomQuoteRequestModalProps> = (
       };
 
       // Check for existing conversation first
-      console.log('🔍 Checking for existing conversation...');
       const existingResult = await getExistingConversation(user.id, provider.id);
       
       let conversationId: string;
@@ -167,7 +161,6 @@ export const CustomQuoteRequestModal: React.FC<CustomQuoteRequestModalProps> = (
       if (existingResult.success && existingResult.conversation) {
         // Use existing conversation and update context
         conversationId = existingResult.conversation.id;
-        console.log('✅ Using existing conversation:', conversationId);
         
         // Update conversation with new device/service context
         await updateConversationContext(
@@ -181,7 +174,6 @@ export const CustomQuoteRequestModal: React.FC<CustomQuoteRequestModalProps> = (
         );
       } else {
         // Create new conversation
-        console.log('🚀 Creating new conversation...');
         const conversationResult = await createConversation(
           user.id,
           provider.id,
@@ -198,11 +190,9 @@ export const CustomQuoteRequestModal: React.FC<CustomQuoteRequestModalProps> = (
         }
         
         conversationId = conversationResult.conversationId;
-        console.log('✅ Created new conversation:', conversationId);
       }
 
       // Send quote request as first message
-      console.log('🚀 Sending quote request message...');
       const messageContent = `Quote request for ${device.brand} ${device.model}:
 Services needed: ${selectedIssues.map(issue => issue.name || issue.id).join(', ')}
 Timeline: ${data.timeline}
@@ -230,10 +220,8 @@ Requirements: ${data.requirements}`;
         throw new Error('Failed to send quote request message');
       }
 
-      console.log('🚀 Calling onSubmit with data:', requestData);
       await onSubmit(requestData);
       
-      console.log('✅ Quote request submitted and conversation created successfully');
       // Reset form and close modal
       reset();
       onClose();
@@ -468,7 +456,6 @@ Requirements: ${data.requirements}`;
                 type="submit"
                 disabled={isSubmitting}
                 className="flex-1"
-                onClick={() => console.log('🖱️ Send Request button clicked!')}
               >
                 {isSubmitting ? (
                   <>

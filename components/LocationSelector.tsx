@@ -35,7 +35,6 @@ async function updateUserLocationByUserId(userId: string, locationData: any) {
       'User',
       docId
     );
-    console.log('🔍 Updated user doc:', updatedDoc);
   }
 }
 
@@ -93,7 +92,6 @@ export default function LocationSelector({ onClose, onSelect, onLocationUpdate }
       if (user) {
         try {
           await updateUserLocationByUserId(user.id, locationData);
-          console.log('✅ Location updated in user collection from LocationSelector');
         } catch (error) {
           console.error('❌ Error updating location in user collection:', error);
         }
@@ -135,7 +133,6 @@ export default function LocationSelector({ onClose, onSelect, onLocationUpdate }
           if (user) {
             try {
               await updateUserLocationByUserId(user.id, locationData);
-              console.log('✅ Current location updated in user collection');
             } catch (error) {
               console.error('❌ Error updating current location in user collection:', error);
             }

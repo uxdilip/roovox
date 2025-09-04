@@ -36,7 +36,6 @@ export async function updatePhonePrices(): Promise<UpdateResult> {
   };
 
   try {
-    console.log('🔄 Starting phone price update process...');
     
     // Get all phones from database with pagination
     let allPhones: any[] = [];
@@ -55,7 +54,6 @@ export async function updatePhonePrices(): Promise<UpdateResult> {
       );
 
       const phones = phonesResponse.documents;
-      console.log(`📱 Fetched ${phones.length} phones (offset: ${offset})`);
       
       if (phones.length === 0) {
         break; // No more phones to process
@@ -71,7 +69,6 @@ export async function updatePhonePrices(): Promise<UpdateResult> {
       }
     }
 
-    console.log(`📱 Total phones found: ${allPhones.length}`);
 
     // Process each phone
     for (const phone of allPhones) {
@@ -103,7 +100,6 @@ export async function updatePhonePrices(): Promise<UpdateResult> {
             tier: manualPrice.complexity_tier
           });
           
-          console.log(`✅ Updated: ${brand} ${model} - ₹${manualPrice.market_price_inr} (${manualPrice.complexity_tier})`);
         } else {
           // No manual price data, suggest tier based on brand
           const suggestedTier = suggestTierByBrand(brand);
@@ -125,7 +121,6 @@ export async function updatePhonePrices(): Promise<UpdateResult> {
             tier: suggestedTier
           });
           
-          console.log(`⚠️  Updated (tier only): ${brand} ${model} - ${suggestedTier} (brand-based suggestion)`);
         }
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : 'Unknown error';
@@ -144,9 +139,6 @@ export async function updatePhonePrices(): Promise<UpdateResult> {
     result.success = true;
     result.message = `Successfully updated ${result.updated} phones. ${result.errors.length} errors occurred.`;
     
-    console.log(`🎉 Update process completed!`);
-    console.log(`✅ Updated: ${result.updated}`);
-    console.log(`❌ Errors: ${result.errors.length}`);
     
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : 'Unknown error';
@@ -207,7 +199,6 @@ export async function getUpdateStatistics(): Promise<{
  */
 export async function testUpdateSinglePhone(brand: string, model: string): Promise<boolean> {
   try {
-    console.log(`🧪 Testing update for: ${brand} ${model}`);
     
     // Find the phone in database
     const phonesResponse = await databases.listDocuments(
@@ -222,7 +213,6 @@ export async function testUpdateSinglePhone(brand: string, model: string): Promi
     );
 
     if (!phone) {
-      console.log(`❌ Phone not found: ${brand} ${model}`);
       return false;
     }
 
@@ -230,7 +220,6 @@ export async function testUpdateSinglePhone(brand: string, model: string): Promi
     const manualPrice = getPhonePrice(brand, model);
     
     if (manualPrice) {
-      console.log(`✅ Found manual price: ₹${manualPrice.market_price_inr} (${manualPrice.complexity_tier})`);
       
       // Update the phone
       await databases.updateDocument(
@@ -243,10 +232,8 @@ export async function testUpdateSinglePhone(brand: string, model: string): Promi
         }
       );
       
-      console.log(`✅ Successfully updated: ${brand} ${model}`);
       return true;
     } else {
-      console.log(`⚠️  No manual price data for: ${brand} ${model}`);
       return false;
     }
     

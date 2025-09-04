@@ -115,7 +115,6 @@ export default function ProviderCommissionTab() {
               const userName = userResponse.documents[0]?.name || "";
               customerName = customerFullName || userName || "Unknown Customer";
               
-              console.log('✅ Found customer:', customerName);
             } catch (customerError) {
               console.error('❌ Error fetching customer details:', customerError);
             }
@@ -139,7 +138,6 @@ export default function ProviderCommissionTab() {
 
                 if (deviceResponse) {
                   deviceDisplay = `${deviceResponse.brand || "Unknown Brand"} ${deviceResponse.model || ""}`.trim();
-                  console.log('✅ Found device:', deviceDisplay);
                 }
               } catch (deviceError) {
                 console.error('❌ Error fetching device details:', deviceError);
@@ -209,7 +207,6 @@ export default function ProviderCommissionTab() {
 
   const handlePayCommission = async (commissionId: string, amount: number) => {
     try {
-      console.log('🔍 [PROVIDER-COMMISSION-TAB] Starting commission payment:', {
         commissionId,
         amount
       });
@@ -233,20 +230,16 @@ export default function ProviderCommissionTab() {
         throw new Error(orderData.error || 'Failed to create payment order');
       }
 
-      console.log('✅ [PROVIDER-COMMISSION-TAB] Payment order created:', orderData);
 
       // Check if Razorpay script is already loaded
       // @ts-ignore
       if (typeof window !== 'undefined' && window.Razorpay) {
-        console.log('✅ [PROVIDER-COMMISSION-TAB] Razorpay already loaded, proceeding with payment');
         initializeRazorpay(orderData, commissionId, amount);
       } else {
-        console.log('🔍 [PROVIDER-COMMISSION-TAB] Loading Razorpay script...');
         // Load Razorpay script
         const script = document.createElement('script');
         script.src = 'https://checkout.razorpay.com/v1/checkout.js';
         script.onload = () => {
-          console.log('✅ [PROVIDER-COMMISSION-TAB] Razorpay script loaded successfully');
           initializeRazorpay(orderData, commissionId, amount);
         };
 
@@ -274,7 +267,6 @@ export default function ProviderCommissionTab() {
 
   const initializeRazorpay = (orderData: any, commissionId: string, amount: number) => {
     try {
-      console.log('🔍 [PROVIDER-COMMISSION-TAB] Initializing Razorpay with options:', {
         key: orderData.key,
         amount: orderData.amount,
         order_id: orderData.order_id
@@ -289,7 +281,6 @@ export default function ProviderCommissionTab() {
         description: `Commission Payment - ₹${amount}`,
         order_id: orderData.order_id,
         handler: async function (response: any) {
-          console.log('🔍 [PROVIDER-COMMISSION-TAB] Payment successful:', response);
           
           try {
             // Verify payment
@@ -340,7 +331,6 @@ export default function ProviderCommissionTab() {
         theme: { color: "#6366f1" },
         modal: {
           ondismiss: function() {
-            console.log('Payment modal dismissed');
           }
         }
       };
@@ -349,7 +339,6 @@ export default function ProviderCommissionTab() {
       if (typeof window !== 'undefined' && window.Razorpay) {
         // @ts-ignore
         const rzp = new window.Razorpay(options);
-        console.log('✅ [PROVIDER-COMMISSION-TAB] Opening Razorpay modal...');
         rzp.open();
       } else {
         throw new Error('Razorpay not loaded');

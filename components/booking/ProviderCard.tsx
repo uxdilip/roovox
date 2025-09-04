@@ -82,7 +82,6 @@ export const ProviderCard: React.FC<ProviderCardProps> = ({
   const matchedServices: any[] = [];
 
   // Debug logging
-  console.log('🔍 ProviderCard for provider:', provider.id, 'with', servicesOffered.length, 'services offered');
 
   // Build UI for each selected issue
   const issueRows = selectedIssues.map((issueObj) => {
@@ -98,7 +97,6 @@ export const ProviderCard: React.FC<ProviderCardProps> = ({
         ? (!s.partType || normalizePartType(s.partType) === normalizePartType(issueObj.partType))
         : true; // For non-screen issues, always match part type
       
-      console.log('🔍 ProviderCard matching:', {
         serviceIssue: s.issue,
         selectedIssue: issueObj.name || issueObj.id,
         servicePartType: s.partType,

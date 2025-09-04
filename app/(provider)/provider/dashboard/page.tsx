@@ -238,7 +238,6 @@ export default function ProviderDashboardPage() {
       // Step 1: Check cache first
       const cached = getFromCache();
       if (cached) {
-        console.log('✅ Using cached data');
         setProfile(cached.profile);
         setProviderStatus(cached.providerStatus);
         setBusinessSetup(cached.businessSetup);
@@ -257,7 +256,6 @@ export default function ProviderDashboardPage() {
       }
       
       // Step 3: No cache, load fresh data
-      console.log('🔄 No cache, loading fresh data');
       setIsDataLoading(true);
       setDataError(null);
       
@@ -353,7 +351,6 @@ export default function ProviderDashboardPage() {
           [Query.equal("provider_id", user.id)]
         );
 
-        console.log("Found bookings:", bookingsResponse.documents.length);
 
         // Extract unique customer IDs and device IDs for batch fetching
         const uniqueCustomerIds = [...new Set(bookingsResponse.documents.map(b => b.customer_id))];
@@ -471,21 +468,11 @@ export default function ProviderDashboardPage() {
           // ✅ FIXED: Use device_info if available, otherwise fall back to device lookup
           let finalDeviceDisplay = `${deviceInfo.deviceBrand} ${deviceInfo.deviceModel}`.trim();
           
-          // ✅ DEBUG: Log device_info for troubleshooting
-          console.log('🔍 [PROVIDER DASHBOARD] Booking device_info:', {
-            booking_id: booking.$id,
-            device_info: booking.device_info,
-            device_id: booking.device_id,
-            deviceInfo: deviceInfo
-          });
-          
           if (booking.device_info) {
             try {
               const parsedDeviceInfo = JSON.parse(booking.device_info);
-              console.log('🔍 [PROVIDER DASHBOARD] Parsed device_info:', parsedDeviceInfo);
               if (parsedDeviceInfo.brand && parsedDeviceInfo.model) {
                 finalDeviceDisplay = `${parsedDeviceInfo.brand} ${parsedDeviceInfo.model}`;
-                console.log('🔍 [PROVIDER DASHBOARD] Using device_info:', finalDeviceDisplay);
               }
             } catch (error) {
               console.warn('Error parsing device_info:', error);
@@ -1159,12 +1146,10 @@ export default function ProviderDashboardPage() {
   ];
 
   const handleBookingAction = async (booking: any, action: string) => {
-    console.log('handleBookingAction called with:', { action, bookingId: booking.$id });
     try {
       let update: any = {};
       if (action === "accept") {
         update.status = "in_progress"; // Directly to in_progress when accepted
-        console.log('Setting status to in_progress');
       } else if (action === "decline") {
         update.status = "cancelled";
         update.cancellation_reason = declineReason;
@@ -1173,14 +1158,11 @@ export default function ProviderDashboardPage() {
         if (booking.payment_status === "pending") {
           update.payment_status = "cancelled"; // COD booking cancelled
         }
-        console.log('Setting status to cancelled with reason:', declineReason);
       } else if (action === "complete") {
         // Always use the API endpoint which handles COD logic properly
         update.status = "completed";
-        console.log('🔍 [BOOKING-ACTION] Marking booking as completed via API');
       }
       update.updated_at = new Date().toISOString();
-      console.log('Updating booking with:', update);
       
       // Use API endpoint instead of direct database update to ensure COD logic is applied
       const response = await fetch(`/api/bookings?id=${booking.$id}`, {
@@ -1196,7 +1178,6 @@ export default function ProviderDashboardPage() {
       }
       
       const updatedBooking = await response.json();
-      console.log('✅ Booking updated via API:', updatedBooking);
       
       // Update the booking in the local state instead of page reload
       setBookings(prevBookings => 
@@ -1220,7 +1201,6 @@ export default function ProviderDashboardPage() {
   };
 
   const handleDeclineClick = (booking: any) => {
-    console.log('Decline clicked for booking:', booking.$id);
     setBookingToDecline(booking);
     setDeclineModalOpen(true);
   };
@@ -1246,7 +1226,6 @@ export default function ProviderDashboardPage() {
         throw new Error(data.error || 'Failed to create commission collection');
       }
 
-      console.log('✅ Commission collection created:', data.message);
       return data;
     } catch (error) {
       console.error('❌ Error creating commission collection:', error);
@@ -1255,7 +1234,6 @@ export default function ProviderDashboardPage() {
   };
 
   const handleDeclineSubmit = () => {
-    console.log('Decline submit clicked, reason:', declineReason);
     if (!declineReason.trim()) {
       toast.error("Please provide a reason for declining");
       return;
@@ -1264,7 +1242,6 @@ export default function ProviderDashboardPage() {
       toast.error("No booking selected for decline");
       return;
     }
-    console.log('Calling handleBookingAction with decline');
     handleBookingAction(bookingToDecline, "decline");
   };
 
@@ -1338,7 +1315,6 @@ export default function ProviderDashboardPage() {
                 defaultValue={tab} 
                 className="w-full"
             onTabChange={(newTab) => {
-              console.log('🔄 [TAB-CHANGE] Switching to:', newTab);
               setTab(newTab);
             }}
               />

@@ -564,7 +564,6 @@ export const updateBookingPayment = async (bookingId: string, paymentMethod: str
 
     // 🔔 NEW: Create payment notification
     try {
-      console.log('🔔 Creating payment notification...');
       
       // Get booking details for notification
       const booking = await databases.getDocument(
@@ -616,7 +615,6 @@ export const updateBookingPayment = async (bookingId: string, paymentMethod: str
           }
         });
 
-        console.log('✅ Payment notifications created successfully');
       }
     } catch (notificationError) {
       console.error('❌ Error creating payment notifications (non-fatal):', notificationError);
@@ -739,7 +737,6 @@ export const createAddress = async (address: Record<string, any>) => {
       address
     );
   } catch (error) {
-    console.log('Addresses collection not found, skipping address creation');
     return null;
   }
 };
@@ -753,7 +750,6 @@ export const updateAddress = async (addressId: string, address: Record<string, a
       address
     );
   } catch (error) {
-    console.log('Addresses collection not found, skipping address update');
     return null;
   }
 };
@@ -766,7 +762,6 @@ export const deleteAddress = async (addressId: string) => {
       addressId
     );
   } catch (error) {
-    console.log('Addresses collection not found, skipping address deletion');
     return null;
   }
 };
@@ -781,7 +776,6 @@ export const getAddressesByUser = async (userId: string) => {
     return res.documents;
   } catch (error) {
     // If addresses collection doesn't exist, return empty array
-    console.log('Addresses collection not found, returning empty array');
     return [];
   }
 };
@@ -1029,7 +1023,6 @@ export const updateBusinessSetupKycDocs = async (user_id: string, kyc_docs: any)
     
     // If the error is about invalid structure, the attribute might still be processing
     if (error.code === 400 && error.message.includes('kyc_docs')) {
-      console.log('⚠️ KYC docs attribute might still be processing. Retrying in 2 seconds...');
       await new Promise(resolve => setTimeout(resolve, 2000));
       return updateBusinessSetupKycDocs(user_id, kyc_docs);
     }
@@ -1190,7 +1183,6 @@ export const createServiceOffered = async (serviceData: {
         created_at: serviceData.created_at,
       }
     );
-    console.log(`✅ Created service offered: ${serviceData.brand} ${serviceData.model || ''} ${serviceData.issue}`);
     return doc;
   } catch (error) {
     console.error('Error creating service offered:', error);
@@ -1272,7 +1264,6 @@ export const createUserDocument = async (userData: {
         updateData
       );
       
-      console.log('✅ User document updated:', updatedDoc.$id);
       return updatedDoc;
     } else {
       // Create new user document
@@ -1301,7 +1292,6 @@ export const createUserDocument = async (userData: {
         newUserData
       );
       
-      console.log('✅ New user document created:', newDoc.$id);
       return newDoc;
     }
   } catch (error) {
@@ -1368,7 +1358,6 @@ export const updateUserDocument = async (userId: string, updateData: any) => {
         }
       );
       
-      console.log('✅ User document updated:', updatedDoc.$id);
       return updatedDoc;
     }
     return null;
@@ -1391,9 +1380,7 @@ export const addProviderRole = async (userId: string) => {
       await updateUserDocument(userId, {
         roles: JSON.stringify(updatedRoles)
       });
-      console.log('✅ Provider role added to user:', userId);
     } else {
-      console.log('ℹ️ User already has provider role:', userId);
     }
   } catch (error) {
     console.error('❌ Error adding provider role:', error);
@@ -1421,7 +1408,6 @@ export const updateUserActiveRole = async (userId: string, activeRole: 'customer
         }
       );
       
-      console.log('✅ User active role updated:', activeRole);
       return updatedDoc;
     }
     return null;
@@ -1449,7 +1435,6 @@ export const addProviderRoleToUser = async (userId: string) => {
     // Check if provider role already exists
     const currentRoles = userDoc.roles ? JSON.parse(userDoc.roles) : [];
     if (currentRoles.includes('provider')) {
-      console.log('Provider role already exists for user');
       return userDoc;
     }
     
@@ -1466,7 +1451,6 @@ export const addProviderRoleToUser = async (userId: string) => {
       }
     );
     
-    console.log('Provider role added to user:', updatedUser);
     return updatedUser;
   } catch (error) {
     console.error('Error adding provider role to user:', error);
@@ -1508,8 +1492,6 @@ export const createCustomerProfile = async (customerData: {
   address?: string;
 }) => {
   try {
-    console.log('🆕 Creating customer profile for user_id:', customerData.user_id);
-    console.log('📝 Customer data:', customerData);
     
     // Check if customer already exists
     const response = await databases.listDocuments(
@@ -1518,11 +1500,9 @@ export const createCustomerProfile = async (customerData: {
       [Query.equal('user_id', customerData.user_id), Query.limit(1)]
     );
     
-    console.log('🔍 Existing customer documents found:', response.documents.length);
     
     if (response.documents.length > 0) {
       // Customer exists, update their profile
-      console.log('🔄 Updating existing customer profile...');
       const existingDoc = response.documents[0];
       const updateData: any = {
         full_name: customerData.full_name,
@@ -1543,7 +1523,6 @@ export const createCustomerProfile = async (customerData: {
       
       // Also update the user's name and phone in the User collection
       try {
-        console.log('🔄 Updating user name and phone in User collection...');
         
         // First find the User document by user_id
         const userResponse = await databases.listDocuments(
@@ -1569,20 +1548,16 @@ export const createCustomerProfile = async (customerData: {
             userDocId,
             userUpdateData
           );
-          console.log('✅ User name and phone updated in User collection');
         } else {
-          console.log('⚠️ User document not found in User collection');
         }
       } catch (userUpdateError) {
         console.error('⚠️ Failed to update user name and phone:', userUpdateError);
         // Don't throw error here as customer profile was updated successfully
       }
       
-      console.log('✅ Customer profile updated:', updatedDoc.$id);
       return updatedDoc;
     } else {
       // Create new customer profile
-      console.log('🆕 Creating new customer profile...');
       const newCustomerData = {
         user_id: customerData.user_id,
         full_name: customerData.full_name,
@@ -1592,7 +1567,6 @@ export const createCustomerProfile = async (customerData: {
         created_at: new Date().toISOString()
       };
       
-      console.log('📝 New customer data:', newCustomerData);
       
       const newDoc = await databases.createDocument(
         DATABASE_ID,
@@ -1601,11 +1575,9 @@ export const createCustomerProfile = async (customerData: {
         newCustomerData
       );
       
-      console.log('✅ New customer profile created:', newDoc.$id);
       
       // Also update the user's name and phone in the User collection
       try {
-        console.log('🔄 Updating user name and phone in User collection...');
         
         // First find the User document by user_id
         const userResponse = await databases.listDocuments(
@@ -1631,9 +1603,7 @@ export const createCustomerProfile = async (customerData: {
             userDocId,
             updateData
           );
-          console.log('✅ User name and phone updated in User collection');
         } else {
-          console.log('⚠️ User document not found in User collection');
         }
       } catch (userUpdateError) {
         console.error('⚠️ Failed to update user name and phone:', userUpdateError);
@@ -1747,13 +1717,11 @@ export const getModelSeries = async (brand?: string, deviceType?: 'phone' | 'lap
 
 export const populateModelSeries = async (): Promise<void> => {
   try {
-    console.log('Starting comprehensive model series population...');
 
     // Get all phones and laptops from database
     const allPhones = await getPhones();
     const allLaptops = await getLaptops();
     
-    console.log(`Found ${allPhones.length} phones and ${allLaptops.length} laptops`);
 
     // Group by brand and device type
     const phoneBrands = new Map<string, string[]>();
@@ -1775,7 +1743,6 @@ export const populateModelSeries = async (): Promise<void> => {
       laptopBrands.get(laptop.brand)!.push(laptop.model);
     });
 
-    console.log(`Found ${phoneBrands.size} phone brands and ${laptopBrands.size} laptop brands`);
 
     // Get existing series to avoid duplicates
     const existingSeries = await getModelSeries();
@@ -1785,7 +1752,6 @@ export const populateModelSeries = async (): Promise<void> => {
       existingSeriesMap.set(key, series);
     });
 
-    console.log(`Found ${existingSeries.length} existing series`);
 
     // Predefined series patterns for known brands
     const seriesPatterns: Record<string, Partial<Record<'phone' | 'laptop', Array<{
@@ -2049,9 +2015,6 @@ export const populateModelSeries = async (): Promise<void> => {
     // Combine all series
     const allSeries = [...phoneSeries, ...laptopSeries];
     
-    console.log(`Generated ${allSeries.length} series total`);
-    console.log(`Phone series: ${phoneSeries.length}`);
-    console.log(`Laptop series: ${laptopSeries.length}`);
 
     // Create all series in database (with duplicate checking)
     let createdCount = 0;
@@ -2063,22 +2026,17 @@ export const populateModelSeries = async (): Promise<void> => {
       
       if (existingSeriesMap.has(seriesKey)) {
         skippedCount++;
-        console.log(`⏭️ Skipped existing series: ${series.name} for ${series.brand}`);
         continue;
       }
       
       try {
         await createModelSeries(series);
         createdCount++;
-        console.log(`✅ Created series: ${series.name} for ${series.brand} (${series.models.length} models)`);
       } catch (error) {
         skippedCount++;
-        console.log(`❌ Failed to create series ${series.name} for ${series.brand}:`, error);
       }
     }
 
-    console.log(`Series population completed: ${createdCount} created, ${skippedCount} skipped`);
-    console.log(`Total series created: ${createdCount}`);
   } catch (error) {
     console.error('Error populating model series:', error);
     throw error;
@@ -2123,7 +2081,6 @@ export const updatePhonesWithSeriesMapping = async (): Promise<void> => {
       offset += LIMIT;
     }
 
-    console.log(`Found ${allPhones.length} phones to update`);
 
     // Update each phone with series_id if it matches
     let updatedCount = 0;
@@ -2145,17 +2102,14 @@ export const updatePhonesWithSeriesMapping = async (): Promise<void> => {
             }
           );
           updatedCount++;
-          console.log(`Updated phone: ${phone.brand} ${phone.model} -> ${seriesInfo.series_name}`);
         } catch (error) {
           console.error(`Failed to update phone ${phone.brand} ${phone.model}:`, error);
         }
       } else {
         skippedCount++;
-        console.log(`Skipped phone (no series match): ${phone.brand} ${phone.model}`);
       }
     }
 
-    console.log(`Update completed: ${updatedCount} updated, ${skippedCount} skipped`);
   } catch (error) {
     console.error('Error updating phones with series mapping:', error);
     throw error;
@@ -2231,7 +2185,6 @@ export const findProviderServicesWithSeries = async (
           ]
         );
 
-        console.log('🔍 Found platform series customizations:', platformSeriesCustomizationsRes.documents.length);
 
         // For each platform series customization, get its services
         for (const customization of platformSeriesCustomizationsRes.documents) {
@@ -2244,7 +2197,6 @@ export const findProviderServicesWithSeries = async (
               ]
             );
 
-            console.log('🔍 Platform series services found:', platformServicesRes.documents.length);
 
             // Filter services by issue names and transform to match expected format
             const filteredPlatformServices = platformServicesRes.documents.filter((doc: any) => {
@@ -2312,7 +2264,6 @@ export const findProviderServicesWithSeries = async (
         });
         });
         
-      console.log('🔍 Found matching custom series (including Platform Series):', matchingCustomSeries.length);
         
         // Get services for matching custom series
         for (const customSeries of matchingCustomSeries) {
@@ -2326,9 +2277,6 @@ export const findProviderServicesWithSeries = async (
               ]
             );
             
-            console.log('🔍 Custom series services found:', customSeriesServicesRes.documents.length);
-            console.log('🔍 Looking for issues:', issueNames);
-            console.log('🔍 Available services:', customSeriesServicesRes.documents.map((s: any) => s.issue));
             
             // Case-insensitive matching
             const filteredServices = customSeriesServicesRes.documents.filter((doc: any) => {
@@ -2336,7 +2284,6 @@ export const findProviderServicesWithSeries = async (
               const matches = issueNames.some(issueName => 
                 issueName.toLowerCase().trim() === serviceIssue
               );
-              console.log('🔍 Matching service:', doc.issue, 'with issues:', issueNames, 'result:', matches);
               return matches;
             });
           
@@ -2958,10 +2905,8 @@ export const deletePlatformSeriesCustomization = async (customizationId: string)
 // Function to populate platform series with brand-wise data
 export const populatePlatformSeries = async (): Promise<void> => {
   try {
-    console.log('Starting platform series population with brand-wise data...');
 
     // First, delete all existing platform series
-    console.log('Deleting all existing platform series...');
     const existingSeriesResponse = await getModelSeries();
     const existingSeries = existingSeriesResponse || [];
     
@@ -2972,7 +2917,6 @@ export const populatePlatformSeries = async (): Promise<void> => {
           COLLECTIONS.MODEL_SERIES,
           series.$id
         );
-        console.log(`Deleted existing series: ${series.name}`);
       } catch (error) {
         console.error(`Error deleting series ${series.name}:`, error);
       }
@@ -3409,7 +3353,6 @@ export const populatePlatformSeries = async (): Promise<void> => {
       }
     ];
 
-    console.log('Adding new brand-wise platform series...');
     for (const series of newPlatformSeries) {
       try {
         await databases.createDocument(
@@ -3422,13 +3365,11 @@ export const populatePlatformSeries = async (): Promise<void> => {
             updated_at: new Date().toISOString()
           }
         );
-        console.log(`Added series: ${series.name} (${series.brand})`);
       } catch (error) {
         console.error(`Error adding series ${series.name}:`, error);
       }
     }
 
-    console.log('Platform series population completed successfully!');
   } catch (error) {
     console.error('Error in populatePlatformSeries:', error);
     throw error;

@@ -29,7 +29,6 @@ export default function ProviderRouteGuard({ children, requireOnboarding = false
       }
 
       try {
-        console.log('Checking provider status for user:', user.id);
         
         // Check for business_setup document (new onboarding flow)
         let hasOnboardingData = false;
@@ -53,17 +52,8 @@ export default function ProviderRouteGuard({ children, requireOnboarding = false
             const hasPayment = !!onboardingData.upi;
             
             isOnboardingCompleted = Boolean(hasPersonalDetails && hasBusinessInfo && hasServiceSetup && hasPayment);
-            
-            console.log('Onboarding completion check:', {
-              hasPersonalDetails,
-              hasBusinessInfo,
-              hasServiceSetup,
-              hasPayment,
-              isOnboardingCompleted
-            });
           }
         } catch (error) {
-          console.log('No business_setup document found or error accessing it');
         }
         
         // Fallback: Check for provider document (old flow)
@@ -76,20 +66,16 @@ export default function ProviderRouteGuard({ children, requireOnboarding = false
               isOnboardingCompleted = Boolean(provider.business_name && provider.business_name !== 'Your Business');
             }
           } catch (error) {
-            console.log('No provider document found');
           }
         }
         
         // If no onboarding data exists, this is a new user
         if (!hasOnboardingData && !hasProviderDoc) {
-          console.log('No onboarding data found for user:', user.id);
           if (requireOnboarding) {
             // This is an onboarding page, allow access for new users
-            console.log('New user accessing onboarding page, allowing access');
             setChecking(false);
           } else {
             // This is a dashboard page, redirect new users to onboarding
-            console.log('New user accessing dashboard, redirecting to onboarding');
             router.push('/provider/onboarding');
           }
           return;
@@ -99,22 +85,18 @@ export default function ProviderRouteGuard({ children, requireOnboarding = false
           // This is an onboarding page
           if (isOnboardingCompleted) {
             // Onboarding already completed, redirect to dashboard
-            console.log('Onboarding already completed, redirecting to dashboard');
             router.push('/provider/dashboard');
           } else {
             // Onboarding not completed, allow access to onboarding page
-            console.log('Onboarding not completed, allowing access to onboarding');
             setChecking(false);
           }
         } else {
           // This is a dashboard page
           if (!isOnboardingCompleted) {
             // Onboarding not completed, redirect to onboarding
-            console.log('Onboarding not completed, redirecting to onboarding');
             router.push('/provider/onboarding');
           } else {
             // Onboarding completed, allow access to dashboard
-            console.log('Onboarding completed, allowing access to dashboard');
             setChecking(false);
           }
         }
@@ -122,11 +104,9 @@ export default function ProviderRouteGuard({ children, requireOnboarding = false
         console.error('Error checking provider status:', error);
         if (requireOnboarding) {
           // For onboarding pages, allow access on error (new users)
-          console.log('Error checking provider status, allowing access to onboarding');
           setChecking(false);
         } else {
           // For dashboard pages, redirect to onboarding on error
-          console.log('Error checking provider status, redirecting to onboarding');
           router.push('/provider/onboarding');
         }
       }

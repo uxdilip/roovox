@@ -35,11 +35,9 @@ function loadRazorpayScript() {
 }
 
 function filterPaymentOptions(serviceMode: string) {
-  console.log('🔍 [PAYMENT] Filtering payment options for serviceMode:', serviceMode);
   
   // ✅ CORRECTED LOGIC: Both in-store and doorstep show both payment options
   // This maintains the original behavior where both service types had both payment options
-  console.log('✅ [PAYMENT] Showing both payment options for all service types (original behavior)');
   return PAYMENT_OPTIONS; // Both options available for all service types
 }
 
@@ -62,12 +60,6 @@ export default function PaymentOptionsPage() {
     if (selected && !filteredOptions.some(opt => opt.value === selected)) {
       setSelected(null);
     }
-    
-    console.log('🔍 [PAYMENT] Payment options updated:', {
-      serviceMode,
-      availableOptions: filteredOptions.map(opt => opt.value),
-      previouslySelected: selected
-    });
   };
 
   useEffect(() => {
@@ -106,7 +98,6 @@ export default function PaymentOptionsPage() {
           // ✅ NEW: Filter payment options based on service type
           filterPaymentOptionsByServiceType(data);
           
-          console.log('✅ Booking data loaded from sessionStorage:', data);
         } else {
           // Fallback: try to get from session key if provided
           const sessionKey = searchParams.get("session");
@@ -120,7 +111,6 @@ export default function PaymentOptionsPage() {
               // ✅ NEW: Filter payment options based on service type
               filterPaymentOptionsByServiceType(data);
               
-              console.log('✅ Booking data loaded from session key:', data);
             } else {
               throw new Error('No booking data found in session');
             }
@@ -167,7 +157,6 @@ export default function PaymentOptionsPage() {
           }),
         });
         const orderData = await orderRes.json();
-        console.log('Order data received:', orderData);
         if (!orderData.success) {
           throw new Error(orderData.error || "Failed to create payment order");
         }
@@ -244,23 +233,6 @@ export default function PaymentOptionsPage() {
     } else {
       // COD: Call API to confirm COD
       try {
-        console.log('🔍 [PAYMENT] Sending COD data to API:', {
-          session_key: 'bookingData',
-          booking_data: bookingData
-        });
-        
-        // Log the specific fields that might cause issues
-        console.log('🔍 [PAYMENT] Critical fields check:', {
-          customer_id: bookingData.customer_id,
-          provider_id: bookingData.provider_id,
-          device_id: bookingData.device_id,
-          service_id: bookingData.service_id,
-          date: bookingData.date,
-          time: bookingData.time,
-          location_type: bookingData.location_type,
-          total_amount: bookingData.total_amount
-        });
-        
         const res = await fetch("/api/payments/cod-confirm", {
           method: "POST",
           headers: { "Content-Type": "application/json" },

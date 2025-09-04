@@ -60,7 +60,6 @@ export async function createCustomerRequest(
   requestData: QuoteRequestData
 ): Promise<{ success: boolean; requestId?: string; error?: string }> {
   try {
-    console.log('🔍 Creating customer request for provider:', requestData.provider_id);
     
     // Create the customer request document with ONLY the fields that actually exist in your collection
     const requestDoc = await databases.createDocument(
@@ -88,7 +87,6 @@ export async function createCustomerRequest(
       }
     );
 
-    console.log('✅ Customer request created:', requestDoc.$id);
 
     // Create the initial conversation message
     const chatDoc = await databases.createDocument(
@@ -106,7 +104,6 @@ export async function createCustomerRequest(
       }
     );
 
-    console.log('✅ Negotiation chat created:', chatDoc.$id);
 
     // Send email notifications (don't fail if emails fail)
     // Get provider and customer email addresses
@@ -130,10 +127,8 @@ export async function createCustomerRequest(
     const customer = customerUser.documents.find((u: any) => u.user_id === customerId);
 
     // Email notifications removed - using in-app notifications instead
-    console.log('📧 Email notifications disabled - using in-app notifications');
 
       // 🔔 NEW: Create in-app notifications
-      console.log('🔔 Creating in-app notifications for quote request...');
       
       // Notify provider about new quote request
       await notificationService.createNotification({
@@ -173,7 +168,6 @@ export async function createCustomerRequest(
         }
       });
 
-      console.log('✅ In-app notifications created successfully');
 
     return {
       success: true,

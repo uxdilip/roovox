@@ -143,29 +143,23 @@ export default function LoginModal({ open, onOpenChange, returnUrl }: LoginModal
     setError('');
     setLoading(true);
     try {
-      console.log('🔐 Starting OTP verification...');
       await loginWithPhoneOtp('+91' + phone, otp, userId);
-      console.log('✅ OTP verification successful');
       
       // Enhanced role detection with cross-role handling
       try {
-        console.log('🔄 Checking user type after login...');
         const session = await account.get();
         
         if (!session) {
-          console.log('❌ No session found, redirecting to home');
           onOpenChange(false);
           router.push('/');
           return;
         }
         
-        console.log('👤 Session found for user:', session.$id);
         
         // Enhanced role detection using utility functions
         const isProviderLogin = window.location.pathname.includes('/provider/login');
         const roleResult = await detectUserRoles(session.$id, isProviderLogin);
         
-        console.log('🔍 Role detection results:', roleResult);
         
         // Check for cross-role access and show message if needed
         const crossRoleMessage = getCrossRoleMessage(roleResult);
@@ -175,7 +169,6 @@ export default function LoginModal({ open, onOpenChange, returnUrl }: LoginModal
         
         // Get redirect path based on role detection
         const redirectPath = getRedirectPath(roleResult);
-        console.log('🔄 Redirecting to:', redirectPath);
         
         router.push(redirectPath);
         

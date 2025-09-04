@@ -23,21 +23,17 @@ export default function ExportPhonesPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    console.log('ExportPhonesPage mounted');
     fetchPhones();
   }, []);
 
   const fetchPhones = async () => {
     setLoading(true);
     try {
-      console.log('Fetching phones...');
       const response = await fetch('/api/phones');
       const data = await response.json();
-      console.log('API response:', data);
       
       if (data.success) {
         const phoneData = data.phones || [];
-        console.log('Phone data length:', phoneData.length);
         setPhones(phoneData);
         setTotalPhones(phoneData.length);
         
@@ -57,7 +53,6 @@ export default function ExportPhonesPage() {
           modelCount: info.modelCount
         }));
 
-        console.log('Brand summary:', brandSummary);
         setBrands(brandSummary.sort((a, b) => b.modelCount - a.modelCount));
       } else {
         console.error('API returned success: false');

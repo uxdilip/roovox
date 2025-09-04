@@ -75,7 +75,6 @@ export async function createOffer(offerData: CreateOfferData): Promise<{ success
       }
     );
 
-    console.log('✅ Offer created:', offer.$id);
     return { success: true, offerId: offer.$id };
 
   } catch (error) {
@@ -173,7 +172,6 @@ export async function getOfferById(offerId: string): Promise<{ success: boolean;
         services: conversationResponse.services || []
       };
 
-      console.log('✅ Conversation context loaded:', offer.conversation_context);
     } catch (convError) {
       console.warn('⚠️ Could not load conversation context:', convError);
       offer.conversation_context = null;
@@ -202,7 +200,6 @@ export async function acceptOffer(offerId: string): Promise<{ success: boolean; 
       }
     );
 
-    console.log('✅ Offer accepted:', offerId);
     return { success: true };
 
   } catch (error) {
@@ -227,7 +224,6 @@ export async function declineOffer(offerId: string, reason: string): Promise<{ s
       }
     );
 
-    console.log('✅ Offer declined:', offerId, 'Reason:', reason);
     return { success: true };
 
   } catch (error) {
@@ -272,7 +268,6 @@ export async function getProviderOffers(providerId: string): Promise<{ success: 
       conversation_context: doc.conversation_context
     }));
 
-    console.log('✅ Provider offers retrieved:', providerId, offers.length);
     return { success: true, offers };
 
   } catch (error) {
@@ -317,7 +312,6 @@ export async function getCustomerOffers(customerId: string): Promise<{ success: 
       conversation_context: doc.conversation_context
     }));
 
-    console.log('✅ Customer offers retrieved:', customerId, offers.length);
     return { success: true, offers };
 
   } catch (error) {
@@ -349,29 +343,20 @@ export async function updateOfferOnBookingComplete(offerId: string, bookingId: s
           booking_id: bookingId
         }
       );
-      console.log('✅ [OFFER-SERVICES] Offer updated with booking_id successfully');
     } catch (bookingIdError: any) {
       if (bookingIdError.message?.includes('Unknown attribute: "booking_id"')) {
         // booking_id field doesn't exist, update without it
-        console.log('⚠️ [OFFER-SERVICES] booking_id field not found, updating without it');
         await databases.updateDocument(
           DATABASE_ID,
           COLLECTIONS.OFFERS,
           offerId,
           updateData
         );
-        console.log('✅ [OFFER-SERVICES] Offer updated without booking_id successfully');
       } else {
         throw bookingIdError;
       }
     }
 
-    console.log('✅ [OFFER-SERVICES] Offer updated successfully:', {
-      offerId,
-      bookingId,
-      newStatus: 'accepted',
-      acceptedAt: new Date().toISOString()
-    });
     return { success: true };
 
   } catch (error) {

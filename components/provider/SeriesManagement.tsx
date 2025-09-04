@@ -91,20 +91,16 @@ const SeriesManagement: React.FC<SeriesManagementProps> = ({ providerId }) => {
   // Fetch issues for the selected device
   useEffect(() => {
     const fetchIssues = async () => {
-      console.log('🔍 Fetching issues for device:', selectedDevice);
       try {
         const categoriesRes = await databases.listDocuments(
           DATABASE_ID,
           'categories',
           []
         );
-        console.log('🔍 Categories found:', categoriesRes.documents);
         
         const category = categoriesRes.documents.find((c: any) => c.name.toLowerCase() === selectedDevice);
-        console.log('🔍 Selected category:', category);
         
         if (!category) {
-          console.log('❌ No category found for device:', selectedDevice);
           setIssues([]);
           return;
         }
@@ -114,7 +110,6 @@ const SeriesManagement: React.FC<SeriesManagementProps> = ({ providerId }) => {
           'issues',
           [Query.equal('category_id', category.$id)]
         );
-        console.log('🔍 Issues found:', issuesRes.documents);
         setIssues(issuesRes.documents.map((i: any) => ({ $id: i.$id, name: i.name, type: i.type })));
       } catch (error) {
         console.error('❌ Error fetching issues:', error);
@@ -152,23 +147,18 @@ const SeriesManagement: React.FC<SeriesManagementProps> = ({ providerId }) => {
   };
 
   const handleEditSeries = async (seriesData: SeriesData) => {
-    console.log('🔍 Opening edit modal for series:', seriesData);
-    console.log('🔍 Current issues count:', issues.length);
     setSelectedSeries(seriesData);
     
     // Fetch issues if not already loaded
     if (issues.length === 0) {
-      console.log('🔍 No issues loaded, fetching now...');
       try {
         const categoriesRes = await databases.listDocuments(
           DATABASE_ID,
           'categories',
           []
         );
-        console.log('🔍 Categories found:', categoriesRes.documents);
         
         const category = categoriesRes.documents.find((c: any) => c.name.toLowerCase() === selectedDevice);
-        console.log('🔍 Selected category:', category);
         
         if (category) {
           const issuesRes = await databases.listDocuments(
@@ -176,7 +166,6 @@ const SeriesManagement: React.FC<SeriesManagementProps> = ({ providerId }) => {
             'issues',
             [Query.equal('category_id', category.$id)]
           );
-          console.log('🔍 Issues found:', issuesRes.documents);
           setIssues(issuesRes.documents.map((i: any) => ({ $id: i.$id, name: i.name, type: i.type })));
         }
       } catch (error) {

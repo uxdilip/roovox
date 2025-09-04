@@ -37,7 +37,6 @@ export const getTierPricingForProviders = async (
   partTypes?: string[] // Optional part types for filtering
 ): Promise<TierPricingMatch[]> => {
   try {
-    console.log('🔍 Fetching tier pricing for:', { providerIds, deviceType, brand, issueNames });
     
     if (providerIds.length === 0 || issueNames.length === 0) {
       return [];
@@ -56,7 +55,6 @@ export const getTierPricingForProviders = async (
       ]
     );
 
-    console.log('🔍 Found tier pricing documents:', tierPricingRes.documents.length);
 
     // Transform to TierPricingMatch format
     const tierMatches: TierPricingMatch[] = tierPricingRes.documents.map((doc: any) => ({
@@ -71,7 +69,6 @@ export const getTierPricingForProviders = async (
       pricingType: 'tier_pricing' as const
     }));
 
-    console.log('🔍 Transformed tier pricing matches:', tierMatches.length);
     return tierMatches;
 
   } catch (error) {
@@ -227,22 +224,18 @@ export interface BulkTierPricingData {
 
 export const saveBulkTierPricing = async (data: BulkTierPricingData): Promise<void> => {
   try {
-    console.log('🔍 DEBUG - saveBulkTierPricing function called with data:', data);
     const { providerId, deviceType, brand, issues } = data;
     
-    console.log('💾 Saving bulk tier pricing:', { providerId, deviceType, brand, issueCount: issues.length });
 
     // Process each issue
     for (const issueData of issues) {
       const { issue, part_type, basicPrice, standardPrice, premiumPrice } = issueData;
-      console.log('🔍 DEBUG - Processing issue:', { issue, part_type, basicPrice, standardPrice, premiumPrice });
       
       // For Screen Replacement with part types, modify the issue name to include the part type
       // This way we can handle OEM/HQ without needing the part_type field in database
       let issueNameToSave = issue;
       if (part_type && issue.toLowerCase().includes('screen replacement')) {
         issueNameToSave = `${issue} (${part_type})`;
-        console.log('🔍 DEBUG - Screen replacement detected, modified issue name:', issueNameToSave);
       }
       
       // Check if pricing already exists (simplified query without part_type field)
@@ -253,14 +246,12 @@ export const saveBulkTierPricing = async (data: BulkTierPricingData): Promise<vo
         Query.equal('issue', issueNameToSave)
       ];
 
-      console.log('🔍 DEBUG - Checking for existing pricing with queries:', queries);
       const existingRes = await databases.listDocuments(
         DATABASE_ID,
         'tier_pricing',
         queries
       );
 
-      console.log('🔍 DEBUG - Existing documents found:', existingRes.documents.length);
 
       // Simplified data object - only fields that exist in your database
       const pricingData = {
@@ -273,12 +264,10 @@ export const saveBulkTierPricing = async (data: BulkTierPricingData): Promise<vo
         premium: premiumPrice
       };
 
-      console.log('🔍 DEBUG - Pricing data to save:', pricingData);
 
       if (existingRes.documents.length > 0) {
         // Update existing
         const existingDoc = existingRes.documents[0];
-        console.log('🔍 DEBUG - Updating existing document:', existingDoc.$id);
         await databases.updateDocument(
           DATABASE_ID,
           'tier_pricing',
@@ -289,21 +278,17 @@ export const saveBulkTierPricing = async (data: BulkTierPricingData): Promise<vo
             premium: premiumPrice
           }
         );
-        console.log(`✅ Updated pricing for ${issueNameToSave}`);
       } else {
         // Create new
-        console.log('🔍 DEBUG - Creating new document...');
         const createdDoc = await databases.createDocument(
           DATABASE_ID,
           'tier_pricing',
           'unique()',
           pricingData
         );
-        console.log(`✅ Created pricing for ${issueNameToSave}`, createdDoc.$id);
       }
     }
 
-    console.log('🎉 Bulk tier pricing saved successfully!');
   } catch (error) {
     console.error('❌ Error saving bulk tier pricing:', error);
     throw error;
@@ -327,10 +312,8 @@ export interface BulkBrandPricingData {
 
 export const saveBulkBrandPricing = async (data: BulkBrandPricingData): Promise<{ success: boolean; message: string; appliedCount: number }> => {
   try {
-    console.log('🚀 DEBUG - saveBulkBrandPricing function called with data:', data);
     const { providerId, deviceType, masterBrand, targetBrands, issues } = data;
     
-    console.log('💾 Applying bulk brand pricing:', { 
       providerId, 
       deviceType, 
       masterBrand, 
@@ -343,7 +326,6 @@ export const saveBulkBrandPricing = async (data: BulkBrandPricingData): Promise<
 
     // Process each target brand
     for (const targetBrand of targetBrands) {
-      console.log(`🔍 Processing brand: ${targetBrand}`);
       
       // Process each issue for this brand
       for (const issueData of issues) {
@@ -393,7 +375,6 @@ export const saveBulkBrandPricing = async (data: BulkBrandPricingData): Promise<
                 premium: premium
               }
             );
-            console.log(`✅ Updated pricing for ${targetBrand} - ${issueNameToSave}`);
           } else {
             // Create new
             await databases.createDocument(
@@ -402,7 +383,6 @@ export const saveBulkBrandPricing = async (data: BulkBrandPricingData): Promise<
               'unique()',
               pricingData
             );
-            console.log(`✅ Created pricing for ${targetBrand} - ${issueNameToSave}`);
           }
           
           appliedCount++;
@@ -423,7 +403,6 @@ export const saveBulkBrandPricing = async (data: BulkBrandPricingData): Promise<
       };
     }
 
-    console.log(`🎉 Bulk brand pricing completed successfully! Applied to ${appliedCount} items across ${targetBrands.length} brands`);
     return {
       success: true,
       message: `Successfully applied pricing to ${targetBrands.length} brands`,
@@ -441,7 +420,6 @@ export const saveBulkBrandPricing = async (data: BulkBrandPricingData): Promise<
 
 export const deleteTierPricing = async (providerId: string, deviceType: string, brand: string): Promise<void> => {
   try {
-    console.log('🗑️ Deleting tier pricing:', { providerId, deviceType, brand });
     
     const queries = [
       Query.equal('provider_id', providerId),
@@ -450,15 +428,12 @@ export const deleteTierPricing = async (providerId: string, deviceType: string, 
     ];
     
     const existingRes = await databases.listDocuments(DATABASE_ID, 'tier_pricing', queries);
-    console.log('🔍 Found documents to delete:', existingRes.documents.length);
     
     // Delete all matching documents
     for (const doc of existingRes.documents) {
       await databases.deleteDocument(DATABASE_ID, 'tier_pricing', doc.$id);
-      console.log(`🗑️ Deleted document: ${doc.$id}`);
     }
     
-    console.log('✅ Tier pricing deleted successfully!');
   } catch (error) {
     console.error('❌ Error deleting tier pricing:', error);
     throw error;
@@ -467,7 +442,6 @@ export const deleteTierPricing = async (providerId: string, deviceType: string, 
 
 export const deleteTierPricingService = async (providerId: string, deviceType: string, brand: string, issueName: string): Promise<void> => {
   try {
-    console.log('🗑️ Deleting service:', { providerId, deviceType, brand, issueName });
     
     const queries = [
       Query.equal('provider_id', providerId),
@@ -477,15 +451,12 @@ export const deleteTierPricingService = async (providerId: string, deviceType: s
     ];
     
     const existingRes = await databases.listDocuments(DATABASE_ID, 'tier_pricing', queries);
-    console.log('🔍 Found service documents to delete:', existingRes.documents.length);
     
     // Delete the specific service
     for (const doc of existingRes.documents) {
       await databases.deleteDocument(DATABASE_ID, 'tier_pricing', doc.$id);
-      console.log(`🗑️ Deleted service document: ${doc.$id}`);
     }
     
-    console.log('✅ Service deleted successfully!');
   } catch (error) {
     console.error('❌ Error deleting service:', error);
     throw error;

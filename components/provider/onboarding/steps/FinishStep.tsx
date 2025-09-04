@@ -52,17 +52,12 @@ const FinishStep: React.FC<FinishStepProps> = ({ data, onPrev }) => {
         
         if (res.documents.length > 0) {
           const savedData = res.documents[0];
-          console.log('🔍 Debug: Complete business_setup document:', savedData);
           const parsedData = JSON.parse(savedData.onboarding_data || '{}');
-          console.log('🔍 Debug: Loaded onboarding data from database:', parsedData);
-          console.log('🔍 Debug: KYC docs from document:', savedData.kyc_docs);
-          console.log('🔍 Debug: Raw kyc_docs type:', typeof savedData.kyc_docs);
           setOnboardingData({
             ...parsedData,
             kyc_docs: savedData.kyc_docs ? JSON.parse(savedData.kyc_docs) : {}
           });
         } else {
-          console.log('⚠️ No onboarding data found in database');
           setOnboardingData({});
         }
       } catch (error) {
@@ -81,15 +76,7 @@ const FinishStep: React.FC<FinishStepProps> = ({ data, onPrev }) => {
     // Use the loaded onboarding data from database
     const data = onboardingData || {};
     
-    console.log('🔍 Debug: Extracting review data from:', data);
-    console.log('🔍 Debug: KYC docs data:', data.kyc_docs);
-    console.log('🔍 Debug: Verification data:', data.verification);
-    console.log('🔍 Debug: KYC docs structure:', {
-      aadhaar: data.kyc_docs?.aadhaar,
-      pan: data.kyc_docs?.pan,
-      gst: data.kyc_docs?.gst,
-      shop_reg: data.kyc_docs?.shop_reg
-    });
+
     
     const reviewData = {
       personalDetails: {
@@ -135,7 +122,7 @@ const FinishStep: React.FC<FinishStepProps> = ({ data, onPrev }) => {
       }
     };
 
-    console.log('🔍 Debug: Extracted review data:', reviewData);
+
     return reviewData;
   };
 
@@ -148,9 +135,7 @@ const FinishStep: React.FC<FinishStepProps> = ({ data, onPrev }) => {
         setLoading(false);
         return;
       }
-      console.debug('[DEBUG] Starting provider onboarding completion');
-      console.debug('[DEBUG] User ID:', user.id);
-      console.debug('[DEBUG] Full onboardingData object:', onboardingData);
+
       
       // Extract details from onboardingData
       const personalDetails = onboardingData?.personalDetails || {};
@@ -165,16 +150,14 @@ const FinishStep: React.FC<FinishStepProps> = ({ data, onPrev }) => {
           const currentRoles = userDoc.roles;
           mergedRoles = Array.from(new Set([...currentRoles, "provider"]));
         }
-        console.debug('[DEBUG] Merged roles:', mergedRoles);
+
       } catch (e) {
-        console.debug('[DEBUG] Error fetching user roles, fallback to provider:', e);
       }
       
       // Upsert user document with onboarding details and merged roles
       try {
         // Ensure valid email
         let email = personalDetails.email || user.email || "";
-        console.debug('[DEBUG] Using email for user document:', email);
         if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
           setError("A valid email address is required. Please check your email in Personal Details.");
           setLoading(false);
@@ -193,9 +176,7 @@ const FinishStep: React.FC<FinishStepProps> = ({ data, onPrev }) => {
           address_lng: location.coordinates?.[1] || 0,
           updated_at: new Date().toISOString(),
         };
-        console.debug('[DEBUG] Attempting to update user document with:', userUpdatePayload);
         const updateResult = await updateUserDocument(user.id, userUpdatePayload);
-        console.debug('[DEBUG] updateUserDocument result:', updateResult);
         if (!updateResult) {
           // If update failed (user doc not found), create it
           const userCreatePayload = {
@@ -211,17 +192,12 @@ const FinishStep: React.FC<FinishStepProps> = ({ data, onPrev }) => {
             addressLat: location.coordinates?.[0] || 0,
             addressLng: location.coordinates?.[1] || 0,
           };
-          console.debug('[DEBUG] Attempting to create user document with:', userCreatePayload);
           const createResult = await createUserDocument(userCreatePayload);
-          console.debug('[DEBUG] createUserDocument result:', createResult);
-          console.log('✅ User document created after missing update');
         } else {
-          console.log('✅ User document updated with onboarding details and merged roles');
         }
       } catch (error) {
         setError('Failed to update or create user document. Please check your details and try again.');
         setLoading(false);
-        console.debug('[DEBUG] Error updating/creating user document:', error);
         return;
       }
       
@@ -235,14 +211,11 @@ const FinishStep: React.FC<FinishStepProps> = ({ data, onPrev }) => {
         onboardingCompleted: true,
         joinedAt: new Date().toISOString(),
       };
-      console.debug('[DEBUG] Creating provider with:', providerData);
       await createProvider(providerData);
-      console.debug('[DEBUG] Provider created');
       
       // Add provider role to the user document
       try {
         await addProviderRole(user.id);
-        console.log('✅ Provider role added to user document');
       } catch (error) {
         console.error('❌ Error adding provider role to user document:', error);
         // Don't fail the onboarding if role addition fails
@@ -258,17 +231,14 @@ const FinishStep: React.FC<FinishStepProps> = ({ data, onPrev }) => {
           verification: onboardingData?.verification,
           payment: onboardingData?.payment,
         };
-        console.debug('[DEBUG] Upserting business_setup with:', businessSetupData);
         await upsertBusinessSetup({
           user_id: user.id,
           onboarding_data: businessSetupData,
           created_at: new Date().toISOString(),
         });
-        console.log('✅ Business setup data upserted successfully');
       } catch (error) {
         setError('Failed to save business setup data. Please try again.');
         setLoading(false);
-        console.debug('[DEBUG] Error saving business setup data:', error);
         return;
       }
       
@@ -278,13 +248,11 @@ const FinishStep: React.FC<FinishStepProps> = ({ data, onPrev }) => {
       });
       
       setSubmitted(true);
-      console.debug('[DEBUG] Onboarding submitted, setSubmitted(true)');
       
       // Refresh AuthContext so dashboard sees provider role
       if (refreshUserData) {
         try {
           await refreshUserData();
-          console.debug('[DEBUG] Called refreshUserData after onboarding');
         } catch (e) {
           console.error('[DEBUG] Error calling refreshUserData:', e);
         }
@@ -304,29 +272,24 @@ const FinishStep: React.FC<FinishStepProps> = ({ data, onPrev }) => {
 
   useEffect(() => {
     if (submitted) {
-      console.log('🔍 Debug: Onboarding submitted, starting redirect to dashboard...');
       
       // Wait a bit longer to ensure all database operations complete
       const timeout = setTimeout(async () => {
         try {
           // Double-check that the user has the provider role before redirecting
-          console.log('🔍 Debug: Verifying provider role before redirect...');
           
           // Refresh user data one more time to ensure roles are updated
           if (refreshUserData) {
             await refreshUserData();
-            console.log('🔍 Debug: Final refreshUserData completed');
           }
           
           // Small delay to ensure AuthContext is updated
           await new Promise(resolve => setTimeout(resolve, 500));
           
-          console.log('🔍 Debug: Redirecting to /provider/dashboard');
           router.push('/provider/dashboard');
           
           // Fallback redirect after 5 seconds if the first one doesn't work
           setTimeout(() => {
-            console.log('🔍 Debug: Fallback redirect to /provider/dashboard');
             router.replace('/provider/dashboard');
           }, 5000);
         } catch (error) {

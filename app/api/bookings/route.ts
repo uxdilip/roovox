@@ -62,7 +62,6 @@ export async function POST(request: NextRequest) {
 
     // 🔔 NEW: Create in-app notifications using fresh system
     try {
-      console.log('🔔 Creating notifications for new booking...');
       
       // Create notification for customer
       await notificationService.createNotification({
@@ -104,7 +103,6 @@ export async function POST(request: NextRequest) {
         }
       });
 
-      console.log('✅ Fresh notifications created successfully');
     } catch (error) {
       console.error('❌ Failed to create notifications:', error);
       // Don't fail the booking creation if notifications fail
@@ -125,7 +123,6 @@ export async function GET(req: NextRequest) {
     if (!id) {
       // List all bookings
       const bookings = await databases.listDocuments(DATABASE_ID, 'bookings');
-      console.log('All bookings:', bookings.documents.map(b => ({ id: b.$id, total_amount: b.total_amount, status: b.status })));
       return NextResponse.json({ 
         success: true, 
         bookings: bookings.documents.map(b => ({ id: b.$id, total_amount: b.total_amount, status: b.status, payment_status: b.payment_status }))
@@ -138,10 +135,8 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
     }
     // Optionally, map/normalize fields for frontend
-    console.log('Booking structure:', Object.keys(booking));
     return NextResponse.json({ booking });
   } catch (e: any) {
-    console.log('[DEBUG] Error fetching booking:', e.message);
     return NextResponse.json({ error: e.message || 'Server error' }, { status: 500 });
   }
 }
@@ -186,15 +181,12 @@ export async function PUT(request: NextRequest) {
         let paymentRecord = null;
         if (paymentsResponse.documents.length > 0) {
           paymentRecord = paymentsResponse.documents[0];
-          console.log("🔍 Payment record found:", paymentRecord);
           isCODOrder = paymentRecord.payment_method === "COD";
         } else {
-          console.log("🔍 No payment record found, checking booking payment_status");
           // Fallback: check booking's payment_status
           isCODOrder = currentBooking.payment_status === "pending";
         }
         
-        console.log("🔍 COD Order Check:", { 
           isCODOrder, 
           bookingId, 
           paymentRecords: paymentsResponse.documents.length,
@@ -206,7 +198,6 @@ export async function PUT(request: NextRequest) {
           // ✅ NEW: Different handling for doorstep vs in-store COD orders
           if (currentBooking.location_type === 'provider_location') {
             // In-store COD: Mark as completed and create commission collection
-            console.log("🏪 In-store COD order: Marking as completed and creating commission collection");
             updateData.status = 'completed';
             updateData.payment_status = 'completed';
             
@@ -215,7 +206,6 @@ export async function PUT(request: NextRequest) {
               // Calculate commission (10% of total amount)
               const commissionAmount = paymentRecord ? paymentRecord.commission_amount : (currentBooking.total_amount * 0.10);
               
-              console.log('💰 Creating commission collection record:', {
                 booking_id: bookingId,
                 provider_id: currentBooking.provider_id,
                 commission_amount: commissionAmount
@@ -238,7 +228,6 @@ export async function PUT(request: NextRequest) {
                 }
               );
               
-              console.log('✅ Commission collection created for in-store COD:', commissionCollection.$id);
               
               // Update payment record if it exists to mark commission tracking started
               if (paymentRecord) {
@@ -252,7 +241,6 @@ export async function PUT(request: NextRequest) {
                       updated_at: new Date().toISOString()
                     }
                   );
-                  console.log('✅ Payment record updated for commission tracking');
                 } catch (paymentUpdateError) {
                   console.error('⚠️ Error updating payment record (non-fatal):', paymentUpdateError);
                 }
@@ -263,7 +251,6 @@ export async function PUT(request: NextRequest) {
             }
           } else {
             // Doorstep COD: Set to pending_cod_collection (existing behavior)
-            console.log("🚪 Doorstep COD order: Setting to pending_cod_collection");
             updateData.status = 'pending_cod_collection';
           }
         }
@@ -301,7 +288,6 @@ export async function PUT(request: NextRequest) {
     // 🔔 NEW: Create notifications for status changes using fresh system
     try {
       if (updateData.status) {
-        console.log('🔔 Creating status change notification for:', updateData.status);
         
         // Get device name from the booking data
         const deviceName = updatedBooking.device_name || 'device';
@@ -344,7 +330,6 @@ export async function PUT(request: NextRequest) {
           }
         });
 
-        console.log('✅ Status change notifications created successfully');
       }
     } catch (error) {
       console.error('Failed to create status change notifications:', error);

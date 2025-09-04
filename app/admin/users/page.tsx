@@ -120,42 +120,36 @@ export default function UserManagementPage() {
         bookingsResponse = bookingsData;
         customerDevicesResponse = customerDevicesData;
       } catch (error) {
-        console.log("Some collections not accessible, trying individual collections");
         
         // Try to fetch collections individually
         try {
           const usersData = await databases.listDocuments(DATABASE_ID, COLLECTIONS.USERS);
           usersResponse = usersData;
         } catch (e) {
-          console.log("Users collection not accessible");
         }
         
         try {
           const customersData = await databases.listDocuments(DATABASE_ID, COLLECTIONS.CUSTOMERS);
           customersResponse = customersData;
         } catch (e) {
-          console.log("Customers collection not accessible");
         }
         
         try {
           const providersData = await databases.listDocuments(DATABASE_ID, COLLECTIONS.PROVIDERS);
           providersResponse = providersData;
         } catch (e) {
-          console.log("Providers collection not accessible");
         }
         
         try {
           const bookingsData = await databases.listDocuments(DATABASE_ID, COLLECTIONS.BOOKINGS);
           bookingsResponse = bookingsData;
         } catch (e) {
-          console.log("Bookings collection not accessible");
         }
         
         try {
           const customerDevicesData = await databases.listDocuments(DATABASE_ID, 'customer_devices');
           customerDevicesResponse = customerDevicesData;
         } catch (e) {
-          console.log("Customer devices collection not accessible");
         }
       }
 

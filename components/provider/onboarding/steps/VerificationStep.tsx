@@ -49,7 +49,6 @@ const VerificationStep: React.FC<VerificationStepProps> = ({ data, setData, onNe
     if (!file) return;
     setUploading(u => ({ ...u, [key]: true }));
     try {
-      console.log('🔍 Debug: Starting upload for', key, 'for user:', user?.id);
       const ext = file.name.split('.').pop();
       const fileName = `${key}.${ext}`;
       // Upload to Appwrite Storage (bucketId must be set in env or code)
@@ -66,17 +65,14 @@ const VerificationStep: React.FC<VerificationStepProps> = ({ data, setData, onNe
         Permission.delete(Role.users()),
       ];
       const res = await storage.createFile(bucketId, ID.unique(), file, permissions);
-      console.log('✅ File uploaded successfully:', res.$id);
       
       // Save file ID or URL
       setKycDocs((prev: any) => {
         const wasAlreadyUploaded = !!prev[key];
         const next = { ...prev, [key]: res.$id };
-        console.log('🔍 Debug: Updated kyc_docs:', next);
         setData({ ...data, kyc_docs: next });
         // Use updateBusinessSetupKycDocs to save kyc_docs
         updateBusinessSetupKycDocs(providerId, next).then(() => {
-          console.log('✅ KYC docs saved to business_setup successfully');
         }).catch(err => {
           console.error('❌ Error saving KYC docs:', err);
           toast({ title: 'Failed to update KYC docs in business_setup', description: String(err), variant: 'destructive' });

@@ -72,8 +72,6 @@ export default function ProviderCommissionPage() {
     try {
       setLoading(true);
       
-      console.log('🔍 [PROVIDER-COMMISSION] Fetching commissions for user:', user?.id);
-      console.log('🔍 [PROVIDER-COMMISSION] Active tab:', activeTab);
       
       const response = await databases.listDocuments(
         DATABASE_ID,
@@ -84,14 +82,8 @@ export default function ProviderCommissionPage() {
         ]
       );
 
-      console.log('🔍 [PROVIDER-COMMISSION] Found', response.documents.length, 'commission collections');
       response.documents.forEach((doc: any, index: number) => {
-        console.log(`🔍 [PROVIDER-COMMISSION] Commission ${index + 1}:`, {
-          id: doc.$id,
-          provider_id: doc.provider_id,
-          status: doc.status,
-          commission_amount: doc.commission_amount
-        });
+        // Process commission document
       });
 
       // Debug: Fetch all commission collections without filtering
@@ -101,14 +93,8 @@ export default function ProviderCommissionPage() {
           'commission_collections',
           []
         );
-        console.log('🔍 [PROVIDER-COMMISSION] Total commission collections in database:', allCommissionsResponse.documents.length);
         allCommissionsResponse.documents.forEach((doc: any, index: number) => {
-          console.log(`🔍 [PROVIDER-COMMISSION] All Commission ${index + 1}:`, {
-            id: doc.$id,
-            provider_id: doc.provider_id,
-            status: doc.status,
-            commission_amount: doc.commission_amount
-          });
+          // Process commission document
         });
       } catch (error) {
         console.error('❌ [PROVIDER-COMMISSION] Error fetching all commissions:', error);
@@ -117,7 +103,6 @@ export default function ProviderCommissionPage() {
       const commissionsWithDetails = await Promise.all(
         response.documents.map(async (commission: any) => {
           try {
-            console.log('🔍 Fetching details for commission:', commission.$id);
             
             // Fetch booking details
             const bookingResponse = await databases.listDocuments(
@@ -140,12 +125,6 @@ export default function ProviderCommissionPage() {
               };
             }
             
-            console.log('✅ Found booking:', {
-              booking_id: booking.$id,
-              customer_id: booking.customer_id,
-              device_id: booking.device_id
-            });
-            
             // Fetch customer details using the same approach as booking cards
             let customerName = 'Unknown Customer';
             try {
@@ -167,7 +146,6 @@ export default function ProviderCommissionPage() {
               const userName = userResponse.documents[0]?.name || "";
               customerName = customerFullName || userName || "Unknown Customer";
               
-              console.log('✅ Found customer:', customerName);
             } catch (customerError) {
               console.error('❌ Error fetching customer details:', customerError);
             }
@@ -191,7 +169,6 @@ export default function ProviderCommissionPage() {
 
                 if (deviceResponse) {
                   deviceDisplay = `${deviceResponse.brand || "Unknown Brand"} ${deviceResponse.model || ""}`.trim();
-                  console.log('✅ Found device:', deviceDisplay);
                 }
               } catch (deviceError) {
                 console.error('❌ Error fetching device details:', deviceError);
@@ -202,7 +179,6 @@ export default function ProviderCommissionPage() {
               deviceDisplay = booking.device;
             }
 
-            console.log('📋 Final details:', {
               customer_name: customerName,
               device_display: deviceDisplay,
               total_amount: booking.total_amount
@@ -277,7 +253,6 @@ export default function ProviderCommissionPage() {
 
   const handlePayCommission = async (commissionId: string, amount: number) => {
     try {
-      console.log('🔍 [PROVIDER-COMMISSION] Starting commission payment:', {
         commissionId,
         amount
       });
@@ -301,20 +276,16 @@ export default function ProviderCommissionPage() {
         throw new Error(orderData.error || 'Failed to create payment order');
       }
 
-      console.log('✅ [PROVIDER-COMMISSION] Payment order created:', orderData);
 
       // Check if Razorpay script is already loaded
       // @ts-ignore
       if (typeof window !== 'undefined' && window.Razorpay) {
-        console.log('✅ [PROVIDER-COMMISSION] Razorpay already loaded, proceeding with payment');
         initializeRazorpay(orderData, commissionId, amount);
       } else {
-        console.log('🔍 [PROVIDER-COMMISSION] Loading Razorpay script...');
         // Load Razorpay script
         const script = document.createElement('script');
         script.src = 'https://checkout.razorpay.com/v1/checkout.js';
         script.onload = () => {
-          console.log('✅ [PROVIDER-COMMISSION] Razorpay script loaded successfully');
           initializeRazorpay(orderData, commissionId, amount);
         };
 
@@ -342,7 +313,6 @@ export default function ProviderCommissionPage() {
 
   const initializeRazorpay = (orderData: any, commissionId: string, amount: number) => {
     try {
-      console.log('🔍 [PROVIDER-COMMISSION] Initializing Razorpay with options:', {
         key: orderData.key,
         amount: orderData.amount,
         order_id: orderData.order_id
@@ -357,7 +327,6 @@ export default function ProviderCommissionPage() {
         description: `Commission Payment - ₹${amount}`,
         order_id: orderData.order_id,
         handler: async function (response: any) {
-          console.log('🔍 [PROVIDER-COMMISSION] Payment successful:', response);
           
           try {
             // Verify payment
@@ -408,7 +377,6 @@ export default function ProviderCommissionPage() {
         theme: { color: "#6366f1" },
         modal: {
           ondismiss: function() {
-            console.log('Payment modal dismissed');
           }
         }
       };
@@ -417,7 +385,6 @@ export default function ProviderCommissionPage() {
       if (typeof window !== 'undefined' && window.Razorpay) {
         // @ts-ignore
         const rzp = new window.Razorpay(options);
-        console.log('✅ [PROVIDER-COMMISSION] Opening Razorpay modal...');
         rzp.open();
       } else {
         throw new Error('Razorpay not loaded');

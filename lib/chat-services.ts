@@ -76,7 +76,6 @@ export async function findExistingConversation(
   deviceInfo: { brand: string; model: string; category: 'phone' | 'laptop' }
 ): Promise<{ success: boolean; conversation?: Conversation; error?: string }> {
   try {
-    console.log('🔍 Looking for existing conversation:', { customerId, providerId, deviceInfo });
     
     // First, find conversations between this customer and provider
     const conversations = await databases.listDocuments(
@@ -92,11 +91,9 @@ export async function findExistingConversation(
     );
 
     if (conversations.documents.length === 0) {
-      console.log('🔍 No existing conversations found');
       return { success: true, conversation: undefined };
     }
 
-    console.log(`🔍 Found ${conversations.documents.length} existing conversations`);
 
     // Look for exact device match first (most relevant)
     for (const conv of conversations.documents) {
@@ -106,7 +103,6 @@ export async function findExistingConversation(
             convDeviceInfo.model === deviceInfo.model &&
             convDeviceInfo.category === deviceInfo.category) {
           
-          console.log('✅ Found exact device match:', conv.$id);
           return {
             success: true,
             conversation: {
@@ -129,7 +125,6 @@ export async function findExistingConversation(
 
     // If no exact device match, return the most recent conversation
     const mostRecent = conversations.documents[0];
-    console.log('🔍 No exact device match, returning most recent conversation:', mostRecent.$id);
     
     try {
       const convDeviceInfo = JSON.parse(mostRecent.device_info);
@@ -187,7 +182,6 @@ export async function createConversation(
       }
     );
 
-    console.log('✅ Conversation created:', conversation.$id);
     return { success: true, conversationId: conversation.$id };
 
   } catch (error) {
@@ -217,7 +211,6 @@ export async function updateConversationServices(
       }
     );
 
-    console.log('✅ Conversation services updated:', conversationId, 'New services:', newServices);
     return { success: true };
 
   } catch (error) {
@@ -267,7 +260,6 @@ export async function sendMessage(
       }
     );
 
-    console.log('✅ Message sent:', message.$id);
     return { success: true, messageId: message.$id };
 
   } catch (error) {
@@ -299,7 +291,6 @@ export async function getUserConversations(
       ]
     );
 
-    console.log(`✅ Found ${conversations.documents.length} conversations for ${userType}:`, userId);
     
     // Parse JSON fields and fetch last messages
     const parsedConversations = await Promise.all(
@@ -367,7 +358,6 @@ export async function getConversationMessages(
       ]
     );
 
-    console.log(`✅ Found ${messages.documents.length} messages in conversation:`, conversationId);
     
     // Parse JSON fields from Appwrite documents
     const parsedMessages = messages.documents.map(doc => ({
@@ -470,7 +460,6 @@ export async function updateConversationContext(
       }
     );
 
-    console.log('✅ Conversation context updated:', conversationId);
     return { success: true };
 
   } catch (error) {

@@ -224,7 +224,6 @@ export default function CashCollectionPage() {
             }
           );
         }
-        console.log('✅ Payment record updated/created for COD collection');
       } catch (error) {
         console.error('❌ Error updating payment record:', error);
         // Don't fail the cash collection if payment record update fails

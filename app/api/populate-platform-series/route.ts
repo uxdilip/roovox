@@ -3,7 +3,6 @@ import { populatePlatformSeries } from '@/lib/appwrite-services';
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('Starting platform series population...');
     
     await populatePlatformSeries();
     

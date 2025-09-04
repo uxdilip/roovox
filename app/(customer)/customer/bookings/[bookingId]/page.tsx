@@ -158,18 +158,15 @@ export default function BookingDetailsPage() {
             [Query.equal("booking_id", bookingResponse.$id)]
           );
           
-          console.log("🔍 Customer: Payment records found:", paymentsResponse.documents.length);
           
           if (paymentsResponse.documents.length > 0) {
             const payment = paymentsResponse.documents[0];
-            console.log("🔍 Customer: Payment method from record:", payment.payment_method);
             paymentData = {
               payment_method: payment.payment_method,
               status: payment.status,
               transaction_id: payment.transaction_id
             };
           } else {
-            console.log("🔍 Customer: No payment record found, defaulting to online");
             // Simple fallback: default to online if no payment record exists
             paymentData = {
               payment_method: "online",

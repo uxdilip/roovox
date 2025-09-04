@@ -67,9 +67,7 @@ export default function CustomSeriesCreator({ providerId, onSuccess, onCancel }:
 
   const loadBrands = async () => {
     try {
-      console.log('Loading brands for device type:', deviceType);
       const brandsData = await getBrandsByCategory(deviceType);
-      console.log('Brands loaded:', brandsData);
       setBrands(brandsData);
     } catch (error) {
       console.error('Error loading brands:', error);
@@ -90,7 +88,6 @@ export default function CustomSeriesCreator({ providerId, onSuccess, onCancel }:
 
   const loadIssues = async () => {
     try {
-      console.log('Loading issues for device type:', deviceType);
       
       // First get the category ID for the device type
       const { databases, DATABASE_ID } = await import('@/lib/appwrite');
@@ -185,7 +182,6 @@ export default function CustomSeriesCreator({ providerId, onSuccess, onCancel }:
         setAvailableModels(models);
       }
       
-      console.log(`Loaded ${models.length} models for ${brand}`);
     } catch (error) {
       console.error('Error loading models:', error);
       // Fallback to dummy models

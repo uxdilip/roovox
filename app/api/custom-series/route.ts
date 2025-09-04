@@ -32,7 +32,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
     
-    console.log('Creating custom series with data:', { providerId, name, description, deviceType, models });
     
     const series = await createCustomSeries({
       providerId,
@@ -42,7 +41,6 @@ export async function POST(request: NextRequest) {
       models,
     });
     
-    console.log('Custom series created successfully:', series);
     return NextResponse.json(series);
   } catch (error) {
     console.error('Error creating custom series:', error);

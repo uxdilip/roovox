@@ -37,7 +37,6 @@ export async function updateLaptopPrices(): Promise<LaptopUpdateResult> {
   };
 
   try {
-    console.log('🔄 Starting laptop price update process...');
     
     // Get all laptops from database with pagination
     let allLaptops: any[] = [];
@@ -61,10 +60,8 @@ export async function updateLaptopPrices(): Promise<LaptopUpdateResult> {
       allLaptops = allLaptops.concat(laptops);
       offset += limit;
       
-      console.log(`📄 Loaded ${laptops.length} laptops (total: ${allLaptops.length})`);
     }
 
-    console.log(`📊 Processing ${allLaptops.length} laptops total...`);
 
     for (const laptop of allLaptops) {
       try {
@@ -73,7 +70,6 @@ export async function updateLaptopPrices(): Promise<LaptopUpdateResult> {
 
         // Check if laptop already has pricing data
         if (laptop.market_price_inr && laptop.complexity_tier) {
-          console.log(`⏭️  Skipping ${brand} ${model} - already has pricing data`);
           result.skipped++;
           result.details.push({
             brand,
@@ -93,15 +89,12 @@ export async function updateLaptopPrices(): Promise<LaptopUpdateResult> {
           // Use manual price data
           marketPrice = manualPriceData.market_price_inr;
           complexityTier = manualPriceData.complexity_tier;
-          console.log(`💰 Found manual price for ${brand} ${model}: ₹${marketPrice} (${complexityTier})`);
         } else {
           // Use fallback tier suggestion based on brand and category
           if (category) {
             complexityTier = suggestTierByLaptopCategory(category);
-            console.log(`🏷️  Using category-based tier for ${brand} ${model} (${category}): ${complexityTier}`);
           } else {
             complexityTier = suggestTierByBrand(brand, 'laptop');
-            console.log(`🏷️  Using brand-based tier for ${brand} ${model}: ${complexityTier}`);
           }
         }
 
@@ -116,7 +109,6 @@ export async function updateLaptopPrices(): Promise<LaptopUpdateResult> {
           }
         );
 
-        console.log(`✅ Updated ${brand} ${model}`);
         result.updated++;
         result.details.push({
           brand,
@@ -146,8 +138,6 @@ export async function updateLaptopPrices(): Promise<LaptopUpdateResult> {
     result.success = true;
     result.message = `Successfully processed ${allLaptops.length} laptops. Updated: ${result.updated}, Skipped: ${result.skipped}, Errors: ${result.errors.length}`;
     
-    console.log('🎉 Laptop price update completed!');
-    console.log(`📊 Summary: ${result.message}`);
 
     return result;
 
@@ -165,7 +155,6 @@ export async function updateLaptopPrices(): Promise<LaptopUpdateResult> {
  */
 export async function testUpdateSingleLaptop(brand: string, model: string): Promise<boolean> {
   try {
-    console.log(`🧪 Testing single laptop update: ${brand} ${model}`);
     
     // Find the laptop in database
     const laptopsResponse = await databases.listDocuments(
@@ -179,7 +168,6 @@ export async function testUpdateSingleLaptop(brand: string, model: string): Prom
     );
 
     if (laptopsResponse.documents.length === 0) {
-      console.log(`❌ Laptop not found: ${brand} ${model}`);
       return false;
     }
 
@@ -194,10 +182,8 @@ export async function testUpdateSingleLaptop(brand: string, model: string): Prom
     if (manualPriceData) {
       marketPrice = manualPriceData.market_price_inr;
       complexityTier = manualPriceData.complexity_tier;
-      console.log(`💰 Found manual price: ₹${marketPrice} (${complexityTier})`);
     } else {
       complexityTier = suggestTierByBrand(brand, 'laptop');
-      console.log(`🏷️  Using brand-based tier: ${complexityTier}`);
     }
 
     // Update laptop document
@@ -211,7 +197,6 @@ export async function testUpdateSingleLaptop(brand: string, model: string): Prom
       }
     );
 
-    console.log(`✅ Successfully updated ${brand} ${model}`);
     return true;
 
   } catch (error: any) {

@@ -104,7 +104,6 @@ export default function VerifyProvidersPage() {
           );
         }
       } catch (error) {
-        console.log('Could not update business_setup verification:', error);
       }
 
       // Refresh the list

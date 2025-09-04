@@ -54,7 +54,6 @@ const PersonalDetailsStep: React.FC<PersonalDetailsStepProps> = ({ data, setData
     setLoading(true);
     try {
       // First, check if user session is valid
-      console.log('🔍 Checking user session for:', user.id);
       
       let profilePicture = data.profilePicture || '';
       if (data.profilePhoto instanceof File) {
@@ -94,7 +93,6 @@ const PersonalDetailsStep: React.FC<PersonalDetailsStepProps> = ({ data, setData
         },
       };
       
-      console.log('💾 Saving onboarding data for user:', user.id);
       await upsertBusinessSetup({
         user_id: user.id,
         onboarding_data,

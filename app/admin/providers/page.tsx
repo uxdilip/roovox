@@ -138,7 +138,6 @@ export default function ProviderManagementPage() {
           );
         }
       } catch (error) {
-        console.log('Could not update business_setup verification:', error);
       }
 
       await fetchProviders();

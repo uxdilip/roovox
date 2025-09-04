@@ -268,22 +268,12 @@ export default function CustomerDashboard() {
           let finalDeviceBrand = deviceInfo.deviceBrand;
           let finalDeviceModel = deviceInfo.deviceModel;
           
-          // ✅ DEBUG: Log device_info for troubleshooting
-          console.log('🔍 [CUSTOMER MY-BOOKINGS] Booking device_info:', {
-            booking_id: booking.$id,
-            device_info: booking.device_info,
-            device_id: booking.device_id,
-            deviceInfo: deviceInfo
-          });
-          
           if (booking.device_info) {
             try {
               const parsedDeviceInfo = JSON.parse(booking.device_info);
-              console.log('🔍 [CUSTOMER MY-BOOKINGS] Parsed device_info:', parsedDeviceInfo);
               if (parsedDeviceInfo.brand && parsedDeviceInfo.model) {
                 finalDeviceBrand = parsedDeviceInfo.brand;
                 finalDeviceModel = parsedDeviceInfo.model;
-                console.log('🔍 [CUSTOMER MY-BOOKINGS] Using device_info:', { finalDeviceBrand, finalDeviceModel });
               }
             } catch (error) {
               console.warn('Error parsing device_info:', error);
@@ -353,12 +343,6 @@ export default function CustomerDashboard() {
     
     const actualStatuses = statusMapping[status];
     const filteredBookings = bookings.filter(booking => actualStatuses.includes(booking.status));
-    console.log(`getBookingsByStatus(${status}):`, {
-      totalBookings: bookings.length,
-      filteredCount: filteredBookings.length,
-      statuses: bookings.map(b => b.status),
-      filteredStatuses: filteredBookings.map(b => b.status)
-    });
     return filteredBookings;
   };
 

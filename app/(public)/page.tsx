@@ -54,7 +54,6 @@ export default function HomePage() {
           [Query.equal('user_id', userId)]
         );
         if (res.documents.length === 0) {
-          console.log('Creating user document for:', userId, session);
           await createUserDocument({
             userId: userId,
             name: session.name,
@@ -65,9 +64,7 @@ export default function HomePage() {
             isVerified: false,
             isActive: true,
           });
-          console.log('User document created!');
         } else {
-          console.log('User document already exists:', res.documents[0]);
         }
       } catch (e) {
         console.error('Error in ensureUserInCollection:', e);

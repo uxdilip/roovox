@@ -88,7 +88,6 @@ const BrandCard: React.FC<BrandCardProps> = ({
   const [isSaving, setIsSaving] = useState(false);
 
   // Debug logging
-  console.log(`🔍 BrandCard ${brand}:`, { 
     deviceType, 
     issuesCount: issues.length, 
     issues: issues.map(i => ({ name: i.name, isSelected: i.isSelected, prices: { basic: i.basicPrice, standard: i.standardPrice, premium: i.premiumPrice } }))
@@ -97,7 +96,6 @@ const BrandCard: React.FC<BrandCardProps> = ({
   // Initialize edited issues when entering edit mode
   useEffect(() => {
     if (isEditMode) {
-      console.log(`📝 Entering edit mode for ${brand}, initializing with:`, issues);
       setEditedIssues([...issues]);
       setHasChanges(false);
     }
@@ -111,7 +109,6 @@ const BrandCard: React.FC<BrandCardProps> = ({
   // Reset edited issues when issues prop changes
   useEffect(() => {
     if (isEditMode) {
-      console.log(`🔄 Issues prop changed for ${brand}, updating editedIssues:`, issues);
       setEditedIssues([...issues]);
     }
   }, [issues, isEditMode, brand]);
@@ -244,7 +241,6 @@ const BrandCard: React.FC<BrandCardProps> = ({
 
   // Simple placeholder function for price inputs
   const getPlaceholder = (issue: any, priceType: 'basic' | 'standard' | 'premium'): string => {
-    console.log(`🔍 getPlaceholder called with issue:`, issue?.name, `priceType:`, priceType);
     
     if (!priceType) {
       console.warn(`⚠️ getPlaceholder received undefined priceType, using default`);
@@ -266,7 +262,6 @@ const BrandCard: React.FC<BrandCardProps> = ({
     return price.toString();
   };
 
-  console.log(`📊 ${brand} stats:`, { selectedCount, totalIssues, isEditMode });
 
       return (
       <Card className={`transition-all duration-200 ${isEditMode ? 'ring-2 ring-blue-500 shadow-lg' : ''} mx-2 sm:mx-0`}>
@@ -488,8 +483,6 @@ export default function NewTierPricingTab() {
       
       const allPricings = [...phonesPricing, ...laptopsPricing];
       setExistingPricings(allPricings);
-      console.log('📊 Loaded existing tier pricing:', allPricings.length, 'items');
-      console.log('🔍 Raw pricing data structure:', allPricings.map(p => ({
         id: p.id || p.$id || 'unknown',
         device_type: p.device_type,
         brand: p.brand,
@@ -631,7 +624,6 @@ export default function NewTierPricingTab() {
         ? getAllBrandsExceptMaster(masterBrand)
         : selectedBrands;
 
-      console.log('🚀 Starting bulk pricing application:', {
         masterBrand,
         targetBrands,
         selectedIssues: pricingData.issues.filter(issue => issue.isSelected)
@@ -655,7 +647,6 @@ export default function NewTierPricingTab() {
         }))
       };
 
-      console.log('📊 Bulk pricing data prepared:', bulkPricingData);
 
       // Save bulk pricing
       const result = await saveBulkBrandPricing(bulkPricingData);
@@ -703,7 +694,6 @@ export default function NewTierPricingTab() {
       const uniqueBrands = [...new Set(devices.map(device => device.brand))].sort();
       setBrands(uniqueBrands);
       
-      console.log('📱 Loaded brands for', deviceType, ':', uniqueBrands.length);
     } catch (error) {
       console.error('❌ Error loading brands:', error);
       toast.error('Failed to load brands');
@@ -725,22 +715,17 @@ export default function NewTierPricingTab() {
       const category = categories.find((c: any) => c.name.toLowerCase() === categoryName.toLowerCase());
       
       if (!category) {
-        console.log('❌ No category found for:', categoryName);
         setPricingData(prev => ({ ...prev, issues: [] }));
         toast.error(`No category found for ${categoryName}`);
         return;
       }
       
-      console.log('🔍 DEBUG - Category object found:', category);
-      console.log('🔍 DEBUG - Category ID:', category.id);
-      console.log('🔍 DEBUG - Category $id:', (category as any).$id);
       
       let allIssues: any[] = [];
       
       // Load issues for the found category
       try {
         const categoryId = category.id || (category as any).$id;
-        console.log('🔍 DEBUG - Using category ID:', categoryId);
         const issues = await getIssuesByCategory(categoryId);
         allIssues = issues;
       } catch (error) {
@@ -783,7 +768,6 @@ export default function NewTierPricingTab() {
       
       setPricingData(prev => ({ ...prev, issues: issuesWithPricing }));
       
-      console.log('🔧 Loaded issues for brand', brand, ':', processedIssues.length);
     } catch (error) {
       console.error('❌ Error loading issues:', error);
       toast.error('Failed to load issues');
@@ -837,14 +821,10 @@ export default function NewTierPricingTab() {
   };
 
   const handleSave = async () => {
-    console.log('🔍 DEBUG - handleSave called!');
-    console.log('🔍 DEBUG - pricingData:', pricingData);
     
     const selectedIssues = pricingData.issues.filter(issue => issue.isSelected);
-    console.log('🔍 DEBUG - selectedIssues:', selectedIssues.length, selectedIssues);
     
     if (selectedIssues.length === 0) {
-      console.log('❌ DEBUG - No issues selected');
       toast.error('Please select at least one issue to save pricing for.');
       return;
     }
@@ -855,21 +835,17 @@ export default function NewTierPricingTab() {
       issue.basicPrice <= 0 || issue.standardPrice <= 0 || issue.premiumPrice <= 0
     );
 
-    console.log('🔍 DEBUG - invalidIssues:', invalidIssues.length, invalidIssues);
 
     if (invalidIssues.length > 0) {
-      console.log('❌ DEBUG - Invalid pricing found');
       toast.error(`Please set all prices for: ${invalidIssues.map(i => i.name).join(', ')}`);
       return;
     }
 
     if (!user?.id) {
-      console.log('❌ DEBUG - User not authenticated:', user);
       toast.error('User not authenticated');
       return;
     }
 
-    console.log('🔍 DEBUG - All validations passed, proceeding to save...');
 
     try {
       setLoading(true);
@@ -887,12 +863,9 @@ export default function NewTierPricingTab() {
         }))
       };
       
-      console.log('🔍 DEBUG - Calling saveBulkTierPricing with:', bulkData);
       await saveBulkTierPricing(bulkData);
-      console.log('✅ DEBUG - saveBulkTierPricing completed successfully');
       
       // Refresh existing pricing data
-      console.log('🔍 DEBUG - Refreshing existing pricing data...');
       await loadExistingPricings();
       
       // Save to local state for display
@@ -909,7 +882,6 @@ export default function NewTierPricingTab() {
       });
       setIsModalOpen(false);
       
-      console.log('✅ DEBUG - Save operation completed successfully');
       toast.success('Tier pricing saved successfully!');
     } catch (error) {
       console.error('❌ Error saving tier pricing:', error);
@@ -1310,10 +1282,6 @@ export default function NewTierPricingTab() {
                 </Button>
                 <Button
                   onClick={() => {
-                    console.log('🔍 DEBUG - Save button clicked!');
-                    console.log('🔍 DEBUG - canSave:', canSave);
-                    console.log('🔍 DEBUG - loading:', loading);
-                    console.log('🔍 DEBUG - selectedCount:', selectedCount);
                     handleSave();
                   }}
                   disabled={!canSave || loading}
@@ -1511,11 +1479,9 @@ export default function NewTierPricingTab() {
                   premiumPrice: item.premium || 0
                 };
                 
-                console.log(`🔧 Converting issue:`, { original: item, converted: issueData });
                 return issueData;
               });
               
-              console.log(`📦 BrandCard ${group.brand} data:`, { 
                 deviceType: group.device_type, 
                 brand: group.brand, 
                 issuesCount: issues.length,

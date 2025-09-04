@@ -9,7 +9,6 @@ export async function POST(request: NextRequest) {
 
     switch (action) {
       case 'update_all':
-        console.log('🔄 Starting bulk laptop price update...');
         const result = await updateLaptopPrices();
         return NextResponse.json(result);
 
@@ -21,7 +20,6 @@ export async function POST(request: NextRequest) {
           }, { status: 400 });
         }
         
-        console.log(`🧪 Testing single laptop update: ${brand} ${model}`);
         const testResult = await testUpdateSingleLaptop(brand, model);
         return NextResponse.json({
           success: testResult,
@@ -53,7 +51,6 @@ export async function GET(request: NextRequest) {
 
     switch (action) {
       case 'statistics':
-        console.log('📊 Getting laptop update statistics...');
         const stats = await getLaptopUpdateStatistics();
         return NextResponse.json({
           success: true,

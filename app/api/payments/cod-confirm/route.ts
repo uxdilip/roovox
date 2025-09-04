@@ -7,15 +7,11 @@ export async function POST(req: NextRequest) {
   try {
     const { session_key, booking_data } = await req.json();
     
-    console.log('🔍 [COD-CONFIRM] Received data:', { session_key, booking_data });
-    console.log('🔍 [COD-CONFIRM] Date format:', booking_data.date);
-    console.log('🔍 [COD-CONFIRM] Time format:', booking_data.time);
     
     if (!session_key || !booking_data) {
       return NextResponse.json({ success: false, error: 'Missing session_key or booking_data' }, { status: 400 });
     }
 
-    console.log('🔍 [COD-CONFIRM] Creating COD booking with data:', {
       total_amount: booking_data.total_amount,
       customer_id: booking_data.customer_id,
       provider_id: booking_data.provider_id
@@ -34,7 +30,6 @@ export async function POST(req: NextRequest) {
         status: 'pending', // required enum - COD bookings start as pending
         appointment_time: (() => {
           try {
-            console.log('🔍 [COD-CONFIRM] Parsing appointment time:', {
               date: booking_data.date,
               time: booking_data.time
             });
@@ -47,18 +42,15 @@ export async function POST(req: NextRequest) {
             
             // Try to create a simple datetime string first
             const simpleDateTime = `${booking_data.date} ${booking_data.time}`;
-            console.log('🔍 [COD-CONFIRM] Simple datetime string:', simpleDateTime);
             
             // Try to parse it
             const parsedDate = new Date(simpleDateTime);
             if (!isNaN(parsedDate.getTime())) {
               const isoString = parsedDate.toISOString();
-              console.log('🔍 [COD-CONFIRM] Successfully parsed to ISO:', isoString);
               return isoString;
             }
             
             // If simple parsing fails, try manual parsing
-            console.log('🔍 [COD-CONFIRM] Simple parsing failed, trying manual parsing...');
             
             // Parse time like "10:00 AM" to 24-hour format
             const timeStr = booking_data.time;
@@ -72,7 +64,6 @@ export async function POST(req: NextRequest) {
               hours.toString().padStart(2, '0') + ':' + 
               minutes.toString().padStart(2, '0') + ':00';
             
-            console.log('🔍 [COD-CONFIRM] Manual datetime string:', dateStr);
             
             const finalDate = new Date(dateStr);
             if (isNaN(finalDate.getTime())) {
@@ -80,14 +71,12 @@ export async function POST(req: NextRequest) {
             }
             
             const isoString = finalDate.toISOString();
-            console.log('🔍 [COD-CONFIRM] Final ISO string:', isoString);
             
             return isoString;
           } catch (error) {
             console.error('Error parsing appointment time:', error);
             // Fallback to default time
             const fallbackDate = new Date(booking_data.date + 'T09:00:00');
-            console.log('🔍 [COD-CONFIRM] Using fallback date:', fallbackDate.toISOString());
             return fallbackDate.toISOString();
           }
         })(), // required datetime
@@ -109,9 +98,6 @@ export async function POST(req: NextRequest) {
         ...(booking_data.serviceMode && { serviceMode: booking_data.serviceMode }),
       };
 
-      console.log('🔍 [COD-CONFIRM] Complete booking data:', completeBookingData);
-      console.log('🔍 [COD-CONFIRM] Status field value:', completeBookingData.status);
-      console.log('🔍 [COD-CONFIRM] Payment status field value:', completeBookingData.payment_status);
       
       booking = await databases.createDocument(
         DATABASE_ID,
@@ -120,7 +106,6 @@ export async function POST(req: NextRequest) {
         completeBookingData
       );
       
-      console.log('✅ [COD-CONFIRM] Booking created:', booking.$id);
     } catch (error: any) {
       console.error('[COD-CONFIRM] Error creating booking:', error);
       return NextResponse.json({ success: false, error: 'Failed to create booking: ' + error.message }, { status: 500 });
@@ -130,7 +115,6 @@ export async function POST(req: NextRequest) {
     const commissionAmount = booking.total_amount * 0.10; // 10% commission
     const providerPayout = booking.total_amount * 0.90;   // 90% to provider
 
-    console.log('💰 [COD-CONFIRM] Commission calculation:', {
       total_amount: booking.total_amount,
       commission_amount: commissionAmount,
       provider_payout: providerPayout
@@ -156,7 +140,6 @@ export async function POST(req: NextRequest) {
         }
       );
       
-      console.log('✅ [COD-CONFIRM] Payment record created:', {
         payment_id: payment.$id,
         commission_amount: commissionAmount,
         provider_payout: providerPayout
@@ -169,11 +152,9 @@ export async function POST(req: NextRequest) {
     // ✅ NEW: Update offer status when booking is completed
     if (booking_data.offerId) {
       try {
-        console.log('🎯 [COD-CONFIRM] Updating offer status for offer:', booking_data.offerId);
         const offerUpdateResult = await updateOfferOnBookingComplete(booking_data.offerId, booking.$id);
         
         if (offerUpdateResult.success) {
-          console.log('✅ [COD-CONFIRM] Offer status updated successfully');
         } else {
           console.error('❌ [COD-CONFIRM] Failed to update offer status:', offerUpdateResult.error);
         }
@@ -185,7 +166,6 @@ export async function POST(req: NextRequest) {
 
     // 🔔 NEW: Create in-app notifications using fresh system
     try {
-      console.log('🔔 Creating notifications for COD booking...');
       
       // Create notification for provider
       await notificationService.createNotification({
@@ -229,13 +209,11 @@ export async function POST(req: NextRequest) {
         }
       });
 
-      console.log('✅ Fresh notifications created successfully');
     } catch (error) {
       console.error('❌ Failed to create notifications:', error);
       // Don't fail the COD confirmation if notifications fail
     }
 
-    console.log('🎉 [COD-CONFIRM] COD booking and payment created successfully');
     return NextResponse.json({ success: true });
   } catch (e: any) {
     console.error('[COD-CONFIRM] Error:', e.message, e);

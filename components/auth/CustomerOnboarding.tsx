@@ -19,7 +19,6 @@ interface CustomerOnboardingProps {
 }
 
 export default function CustomerOnboarding({ open, onOpenChange, userPhone }: CustomerOnboardingProps) {
-  console.log('🎭 CustomerOnboarding render - open:', open, 'userPhone:', userPhone);
   
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -77,7 +76,6 @@ export default function CustomerOnboarding({ open, onOpenChange, userPhone }: Cu
 
   return (
     <Dialog open={open} onOpenChange={(newOpen) => {
-      console.log('🎭 Dialog onOpenChange called with:', newOpen);
       onOpenChange(newOpen);
     }}>
       <DialogContent className="max-w-md p-0 overflow-hidden rounded-2xl shadow-2xl bg-white/80 backdrop-blur-lg">

@@ -30,25 +30,19 @@ export function ServiceSelector({ device, onServiceSelect, onBack }: ServiceSele
     const fetchIssues = async () => {
       setLoading(true);
       try {
-        console.log('🔍 Fetching issues for category:', categoryName);
         const res = await databases.listDocuments(
           DATABASE_ID,
           'categories',
           []
         );
-        console.log('🔍 Categories found:', res.documents.length);
         const categories = res.documents;
         const category = categories.find((c: any) => c.name.toLowerCase() === categoryName.toLowerCase());
-        console.log('🔍 Found category:', category);
         if (!category) {
-          console.log('❌ No category found for:', categoryName);
           setIssues([]);
           setLoading(false);
           return;
         }
-        console.log('🔍 Fetching issues for category ID:', category.$id);
         const fetchedIssues = await getIssuesByCategory(category.$id);
-        console.log('🔍 Issues fetched:', fetchedIssues.length, fetchedIssues);
         setIssues(fetchedIssues);
       } catch (error) {
         console.error('❌ Error fetching issues:', error);

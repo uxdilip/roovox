@@ -6,7 +6,6 @@ export async function POST(req: NextRequest) {
   try {
     const { booking_id, provider_id, collection_method = 'upi' } = await req.json();
     
-    console.log('🔍 [COLLECT-COMMISSION] Starting commission collection for:', {
       booking_id,
       provider_id,
       collection_method
@@ -14,7 +13,6 @@ export async function POST(req: NextRequest) {
     
     // Validate required fields
     if (!booking_id || !provider_id) {
-      console.log('❌ [COLLECT-COMMISSION] Missing required fields');
       return NextResponse.json({ 
         success: false, 
         error: 'Missing booking_id or provider_id' 
@@ -22,7 +20,6 @@ export async function POST(req: NextRequest) {
     }
 
     // Find the payment record
-    console.log('🔍 [COLLECT-COMMISSION] Finding payment record for booking:', booking_id);
     const paymentResponse = await databases.listDocuments(
       DATABASE_ID,
       'payments',
@@ -30,7 +27,6 @@ export async function POST(req: NextRequest) {
     );
 
     if (paymentResponse.documents.length === 0) {
-      console.log('❌ [COLLECT-COMMISSION] Payment record not found for booking:', booking_id);
       return NextResponse.json({ 
         success: false, 
         error: 'Payment record not found' 
@@ -38,7 +34,6 @@ export async function POST(req: NextRequest) {
     }
 
     const payment = paymentResponse.documents[0];
-    console.log('✅ [COLLECT-COMMISSION] Found payment record:', {
       payment_id: payment.$id,
       amount: payment.amount,
       payment_method: payment.payment_method,
@@ -47,7 +42,6 @@ export async function POST(req: NextRequest) {
     
     // Validate it's a COD payment
     if (payment.payment_method !== 'COD') {
-      console.log('❌ [COLLECT-COMMISSION] Not a COD payment:', payment.payment_method);
       return NextResponse.json({ 
         success: false, 
         error: 'Not a COD payment' 
@@ -56,7 +50,6 @@ export async function POST(req: NextRequest) {
 
     // Check if commission is already settled
     if (payment.is_commission_settled) {
-      console.log('❌ [COLLECT-COMMISSION] Commission already settled');
       return NextResponse.json({ 
         success: false, 
         error: 'Commission already settled' 
@@ -64,7 +57,6 @@ export async function POST(req: NextRequest) {
     }
 
     // Create commission collection record
-    console.log('🔍 [COLLECT-COMMISSION] Creating commission collection record...');
     try {
       const commissionCollection = await databases.createDocument(
         DATABASE_ID,
@@ -82,7 +74,6 @@ export async function POST(req: NextRequest) {
         }
       );
       
-      console.log('✅ [COLLECT-COMMISSION] Commission collection created:', {
         collection_id: commissionCollection.$id,
         commission_amount: payment.commission_amount
       });
@@ -104,7 +95,6 @@ export async function POST(req: NextRequest) {
     }
 
     // Update payment record
-    console.log('🔍 [COLLECT-COMMISSION] Updating payment record...');
     try {
       await databases.updateDocument(
         DATABASE_ID,
@@ -116,7 +106,6 @@ export async function POST(req: NextRequest) {
         }
       );
       
-      console.log('✅ [COLLECT-COMMISSION] Payment record updated');
     } catch (error: any) {
       console.error('❌ [COLLECT-COMMISSION] Error updating payment record:', error);
       return NextResponse.json({ 
@@ -125,7 +114,6 @@ export async function POST(req: NextRequest) {
       }, { status: 500 });
     }
 
-    console.log('🎉 [COLLECT-COMMISSION] Commission collection process completed successfully');
     return NextResponse.json({ 
       success: true, 
       commission_amount: payment.commission_amount,

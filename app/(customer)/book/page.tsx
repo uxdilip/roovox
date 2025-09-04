@@ -55,7 +55,6 @@ export default function BookPage() {
   // Set a default date (today) to ensure we always have a valid date
   useEffect(() => {
     const today = new Date().toISOString().split('T')[0];
-    console.log('🔍 [BOOK] Setting default date:', today);
     setSelectedDate(today);
   }, []); // Only run once on mount
   const [timeSlot, setTimeSlot] = useState<string>('');
@@ -88,7 +87,6 @@ export default function BookPage() {
     const mode = searchParams.get('mode');
     
     if (offerId && mode === 'from_offer') {
-      console.log('🎯 Offer context detected:', { offerId, mode });
       setOfferMode('from_offer');
       setIsFromOffer(true);
       fetchOfferData(offerId);
@@ -104,7 +102,6 @@ export default function BookPage() {
       const offer = await getOfferById(offerId);
       if (offer.success && offer.offer) {
         setOfferData(offer.offer);
-        console.log('✅ Offer data loaded:', offer.offer);
         
         // Pre-fill form with offer data
         if (offer.offer.conversation_context?.device_info) {
@@ -193,12 +190,9 @@ export default function BookPage() {
           setProviderLocation(locationData);
         }
         
-        console.log('✅ Real provider data loaded:', providerData);
         if (locationData) {
-          console.log('✅ Provider location loaded:', locationData);
         }
       } else {
-        console.log('⚠️ No business setup found for provider:', providerId);
         // Fallback to basic provider info
         setSelectedProvider((prev: any) => ({ 
           ...prev, 
@@ -230,7 +224,6 @@ export default function BookPage() {
   // NEW: Pre-fill form when offer data is loaded
   useEffect(() => {
     if (offerData && isFromOffer) {
-      console.log('🎯 Pre-filling form with offer data:', offerData);
       
       // Skip steps 1-3, go directly to step 4 (booking form)
       setStep(4);
@@ -238,7 +231,6 @@ export default function BookPage() {
       // Ensure we have a valid date set
       if (!selectedDate) {
         const today = new Date().toISOString().split('T')[0];
-        console.log('🔍 [BOOK] Setting date for offer form:', today);
         setSelectedDate(today);
       }
       
@@ -288,7 +280,6 @@ export default function BookPage() {
         });
       }
       
-      console.log('✅ Form pre-filled successfully');
     }
   }, [offerData, isFromOffer]);
 
@@ -313,13 +304,6 @@ export default function BookPage() {
   };
 
   const handleProviderSelect = async (provider: any, partQuality?: PartQuality) => {
-    console.log('🔍 Selected Provider:', {
-      id: provider.id,
-      name: provider.name,
-      matchingServices: provider.matchingServices,
-      matchingServicesCount: provider.matchingServices?.length
-    });
-    
     setSelectedProvider(provider);
     if (partQuality) {
       setSelectedPartQuality(partQuality);
@@ -328,11 +312,9 @@ export default function BookPage() {
   };
 
   const handleBookingSubmit = (bookingData: any) => {
-    console.log('📝 Booking data submitted:', bookingData);
     
     // NEW: Handle offer-based booking differently
     if (isFromOffer && offerData) {
-      console.log('🎯 Processing offer-based booking');
       
       // Merge offer data with form data
       const enhancedBookingData = {
@@ -350,14 +332,12 @@ export default function BookPage() {
         provider_id: offerData.provider_id
       };
       
-      console.log('✨ Enhanced booking data:', enhancedBookingData);
       
       // Store enhanced booking data in sessionStorage (client-side only)
       if (typeof window !== 'undefined') {
         try {
           const sessionKey = `pending_booking_${Date.now()}`;
           window.sessionStorage.setItem(sessionKey, JSON.stringify(enhancedBookingData));
-          console.log('💾 Enhanced booking data stored in session:', sessionKey);
           
           // Redirect to payment page with session key
           router.push(`/payment?session=${sessionKey}&amount=${enhancedBookingData.total_amount}`);
@@ -369,7 +349,6 @@ export default function BookPage() {
       }
       
     } else {
-      console.log('📝 Normal booking flow');
       // TODO: Implement normal booking submission
       // For now, just log the data
     }
@@ -410,12 +389,10 @@ export default function BookPage() {
     }
 
     // Validate date and time
-    console.log('🔍 [BOOK] Validation check - selectedDate:', selectedDate, 'timeSlot:', timeSlot);
     
     // Ensure we have a valid date - if not, set to today
     if (!selectedDate || selectedDate.trim() === '') {
       const today = new Date().toISOString().split('T')[0];
-      console.log('🔍 [BOOK] Date was empty, setting to today:', today);
       setSelectedDate(today);
       // Don't return, continue with the form submission
     }
@@ -433,54 +410,7 @@ export default function BookPage() {
       return;
     }
 
-          console.log('📝 Booking data submitted from Fiverr-style form:', {
-        date: selectedDate,
-        time: timeSlot,
-        serviceMode: serviceMode,
-        phone: phone,
-        address: address,
-        additionalNotes: additionalNotes,
-        offerData: offerData,
-        selectedDevice: selectedDevice,
-        selectedServices: selectedServices,
-        selectedProvider: selectedProvider,
-        selectedPartQuality: selectedPartQuality,
-        selectedIssues: selectedIssuesWithPartType,
-      });
-      
-      // ✅ DEBUG: Log device info for troubleshooting
-      console.log('🔍 [BOOK] Device info debug:', {
-        offerData_device_info: offerData?.conversation_context?.device_info,
-        selectedDevice: selectedDevice,
-        final_device_info: (() => {
-          if (offerData?.conversation_context?.device_info) {
-            const deviceInfo = offerData.conversation_context.device_info;
-            return {
-              brand: deviceInfo.brand || 'Unknown Brand',
-              model: deviceInfo.model || 'Unknown Model',
-              category: deviceInfo.category || 'phone'
-            };
-          }
-          if (selectedDevice) {
-            return {
-              brand: selectedDevice.brand,
-              model: selectedDevice.model,
-              category: selectedDevice.category
-            };
-          }
-          return { brand: 'Smartphone', model: 'Device', category: 'phone' };
-        })()
-      });
-
     try {
-      console.log('🔍 [BOOK] Creating booking data with values:', {
-        selectedDate,
-        timeSlot,
-        user: user?.id,
-        selectedProvider: selectedProvider?.id,
-        selectedDevice: selectedDevice?.id,
-        selectedServices: selectedServices?.[0]?.id
-      });
       
       // ✅ FIXED: Store booking data in sessionStorage for payment page
       const bookingData = {
@@ -548,13 +478,6 @@ export default function BookPage() {
       };
 
       if (typeof window !== 'undefined') {
-        console.log('🔍 [BOOK] Final booking data before storage:', {
-          selectedDate,
-          timeSlot,
-          date: selectedDate,
-          time: timeSlot,
-          fullBookingData: bookingData
-        });
         
         // Test the data structure
         const testData = {
@@ -566,14 +489,11 @@ export default function BookPage() {
           time: bookingData.time,
           location_type: bookingData.location_type
         };
-        console.log('🔍 [BOOK] Test data structure:', testData);
         
         sessionStorage.setItem('bookingData', JSON.stringify(bookingData));
-        console.log('✅ Booking data stored in sessionStorage');
       }
 
       // Redirect to payment page
-      console.log('🔄 Redirecting to payment page...');
       router.push('/payment');
       
     } catch (error) {
@@ -709,13 +629,11 @@ export default function BookPage() {
                                   value={selectedDate}
                                   onChange={(e) => {
                                     // Store the date string directly to avoid timezone issues
-                                    console.log('🔍 [BOOK] Date input changed:', {
                                       inputValue: e.target.value,
                                       rawValue: e.target.value,
                                       previousValue: selectedDate
                                     });
                                     setSelectedDate(e.target.value); // Store as string, not Date object
-                                    console.log('🔍 [BOOK] Date state updated to:', e.target.value);
                                   }}
                                   min={new Date().toISOString().split('T')[0]}
                                   className="h-12 text-base border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"

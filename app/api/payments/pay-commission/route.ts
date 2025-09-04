@@ -13,7 +13,6 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    console.log('🔍 [PAY-COMMISSION] Starting commission payment:', {
       commission_id,
       provider_id,
       amount
@@ -63,8 +62,6 @@ export async function POST(req: NextRequest) {
         }
       };
 
-      console.log('🔍 [PAY-COMMISSION] Creating Razorpay order:', orderRequestData);
-      console.log('🔍 [PAY-COMMISSION] Environment check:', {
         RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID ? 'Set' : 'Not set',
         RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET ? 'Set' : 'Not set'
       });
@@ -96,7 +93,6 @@ export async function POST(req: NextRequest) {
         }, { status: 500 });
       }
 
-      console.log('✅ [PAY-COMMISSION] Razorpay order created:', orderResponseData);
 
       // Update commission record with order details
       await databases.updateDocument(

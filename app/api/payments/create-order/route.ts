@@ -12,8 +12,6 @@ export async function POST(req: NextRequest) {
 
     const key_id = process.env.RAZORPAY_KEY_ID;
     const key_secret = process.env.RAZORPAY_KEY_SECRET;
-    console.log('Razorpay Key ID:', key_id ? 'Set' : 'Missing');
-    console.log('Razorpay Key Secret:', key_secret ? 'Set' : 'Missing');
     
     if (!key_id || !key_secret) {
       console.error('Razorpay configuration error: Keys not found in environment variables');

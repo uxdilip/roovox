@@ -52,7 +52,6 @@ export async function POST(req: NextRequest) {
         status: 'confirmed', // required enum (confirmed for online payments)
         appointment_time: (() => {
           try {
-            console.log('🔍 [VERIFY-PAYMENT] Parsing appointment time:', {
               date: booking_data.date,
               time: booking_data.time
             });
@@ -75,7 +74,6 @@ export async function POST(req: NextRequest) {
               hours.toString().padStart(2, '0') + ':' + 
               minutes.toString().padStart(2, '0') + ':00';
             
-            console.log('🔍 [VERIFY-PAYMENT] Created datetime string:', dateStr);
             
             const finalDate = new Date(dateStr);
             if (isNaN(finalDate.getTime())) {
@@ -83,14 +81,12 @@ export async function POST(req: NextRequest) {
             }
             
             const isoString = finalDate.toISOString();
-            console.log('🔍 [VERIFY-PAYMENT] Final ISO string:', isoString);
             
             return isoString;
           } catch (error) {
             console.error('Error parsing appointment time:', error);
             // Fallback to default time
             const fallbackDate = new Date(booking_data.date + 'T09:00:00');
-            console.log('🔍 [VERIFY-PAYMENT] Using fallback date:', fallbackDate.toISOString());
             return fallbackDate.toISOString();
           }
         })(), // required datetime
@@ -112,7 +108,6 @@ export async function POST(req: NextRequest) {
         ...(booking_data.serviceMode && { serviceMode: booking_data.serviceMode }),
       };
 
-      console.log('🔍 [VERIFY-PAYMENT] Complete booking data:', completeBookingData);
 
       // Create the complete booking with all required fields
       booking = await databases.createDocument(
@@ -155,11 +150,9 @@ export async function POST(req: NextRequest) {
     // ✅ NEW: Update offer status when booking is completed
     if (booking_data.offerId) {
       try {
-        console.log('🎯 [VERIFY-PAYMENT] Updating offer status for offer:', booking_data.offerId);
         const offerUpdateResult = await updateOfferOnBookingComplete(booking_data.offerId, booking.$id);
         
         if (offerUpdateResult.success) {
-          console.log('✅ [VERIFY-PAYMENT] Offer status updated successfully');
         } else {
           console.error('❌ [VERIFY-PAYMENT] Failed to update offer status:', offerUpdateResult.error);
         }
