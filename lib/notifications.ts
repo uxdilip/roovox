@@ -503,11 +503,19 @@ class NotificationService {
         const sessionData = localStorage.getItem(sessionKey);
         
         if (sessionData) {
-          const session = JSON.parse(sessionData);
-          const isRecent = new Date(session.lastActive).getTime() > Date.now() - (5 * 60 * 1000); // 5 minutes
-          
-          if (session.isActive && session.conversationId === conversationId && isRecent) {
-            return true;
+          try {
+            const session = JSON.parse(sessionData);
+            const isRecent = new Date(session.lastActive).getTime() > Date.now() - (2 * 60 * 1000); // 🔔 FIXED: Reduced to 2 minutes
+            
+            // 🔔 FIXED: More strict checking - user must be active AND in the exact same conversation
+            if (session.isActive && 
+                session.conversationId === conversationId && 
+                isRecent) {
+              return true;
+            }
+          } catch (parseError) {
+            // If parsing fails, assume not active
+            return false;
           }
         }
       }

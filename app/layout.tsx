@@ -76,7 +76,7 @@ export default function RootLayout({
               {children}
               <Toaster />
               {/* Chat notifications only - bottom-right */}
-              <ChatToastNotification position="bottom-right" duration={1000} soundEnabled={true} />
+              <ChatToastNotification position="bottom-right" duration={4000} soundEnabled={true} />
             </ChatProvider>
           </AuthProvider>
         </LocationProvider>

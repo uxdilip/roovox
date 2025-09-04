@@ -35,7 +35,7 @@ export default function CustomerLayout({
         {children}
       </main>
       {/* Chat notifications for customer pages */}
-      <ChatToastNotification position="bottom-right" duration={1000} soundEnabled={true} />
+      <ChatToastNotification position="bottom-right" duration={4000} soundEnabled={true} />
     </div>
   );
 } 

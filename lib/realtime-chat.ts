@@ -356,10 +356,15 @@ export class RealtimeChatService {
                 conversationId
               }
             }, {
-              skipIfActiveChat: true
+              skipIfActiveChat: false // 🔔 TEMPORARILY DISABLED for debugging
             });
 
-            // Silent success - no debug logging needed
+            console.log(`🔔 [CHAT] Notification created for recipient ${recipientId}:`, {
+              success: notificationResult.success,
+              skipToast: (notificationResult.notification as any)?.skipToast,
+              conversationId,
+              senderName
+            });
           }
         }
       } catch (notificationError) {

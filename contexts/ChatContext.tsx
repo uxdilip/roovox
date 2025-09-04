@@ -28,13 +28,13 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       // 🔔 NEW: Track active chat session in database
       if (user?.id && conversationId) {
         notificationService.setActiveChatSession(user.id, conversationId, true);
-
+        console.log(`🔔 [CHAT CONTEXT] Set active session: ${conversationId} for user ${user.id}`);
       }
     } else {
       // 🔔 NEW: Clear active session when leaving chat
       if (user?.id && activeConversationId) {
         notificationService.setActiveChatSession(user.id, null, false);
-
+        console.log(`🔔 [CHAT CONTEXT] Cleared active session for user ${user.id}`);
       }
       setActiveConversationId(null);
     }
@@ -44,7 +44,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (user?.id) {
       notificationService.setActiveChatSession(user.id, activeConversationId, !!activeConversationId);
-
+      console.log(`🔔 [CHAT CONTEXT] Updated session: ${activeConversationId} (active: ${!!activeConversationId}) for user ${user.id}`);
     }
   }, [activeConversationId, user?.id]);
 

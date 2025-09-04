@@ -60,7 +60,7 @@ export default function ProviderLayout({
         {children}
       </main>
       {/* Chat notifications for provider pages */}
-      <ChatToastNotification position="bottom-right" duration={1000} soundEnabled={true} />
+      <ChatToastNotification position="bottom-right" duration={4000} soundEnabled={true} />
     </div>
   );
 } 
