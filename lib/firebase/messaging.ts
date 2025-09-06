@@ -209,6 +209,58 @@ const getBrowserInfo = (): string => {
 };
 
 /**
+ * Test service worker communication
+ */
+export const testServiceWorkerCommunication = async (): Promise<{ success: boolean; error?: string }> => {
+  try {
+    if (!('serviceWorker' in navigator)) {
+      return { success: false, error: 'Service Worker not supported' };
+    }
+
+    const registration = await navigator.serviceWorker.getRegistration('/firebase-messaging-sw.js');
+    if (!registration) {
+      return { success: false, error: 'Service Worker not registered' };
+    }
+
+    // Check if service worker is active
+    if (!registration.active) {
+      return { success: false, error: 'Service Worker not active' };
+    }
+
+    const activeServiceWorker = registration.active;
+
+    // Test message communication
+    return new Promise((resolve) => {
+      const messageChannel = new MessageChannel();
+      
+      messageChannel.port1.onmessage = (event) => {
+        console.log('📨 Response from SW:', event.data);
+        if (event.data?.type === 'SW_RESPONSE') {
+          resolve({ success: true });
+        } else {
+          resolve({ success: false, error: 'Unexpected response from SW' });
+        }
+      };
+
+      // Send test message to service worker
+      activeServiceWorker.postMessage(
+        { type: 'TEST_MESSAGE', timestamp: Date.now() },
+        [messageChannel.port2]
+      );
+
+      // Timeout after 5 seconds
+      setTimeout(() => {
+        resolve({ success: false, error: 'Service Worker communication timeout' });
+      }, 5000);
+    });
+
+  } catch (error: any) {
+    console.error('Error testing service worker communication:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+/**
  * Check if FCM is supported
  */
 export const isFCMSupported = async (): Promise<boolean> => {

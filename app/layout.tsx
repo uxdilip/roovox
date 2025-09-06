@@ -6,6 +6,7 @@ import { LocationProvider } from '@/contexts/LocationContext';
 import { Toaster } from '@/components/ui/toaster';
 import { ChatToastNotification } from '@/components/ui/chat-toast-notification';
 import { ChatProvider } from '@/contexts/ChatContext';
+import { ServiceWorkerRegistration } from '@/components/ServiceWorkerRegistration';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -73,6 +74,7 @@ export default function RootLayout({
                 <LocationProvider>
           <AuthProvider>
             <ChatProvider>
+              <ServiceWorkerRegistration />
               {children}
               <Toaster />
               {/* Chat notifications only - bottom-right */}

@@ -365,7 +365,10 @@ export class RealtimeChatService {
             // 🔥 NEW: Send server-side FCM for cross-browser delivery
             try {
               console.log(`🚀 [CHAT] Initiating FCM send (client) -> recipient=${recipientId} type=${recipientType} conversation=${conversationId}`);
+              console.log(`🚀 [CHAT] Sender: ${message.sender_id} (${message.sender_type})`);
+              console.log(`🚀 [CHAT] Recipient: ${recipientId} (${recipientType})`);
               
+              // Send regular FCM notification (works in both foreground and background)
               const fcmResponse = await fetch('/api/fcm/send-notification', {
                 method: 'POST',
                 headers: {

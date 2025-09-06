@@ -155,6 +155,111 @@ export const sendPushNotification = async (
 };
 
 /**
+ * Send data-only push notification (triggers onBackgroundMessage)
+ */
+export const sendDataOnlyPushNotification = async (
+  notificationData: PushNotificationData
+): Promise<PushNotificationResult> => {
+  try {
+    console.log(`🔔 Sending data-only push notification to ${notificationData.userType} ${notificationData.userId}`);
+
+    // Get user's active FCM tokens
+    const tokens = await fcmTokenService.getActiveTokens(
+      notificationData.userId,
+      notificationData.userType
+    );
+
+    if (tokens.length === 0) {
+      console.log(`📵 No active FCM tokens found for ${notificationData.userType} ${notificationData.userId}`);
+      return { 
+        success: false, 
+        reason: 'no_tokens',
+        successCount: 0,
+        failureCount: 0
+      };
+    }
+
+    console.log(`📱 Found ${tokens.length} active tokens for user`);
+
+    // Prepare data-only payload (NO notification field)
+    const clickAction = getClickAction(notificationData.action, notificationData.userType);
+    
+    const message = {
+      // NO notification field - this ensures onBackgroundMessage is triggered
+      data: {
+        type: notificationData.action?.type || 'system',
+        id: notificationData.action?.id || '',
+        userId: notificationData.userId,
+        userType: notificationData.userType,
+        clickAction,
+        timestamp: new Date().toISOString(),
+        // Include notification data in data payload for manual handling
+        notificationTitle: notificationData.title,
+        notificationBody: notificationData.body,
+        notificationIcon: '/assets/logo.png',
+        notificationBadge: '/assets/badge.png',
+        notificationTag: `${notificationData.action?.type}_${notificationData.action?.id}`,
+        notificationRequireInteraction: notificationData.priority === 'high' ? 'true' : 'false',
+        ...(notificationData.imageUrl && { notificationImage: notificationData.imageUrl }),
+        priority: notificationData.priority || 'normal',
+        ...notificationData.data
+      },
+      tokens: tokens.map(t => t.token),
+      webpush: {
+        headers: {
+          Urgency: notificationData.priority === 'high' ? 'high' : 'normal'
+        }
+      },
+      android: {
+        priority: (notificationData.priority === 'high' ? 'high' : 'normal') as 'high' | 'normal'
+      }
+    };
+
+    console.log('📤 Sending data-only message:', JSON.stringify(message, null, 2));
+
+    // Send via Firebase Admin SDK
+    const response = await adminMessaging.sendEachForMulticast(message);
+
+    console.log(`📊 Data-only push notification result: ${response.successCount} success, ${response.failureCount} failures`);
+
+    // Handle failed tokens
+    const failedTokens: string[] = [];
+    if (response.failureCount > 0) {
+      response.responses.forEach((resp, idx) => {
+        if (!resp.success) {
+          const token = tokens[idx].token;
+          failedTokens.push(token);
+          console.log(`❌ Failed to send to token: ${token.substring(0, 20)}...`, resp.error);
+        }
+      });
+      
+      // Deactivate failed tokens
+      await Promise.all(
+        failedTokens.map(token => fcmTokenService.deactivateToken(token))
+      );
+      
+      console.log(`🧹 Deactivated ${failedTokens.length} invalid tokens`);
+    }
+
+    return {
+      success: response.successCount > 0,
+      successCount: response.successCount,
+      failureCount: response.failureCount,
+      failedTokens
+    };
+
+  } catch (error: any) {
+    console.error('❌ Error sending data-only push notification:', error);
+    return { 
+      success: false, 
+      error: error.message,
+      successCount: 0,
+      failureCount: 0
+    };
+  }
+};
+
+/**
  * Send push notifications to multiple users
  */
 export const sendBulkPushNotifications = async (

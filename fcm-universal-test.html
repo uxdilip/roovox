@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>FCM Status Check</title>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-messaging-compat.js"></script>
+</head>
+<body>
+    <h1>FCM Universal Notification Test</h1>
+    
+    <div>
+        <h3>Test Steps:</h3>
+        <ol>
+            <li>Open this page in Chrome (as customer)</li>
+            <li>Register for notifications</li>
+            <li>Open another browser/device (as provider)</li>
+            <li>Register for notifications there too</li>
+            <li>Send messages between them</li>
+        </ol>
+    </div>
+
+    <div>
+        <label>User Type:</label>
+        <select id="userType">
+            <option value="customer">Customer</option>
+            <option value="provider">Provider</option>
+        </select>
+        
+        <label>User ID:</label>
+        <input type="text" id="userId" placeholder="Enter user ID" value="6881370e00267202519b">
+        
+        <button id="registerFCM">Register for FCM</button>
+        <button id="checkTokens">Check My Tokens</button>
+        <button id="sendTestMsg">Send Test Message</button>
+    </div>
+
+    <div>
+        <h3>Status:</h3>
+        <div id="status">Ready</div>
+    </div>
+
+    <div>
+        <h3>Logs:</h3>
+        <div id="logs" style="background: #f5f5f5; padding: 10px; height: 300px; overflow-y: scroll;"></div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyCF_hn_33xTJaO-zwXGNxhVc9yJqjXfXD0",
+            authDomain: "sniket-d2766.firebaseapp.com",
+            projectId: "sniket-d2766",
+            storageBucket: "sniket-d2766.firebasestorage.app",
+            messagingSenderId: "968429297305",
+            appId: "1:968429297305:web:7425601aff7e7d08b52208",
+            measurementId: "G-V3D17BJYZ9"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const messaging = firebase.messaging();
+
+        function log(msg) {
+            const logs = document.getElementById('logs');
+            const time = new Date().toLocaleTimeString();
+            logs.innerHTML += `<div>${time}: ${msg}</div>`;
+            logs.scrollTop = logs.scrollHeight;
+            console.log(msg);
+        }
+
+        function setStatus(msg) {
+            document.getElementById('status').textContent = msg;
+            log('📊 Status: ' + msg);
+        }
+
+        // Register service worker
+        navigator.serviceWorker.register('/firebase-messaging-sw.js')
+            .then(registration => {
+                log('✅ Service worker registered');
+                messaging.useServiceWorker(registration);
+            })
+            .catch(err => log('❌ SW registration failed: ' + err));
+
+        // Register FCM
+        document.getElementById('registerFCM').addEventListener('click', async () => {
+            try {
+                setStatus('Requesting permission...');
+                const permission = await Notification.requestPermission();
+                
+                if (permission === 'granted') {
+                    log('✅ Notification permission granted');
+                    
+                    const token = await messaging.getToken();
+                    log('✅ FCM token received: ' + token.substring(0, 30) + '...');
+                    
+                    const userId = document.getElementById('userId').value;
+                    const userType = document.getElementById('userType').value;
+                    
+                    const response = await fetch('/api/fcm/register', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId, userType, token })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        log('✅ FCM token registered successfully');
+                        setStatus(`Registered as ${userType} (${userId})`);
+                    } else {
+                        log('❌ FCM registration failed: ' + result.error);
+                    }
+                } else {
+                    log('❌ Notification permission denied');
+                    setStatus('Permission denied');
+                }
+            } catch (error) {
+                log('❌ Error: ' + error);
+                setStatus('Error occurred');
+            }
+        });
+
+        // Check tokens
+        document.getElementById('checkTokens').addEventListener('click', async () => {
+            const userId = document.getElementById('userId').value;
+            const userType = document.getElementById('userType').value;
+            
+            try {
+                const response = await fetch(`/api/fcm/debug-tokens?userId=${userId}&userType=${userType}`);
+                const result = await response.json();
+                
+                log(`📱 Found ${result.tokenCount} tokens for ${userType} ${userId}`);
+                result.tokens.forEach((token, index) => {
+                    log(`   Token ${index + 1}: ${token.tokenId} (${token.deviceInfo.browser})`);
+                });
+            } catch (error) {
+                log('❌ Error checking tokens: ' + error);
+            }
+        });
+
+        // Send test message
+        document.getElementById('sendTestMsg').addEventListener('click', async () => {
+            const userId = document.getElementById('userId').value;
+            const userType = document.getElementById('userType').value;
+            
+            try {
+                const response = await fetch('/api/fcm/send-notification', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId,
+                        userType,
+                        title: 'Test from FCM Universal',
+                        body: `Test message to ${userType} ${userId}`,
+                        data: { type: 'test', source: 'universal-test' },
+                        action: { type: 'message', id: 'test-' + Date.now() }
+                    })
+                });
+                
+                const result = await response.json();
+                log(`📤 Sent to ${result.successCount} devices, ${result.failureCount} failed`);
+            } catch (error) {
+                log('❌ Error sending message: ' + error);
+            }
+        });
+
+        // Listen for foreground messages
+        messaging.onMessage((payload) => {
+            log('📨 Foreground message: ' + payload.notification?.title);
+        });
+
+        setStatus('Ready - Configure your user type and ID above');
+    </script>
+</body>
+</html>

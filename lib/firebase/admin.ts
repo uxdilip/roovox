@@ -1,8 +1,10 @@
 import { initializeApp, getApps, cert, App } from 'firebase-admin/app';
 import { getMessaging, Messaging } from 'firebase-admin/messaging';
+import { getFirestore, Firestore } from 'firebase-admin/firestore';
 
 let adminApp: App;
 let adminMessaging: Messaging;
+let adminFirestore: Firestore;
 
 const initializeFirebaseAdmin = () => {
   if (getApps().length > 0) {
@@ -21,11 +23,12 @@ const initializeFirebaseAdmin = () => {
   }
 
   adminMessaging = getMessaging(adminApp);
-  return { adminApp, adminMessaging };
+  adminFirestore = getFirestore(adminApp);
+  return { adminApp, adminMessaging, adminFirestore };
 };
 
 // Initialize once
-const { adminApp: app, adminMessaging: messaging } = initializeFirebaseAdmin();
+const { adminApp: app, adminMessaging: messaging, adminFirestore: firestore } = initializeFirebaseAdmin();
 
-export { app as adminApp, messaging as adminMessaging };
-export default { adminApp: app, adminMessaging: messaging };
+export { app as adminApp, messaging as adminMessaging, firestore as adminFirestore };
+export default { adminApp: app, adminMessaging: messaging, adminFirestore: firestore };

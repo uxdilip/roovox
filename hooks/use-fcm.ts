@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { registerFCMToken, setupForegroundMessageListener, isFCMSupported } from '@/lib/firebase/messaging';
+import { MultiUserFCMManager } from '@/lib/firebase/multi-user-fcm';
 import { MessagePayload } from 'firebase/messaging';
 import { useToast } from '@/hooks/use-toast';
 
@@ -75,69 +76,56 @@ export const useFCM = ({
   }, [isSupported]);
 
   const register = useCallback(async () => {
-    if (!userId || !userType) {
-      setError('User ID and type are required for FCM registration');
-      return;
-    }
-
-    if (!isSupported) {
-      setError('Push notifications are not supported in this browser');
-      return;
-    }
-
-    // Request permission if not already granted
-    if (permission !== 'granted') {
-      const granted = await requestPermission();
-      if (!granted) {
-        return;
-      }
-    }
+    if (!userId || !userType || !isSupported || isLoading) return;
 
     setIsLoading(true);
     setError(null);
 
     try {
-      console.log(`🔔 Registering FCM for ${userType} ${userId}`);
+      console.log(`🔔 [useFCM] Starting FCM registration for ${userType} ${userId}...`);
       
       const result = await registerFCMToken(userId, userType);
-
-      if (result.success && result.token) {
-        setToken(result.token);
-        setIsRegistered(true);
-        
-        // Cache the token for faster access
-        if (userId && userType) {
-          const localStorageKey = `fcm_token_${userId}_${userType}`;
-          localStorage.setItem(localStorageKey, result.token);
-        }
-        
-        console.log('✅ FCM registration successful');
-        
-        // Show success toast
-        toast({
-          title: '🔔 Notifications Enabled',
-          description: 'You will now receive push notifications for important updates',
-          duration: 3000,
-        });
-      } else {
-        throw new Error(result.error || 'Failed to register for notifications');
-      }
-    } catch (err: any) {
-      const errorMessage = err.message || 'Failed to register for notifications';
-      setError(errorMessage);
-      console.error('❌ FCM registration failed:', errorMessage);
       
-      // Show error toast
+      if (result.success && result.token) {
+        console.log(`✅ [useFCM] FCM token obtained for ${userType}:`, result.token.substring(0, 20) + '...');
+        
+        // Register with multi-user system
+        const registered = await MultiUserFCMManager.registerToken(result.token, userId, userType);
+        
+        if (registered) {
+          setToken(result.token);
+          setIsRegistered(true);
+          setPermission('granted');
+          
+          // Show all current registrations for debugging
+          const allRegistrations = MultiUserFCMManager.getAllRegistrations();
+          console.log(`📊 [useFCM] All registrations on this device:`, allRegistrations.map(r => `${r.userType} ${r.userId}`));
+          
+          toast({
+            title: "✅ Notifications Enabled",
+            description: `Push notifications enabled for ${userType}`,
+            duration: 3000,
+          });
+        } else {
+          throw new Error('Failed to register with multi-user system');
+        }
+      } else {
+        throw new Error(result.error || 'Failed to get FCM token');
+      }
+    } catch (error: any) {
+      console.error(`❌ [useFCM] Registration failed for ${userType}:`, error);
+      setError(error.message || 'Registration failed');
+      setIsRegistered(false);
+      
       toast({
-        title: '❌ Notification Setup Failed',
-        description: errorMessage,
-        variant: 'destructive',
+        title: "❌ Registration Failed",
+        description: error.message || 'Failed to enable notifications',
         duration: 5000,
       });
     } finally {
       setIsLoading(false);
     }
-  }, [userId, userType, isSupported, permission, requestPermission, toast]);
+  }, [userId, userType, isSupported, isLoading, toast]);
 
   // Check if user already has a registered token on mount
   useEffect(() => {
@@ -145,36 +133,34 @@ export const useFCM = ({
       if (!userId || !userType || !isSupported) return;
 
       try {
-        console.log('🔔 [useFCM] Checking for existing token...');
+        console.log(`🔔 [useFCM] Checking for existing token for ${userType} ${userId}...`);
         
-        // First check localStorage for quick access
-        const localStorageKey = `fcm_token_${userId}_${userType}`;
-        const cachedToken = localStorage.getItem(localStorageKey);
+        // Check multi-user registration system
+        const existingToken = MultiUserFCMManager.getTokenForUser(userId, userType);
         
-        if (cachedToken && cachedToken !== 'null') {
-          console.log('✅ [useFCM] Found cached token:', cachedToken.substring(0, 20) + '...');
-          setToken(cachedToken);
+        if (existingToken) {
+          console.log(`✅ [useFCM] Found multi-user token for ${userType}:`, existingToken.substring(0, 20) + '...');
+          setToken(existingToken);
           setIsRegistered(true);
           return;
         }
 
-        // If no cached token, check database
+        // If no local registration, check database
         const response = await fetch(`/api/fcm/debug-tokens?userId=${userId}&userType=${userType}`);
         const data = await response.json();
 
-        if (response.ok && data.activeTokens && data.activeTokens.length > 0) {
-          // User already has an active token
-          const existingToken = data.activeTokens[0].token;
+        if (response.ok && data.tokenCount > 0) {
+          // User has token in database, register it locally
+          const existingToken = data.fullTokens[0].token;
           setToken(existingToken);
           setIsRegistered(true);
           
-          // Cache the token for faster access
-          localStorage.setItem(localStorageKey, existingToken);
-          console.log('✅ [useFCM] Found existing token:', existingToken.substring(0, 20) + '...');
+          // Add to multi-user system
+          await MultiUserFCMManager.registerToken(existingToken, userId, userType);
+          console.log(`✅ [useFCM] Synced existing token for ${userType}:`, existingToken.substring(0, 20) + '...');
         } else {
-          console.log('ℹ️ [useFCM] No existing token found');
-          // Clear any stale cached token
-          localStorage.removeItem(localStorageKey);
+          console.log(`ℹ️ [useFCM] No existing token found for ${userType} ${userId}`);
+          setIsRegistered(false);
         }
       } catch (error) {
         console.error('❌ [useFCM] Error checking existing token:', error);
@@ -192,6 +178,16 @@ export const useFCM = ({
       if (isSupported) {
         unsubscribe = await setupForegroundMessageListener((payload) => {
           console.log('📱 Foreground message received in hook:', payload);
+          console.log('📱 Current user context:', { userId, userType });
+          console.log('📱 Message target:', { targetUserId: payload.data?.userId, targetUserType: payload.data?.userType });
+          
+          // Check if this message should be shown to current user/tab
+          const shouldShow = MultiUserFCMManager.handleIncomingMessage(payload);
+          
+          if (!shouldShow) {
+            console.log('🚫 Message not for current user, suppressing notification');
+            return;
+          }
           
           // Show toast notification for foreground messages
           toast({
