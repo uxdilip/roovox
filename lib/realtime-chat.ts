@@ -334,7 +334,7 @@ export class RealtimeChatService {
               // Keep default 'Someone' if all queries fail
             }
 
-            // 🚀 ENHANCED: Create Fiverr-style notification with smart grouping
+            // 🚀 ENHANCED: Create notification with client-side service for real-time updates
             const notificationResult = await notificationService.createNotification({
               type: 'message',
               category: 'chat',
@@ -356,8 +356,63 @@ export class RealtimeChatService {
                 conversationId
               }
             }, {
-              skipIfActiveChat: false // 🔔 TEMPORARILY DISABLED for debugging
+              // Always show toast notifications now (no active chat suppression)
+              skipIfActiveChat: false,
+              activeConversationId: conversationId,
+              skipPush: true // Skip client-side FCM since we handle it separately
             });
+
+            // 🔥 NEW: Send server-side FCM for cross-browser delivery
+            try {
+              console.log(`🚀 [CHAT] Initiating FCM send (client) -> recipient=${recipientId} type=${recipientType} conversation=${conversationId}`);
+              
+              const fcmResponse = await fetch('/api/fcm/send-notification', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  userId: recipientId,
+                  userType: recipientType,
+                  title: 'New Message',
+                  body: `New message from ${senderName}`,
+                  data: {
+                    type: 'message',
+                    category: 'chat',
+                    priority: 'medium',
+                    relatedId: conversationId || '',
+                    relatedType: 'conversation'
+                  },
+                  action: {
+                    type: 'message',
+                    id: conversationId || ''
+                  },
+                  priority: 'normal'
+                }),
+              });
+
+              const fcmResult = await fcmResponse.json();
+              
+              if (fcmResponse.ok) {
+                console.log(`✅ [CHAT] FCM API response`, {
+                  success: fcmResult.success,
+                  successCount: fcmResult.successCount,
+                  failureCount: fcmResult.failureCount,
+                  failedTokens: fcmResult.failedTokens,
+                  reason: fcmResult.reason || 'none'
+                });
+              } else {
+                console.error(`❌ [CHAT] FCM failed:`, {
+                  status: fcmResponse.status,
+                  error: fcmResult.error,
+                  reason: fcmResult.reason,
+                  recipientId,
+                  recipientType
+                });
+              }
+            } catch (fcmError) {
+              console.error('❌ [CHAT] FCM error:', fcmError);
+            }
 
             console.log(`🔔 [CHAT] Notification created for recipient ${recipientId}:`, {
               success: notificationResult.success,

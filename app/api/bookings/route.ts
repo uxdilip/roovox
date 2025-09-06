@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { databases, DATABASE_ID, COLLECTIONS } from '@/lib/appwrite';
 import { ID, Query } from 'appwrite';
-import { notificationService } from '@/lib/notifications';
+import { serverNotificationService } from '@/lib/server-notifications';
 
 export async function POST(request: NextRequest) {
   try {
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
       console.log('🔔 Creating notifications for new booking...');
       
       // Create notification for customer
-      await notificationService.createNotification({
+      await serverNotificationService.createNotification({
         type: 'booking',
         category: 'business',
         priority: 'high',
@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
       });
 
       // Create notification for provider
-      await notificationService.createNotification({
+      await serverNotificationService.createNotification({
         type: 'booking',
         category: 'business',
         priority: 'high',
@@ -307,7 +307,7 @@ export async function PUT(request: NextRequest) {
         const deviceName = updatedBooking.device_name || 'device';
         
         // Create notification for customer
-        await notificationService.createNotification({
+        await serverNotificationService.createNotification({
           type: 'booking',
           category: 'business',
           priority: 'medium',
@@ -326,7 +326,7 @@ export async function PUT(request: NextRequest) {
         });
 
         // Create notification for provider
-        await notificationService.createNotification({
+        await serverNotificationService.createNotification({
           type: 'booking',
           category: 'business',
           priority: 'medium',

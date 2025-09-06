@@ -79,4 +79,6 @@ export const COLLECTIONS = {
   OFFERS: '68a74c1a001346172533',
   // 🔔 NEW: Notifications collection
   NOTIFICATIONS: 'notifications',
+  // 🔥 NEW: FCM Tokens collection
+  FCM_TOKENS: 'fcm_tokens',
 };

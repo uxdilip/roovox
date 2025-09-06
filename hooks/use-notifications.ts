@@ -7,7 +7,7 @@ import { useChat } from '@/contexts/ChatContext';
 import { notificationService, Notification } from '@/lib/notifications';
 
 export function useNotifications() {
-  const { user, activeRole } = useAuth();
+  const { user, activeRole, roles } = useAuth();
   const { activeConversationId, isInChatTab } = useChat();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -20,34 +20,47 @@ export function useNotifications() {
 
   // Load initial notifications
   useEffect(() => {
-    if (!user?.id || !activeRole) return;
+    if (!user?.id) return;
 
     const loadNotifications = async () => {
       setLoading(true);
       setError(null);
-      
-
-      
       try {
-        const result = await notificationService.getUserNotifications(user.id, activeRole, 50);
-        
-        if (result.success && result.notifications) {
+        // 🔔 NEW: Load notifications across ALL roles the user has so toasts appear everywhere
+        const userRoles: string[] = Array.isArray(roles) && roles.length > 0
+          ? roles
+          : (activeRole ? [activeRole] : ['customer']); // fallback to customer if no roles yet
 
-          
-          setNotifications(result.notifications);
-          
-          // Get unread count
-          const countResult = await notificationService.getUnreadCount(user.id, activeRole);
-          if (countResult.success) {
-
-            setUnreadCount(countResult.count || 0);
-          }
-        } else {
-
-          setError(result.error || 'Failed to load notifications');
+        if (userRoles.length === 0) {
+          setNotifications([]);
+          setUnreadCount(0);
+          setLoading(false);
+          return;
         }
-      } catch (err) {
 
+        const roleResults = await Promise.all(
+          userRoles.map(r => notificationService.getUserNotifications(user.id, r, 50))
+        );
+
+        const collected: Record<string, any> = {};
+        roleResults.forEach(res => {
+          if (res.success && res.notifications) {
+            res.notifications.forEach(n => { collected[n.id] = n; });
+          }
+        });
+
+        const merged = Object.values(collected) as any[];
+        // Sort by lastMessageAt (desc) then createdAt
+        merged.sort((a, b) => {
+          const aTime = new Date(a.lastMessageAt || a.createdAt).getTime();
+            const bTime = new Date(b.lastMessageAt || b.createdAt).getTime();
+            return bTime - aTime;
+        });
+
+        setNotifications(merged);
+        const unread = merged.filter(n => !n.read).length;
+        setUnreadCount(unread);
+      } catch (err) {
         setError(err instanceof Error ? err.message : 'Unknown error');
       } finally {
         setLoading(false);
@@ -55,22 +68,23 @@ export function useNotifications() {
     };
 
     loadNotifications();
-  }, [user?.id, activeRole]);
+  }, [user?.id, activeRole, roles]);
 
   // Subscribe to real-time notifications
   useEffect(() => {
-    if (!user?.id || !activeRole || isSubscribedRef.current) return;
+    if (!user?.id || isSubscribedRef.current) return; // drop activeRole dependency so we subscribe once for all roles
 
     // Clean up any existing subscription
     if (subscriptionRef.current) {
       subscriptionRef.current();
       subscriptionRef.current = null;
+      isSubscribedRef.current = false;
     }
 
     // Create new subscription
     const unsubscribe = notificationService.subscribeToUserNotifications(
       user.id,
-      activeRole,
+      activeRole || 'customer', // pass something for legacy but we'll relax filtering below
       (newNotification) => {
         console.log('🔔 [HOOK DEBUG] Received real-time notification:', {
           id: newNotification.id,
@@ -81,7 +95,10 @@ export function useNotifications() {
           read: newNotification.read,
           lastMessageAt: newNotification.lastMessageAt
         });
-
+        // 🔔 NEW: Accept notification solely by user_id (ignore user_type so multi-role user always sees chat)
+        if (newNotification.userId !== user.id) {
+          return; // safety check
+        }
         setNotifications(prev => {
           // 🆕 FIXED: Check if this is a truly new notification or an update
           const existingIndex = prev.findIndex(n => n.id === newNotification.id);
@@ -126,6 +143,8 @@ export function useNotifications() {
     subscriptionRef.current = unsubscribe;
     isSubscribedRef.current = true;
 
+    console.log('🔔 [HOOK DEBUG] Subscription created for user:', user.id, 'with roles:', roles);
+
     // Cleanup function
     return () => {
       if (subscriptionRef.current) {
@@ -134,7 +153,7 @@ export function useNotifications() {
       }
       isSubscribedRef.current = false;
     };
-  }, [user?.id, activeRole]);
+  }, [user?.id, roles]); // 🔔 FIXED: Add roles dependency to recreate subscription when roles change
 
   // Mark notification as read
   const markAsRead = useCallback(async (notificationId: string) => {
@@ -174,7 +193,7 @@ export function useNotifications() {
     }, 30000); // 30 seconds
 
     return () => clearInterval(syncInterval);
-  }, [notifications, user?.id, activeRole]);
+  }, [notifications, user?.id, activeRole, roles]); // 🔔 FIXED: Add roles dependency
 
   // 🔔 FIXED: Mark notifications as read when user enters chat (but only when actively viewing)
   useEffect(() => {
@@ -244,31 +263,44 @@ export function useNotifications() {
 
   // Refresh notifications
   const refreshNotifications = useCallback(async () => {
-    if (!user?.id || !activeRole) return;
+    if (!user?.id) return; // 🔔 FIXED: Remove activeRole dependency
     
     setLoading(true);
     setError(null);
     
     try {
-      const result = await notificationService.getUserNotifications(user.id, activeRole, 50);
-      
-      if (result.success && result.notifications) {
-        setNotifications(result.notifications);
-        
-        // Get unread count
-        const countResult = await notificationService.getUnreadCount(user.id, activeRole);
-        if (countResult.success) {
-          setUnreadCount(countResult.count || 0);
+      // 🔔 FIXED: Use same multi-role logic as initial load
+      const userRoles: string[] = Array.isArray(roles) && roles.length > 0
+        ? roles
+        : (activeRole ? [activeRole] : ['customer']);
+
+      const roleResults = await Promise.all(
+        userRoles.map(r => notificationService.getUserNotifications(user.id, r, 50))
+      );
+
+      const collected: Record<string, any> = {};
+      roleResults.forEach(res => {
+        if (res.success && res.notifications) {
+          res.notifications.forEach(n => { collected[n.id] = n; });
         }
-      } else {
-        setError(result.error || 'Failed to refresh notifications');
-      }
+      });
+
+      const merged = Object.values(collected) as any[];
+      merged.sort((a, b) => {
+        const aTime = new Date(a.lastMessageAt || a.createdAt).getTime();
+        const bTime = new Date(b.lastMessageAt || b.createdAt).getTime();
+        return bTime - aTime;
+      });
+
+      setNotifications(merged);
+      const unread = merged.filter(n => !n.read).length;
+      setUnreadCount(unread);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
       setLoading(false);
     }
-  }, [user?.id, activeRole]);
+  }, [user?.id, activeRole, roles]); // 🔔 FIXED: Add roles dependency
 
   // Get notifications by category - memoized to prevent unnecessary re-renders
   const businessNotifications = useMemo(() => 

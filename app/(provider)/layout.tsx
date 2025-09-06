@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { Header } from '@/components/layout/Header';
 import { ChatToastNotification } from '@/components/ui/chat-toast-notification';
+import { useFCM } from '@/hooks/use-fcm';
 
 export default function ProviderLayout({
   children,
@@ -13,6 +14,13 @@ export default function ProviderLayout({
 }) {
   const { user, activeRole, setActiveRole, roles, isLoading } = useAuth();
   const router = useRouter();
+  
+    // 🔥 NEW: Setup FCM for provider (manual registration via settings)
+  useFCM({
+    userId: user?.id,
+    userType: 'provider',
+    autoRegister: true
+  });
   
   // Ensure activeRole is set to 'provider' when on any provider page
   useEffect(() => {

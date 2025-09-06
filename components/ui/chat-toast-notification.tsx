@@ -28,7 +28,10 @@ export function ChatToastNotification({
   const { chatNotifications } = useNotifications();
   const { user } = useAuth();
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
+  // Track last processed time per notification id (for initial create spam control)
   const recentlyProcessedRef = useRef<Map<string, number>>(new Map()); // ID -> timestamp
+  // Track last shown version (lastMessageAt or messagePreview hash) per notification id to allow toasts on updates
+  const processedVersionRef = useRef<Map<string, string>>(new Map()); // ID -> versionKey
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // 🔔 DEBUG: Log component mount and props
@@ -61,6 +64,12 @@ export function ChatToastNotification({
   // 🔔 FIXED: Mark notification as recently processed (with timestamp)
   const markAsRecentlyProcessed = (notificationId: string) => {
     recentlyProcessedRef.current.set(notificationId, Date.now());
+  };
+
+  // Build a version key for a notification to detect meaningful content change
+  const buildVersionKey = (n: any) => {
+    // Prefer lastMessageAt (chat grouping) + messagePreview/content fallback
+    return `${n.lastMessageAt || n.createdAt}_${n.messagePreview || n.message || ''}`;
   };
 
   // 🔔 FIXED: Check if notification was recently processed (within 10 seconds)
@@ -140,81 +149,53 @@ export function ChatToastNotification({
       }))
     });
 
-    // 🔔 TEMPORARILY SIMPLIFIED: Show toast for ALL unread chat notifications
-    const unreadNotifications = chatNotifications.filter(n => !n.read);
-    
-    console.log('🔔 [TOAST DEBUG] Unread notifications:', unreadNotifications.length);
-    
-    if (unreadNotifications.length > 0) {
-      // Process each unread notification
-      unreadNotifications.forEach(notification => {
-        console.log('🔔 [TOAST DEBUG] Processing unread notification:', {
-          id: notification.id,
-          skipToast: (notification as any).skipToast,
-          senderName: notification.senderName,
-          wasRecentlyProcessed: wasRecentlyProcessed(notification.id)
-        });
+  // 🔔 UPDATED: Show toast for ALL chat notifications (even if already marked read)
+  const candidateNotifications = chatNotifications; // removed read filter per product requirement "always show"
 
-        // Skip if recently processed (to avoid spam)
-        if (wasRecentlyProcessed(notification.id)) {
-          console.log('🔔 [TOAST DEBUG] Skipping recently processed:', notification.id);
-          return;
-        }
+  if (candidateNotifications.length === 0) return;
 
-        // 🔔 FIXED: Check if this notification should skip toast (when user is actively viewing that chat)
-        if ((notification as any).skipToast) {
-          console.log('🔔 [TOAST DEBUG] Skipping toast due to skipToast flag:', notification.id);
-          // Mark as processed but don't show toast
-          markAsRecentlyProcessed(notification.id);
-          return;
-        }
+  candidateNotifications.forEach(notification => {
+      const versionKey = buildVersionKey(notification);
+      const previousVersion = processedVersionRef.current.get(notification.id);
+      const isNewVersion = previousVersion !== versionKey;
 
-        // 🔔 FIXED: Use Fiverr-style fields for better content
+      console.log('🔔 [TOAST DEBUG] Eval notification:', {
+        id: notification.id,
+        versionKey,
+        previousVersion,
+        isNewVersion,
+        lastMessageAt: notification.lastMessageAt,
+        messagePreview: notification.messagePreview,
+        skipToast: (notification as any).skipToast,
+        wasRecentlyProcessed: wasRecentlyProcessed(notification.id)
+      });
+
+      // Show toast if: first time (no previousVersion) OR content changed (new version)
+      if (!previousVersion || isNewVersion) {
+        // skipToast flag ignored – always show
+
         const senderName = notification.senderName || 'Someone';
         const messagePreview = notification.messagePreview || notification.message;
 
-        console.log('🔔 [TOAST DEBUG] Creating toast for:', { senderName, messagePreview });
-
-        // Create toast notification with Fiverr-style format
         const newToast: ToastNotification = {
-          id: notification.id,
+          id: notification.id + '_' + versionKey, // unique per version for rendering
           title: `${senderName}: ${messagePreview}`,
           message: messagePreview,
-          senderName: senderName,
-          timestamp: new Date()
+          senderName,
+            timestamp: new Date()
         };
 
-        // Add to toasts array
-        setToasts(prev => {
-          // Prevent duplicate toasts
-          const exists = prev.find(t => t.id === newToast.id);
-          if (exists) {
-            console.log('🔔 [TOAST DEBUG] Toast already exists:', newToast.id);
-            return prev;
-          }
-          
-          console.log('🔔 [TOAST DEBUG] Adding new toast:', newToast.id);
-          return [...prev, newToast];
-        });
-
-        // 🔔 FIXED: Mark as processed with timestamp
-        markAsRecentlyProcessed(notification.id);
-
-        // Play sound for new message
+        setToasts(prev => [...prev, newToast]);
+        processedVersionRef.current.set(notification.id, versionKey);
+        markAsRecentlyProcessed(notification.id); // base id for spam control
         playDingSound();
 
-        // Auto-remove toast after duration
         const toastId = newToast.id;
-        
         setTimeout(() => {
-          console.log('🔔 [TOAST DEBUG] Removing toast after timeout:', toastId);
-          setToasts(prev => {
-            const filtered = prev.filter(t => t.id !== toastId);
-            return filtered;
-          });
+          setToasts(prev => prev.filter(t => t.id !== toastId));
         }, duration);
-      });
-    }
+      }
+    });
   }, [chatNotifications, user?.id, duration]);
 
   // Get position classes
