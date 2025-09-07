@@ -76,6 +76,54 @@ export default function HomePage() {
     ensureUserInCollection();
   }, []);
 
+  // Structured data for SEO
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://sniket.com/#organization",
+        "name": "Sniket",
+        "url": "https://sniket.com",
+        "logo": "https://sniket.com/apple-touch-icon.png",
+        "description": "Professional device repair services for phones, laptops, and tablets. Same-day service, doorstep pickup, and genuine parts with warranty."
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://sniket.com/#website",
+        "url": "https://sniket.com",
+        "name": "Sniket",
+        "description": "Expert device repair services for phones, laptops, and tablets. Same-day service, doorstep pickup, and genuine parts with warranty.",
+        "publisher": {
+          "@id": "https://sniket.com/#organization"
+        },
+        "potentialAction": [
+          {
+            "@type": "SearchAction",
+            "target": {
+              "@type": "EntryPoint",
+              "urlTemplate": "https://sniket.com/book?q={search_term_string}"
+            },
+            "query-input": "required name=search_term_string"
+          }
+        ]
+      },
+      {
+        "@type": "WebPage",
+        "@id": "https://sniket.com/#webpage",
+        "url": "https://sniket.com",
+        "name": "Sniket - Professional Device Repair Services",
+        "isPartOf": {
+          "@id": "https://sniket.com/#website"
+        },
+        "about": {
+          "@id": "https://sniket.com/#organization"
+        },
+        "description": "Expert device repair services for phones, laptops, and tablets. Same-day service, doorstep pickup, and genuine parts with warranty."
+      }
+    ]
+  };
+
   const services = [
     {
       title: 'Phone Repair',
@@ -123,6 +171,12 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen">
+      {/* Structured Data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      />
+      
       {/* Hero Section with Aurora Background */}
       <AuroraBackground>
         <motion.div
@@ -162,7 +216,7 @@ export default function HomePage() {
             className="space-y-4"
           >
             <h1 className="text-4xl md:text-6xl lg:text-7xl xl:text-8xl font-bold text-slate-900 leading-tight tracking-tight">
-              From Leaks to Lights
+              Sniket: From Leaks to Lights
             </h1>
             <h2 className="text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-semibold text-slate-700 leading-tight">
               Just Tap, We'll Be Right
