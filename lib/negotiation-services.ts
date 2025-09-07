@@ -132,6 +132,57 @@ export async function createCustomerRequest(
     // Email notifications removed - using in-app notifications instead
     console.log('📧 Email notifications disabled - using in-app notifications');
 
+    // 📧 NEW: Re-enable email notifications alongside in-app notifications
+    try {
+      console.log('📧 Sending email notification for quote request...');
+      
+      if (provider && provider.email && provider.email !== 'No email' && customer && customer.email && customer.email !== 'No email') {
+        // Import email service dynamically to avoid issues
+        const { EmailService } = await import('./email-service');
+        const { buildEmailNotificationData } = await import('./email-helpers');
+        
+        // Create a mock booking object for email template
+        const mockBooking = {
+          $id: requestDoc.$id,
+          customer_id: customerId,
+          provider_id: requestData.provider_id,
+          service_id: 'quote_request',
+          device_id: 'quote_device',
+          appointment_time: new Date().toISOString(),
+          total_amount: requestData.budget_max || 0,
+          service_location: 'To be determined',
+          issue_description: requestData.requirements,
+          selected_issues: [requestData.requirements]
+        };
+        
+        // Build email data
+        const emailData = {
+          bookingId: requestDoc.$id,
+          customerName: customer.name,
+          customerEmail: customer.email,
+          customerPhone: customer.phone || 'Not provided',
+          providerName: provider.name,
+          providerEmail: provider.email,
+          providerPhone: provider.phone || 'Not provided',
+          serviceName: 'Quote Request',
+          appointmentTime: new Date().toISOString(),
+          totalAmount: requestData.budget_max || 0,
+          serviceLocation: 'Quote Discussion',
+          deviceInfo: `${requestData.device_info.brand} ${requestData.device_info.model}`,
+          issueDescription: requestData.requirements,
+        };
+        
+        // Send email to provider about new quote request
+        await EmailService.sendNewBookingNotificationToProvider(emailData);
+        console.log('✅ Quote request email sent to provider');
+      } else {
+        console.log('⚠️ Skipping email - missing provider or customer email data');
+      }
+    } catch (emailError) {
+      console.error('❌ Failed to send quote request email:', emailError);
+      // Don't fail the quote request if email fails
+    }
+
       // 🔔 NEW: Create in-app notifications
       console.log('🔔 Creating in-app notifications for quote request...');
       

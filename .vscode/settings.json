@@ -18,5 +18,16 @@
   "tailwindCSS.experimental.classRegex": [
     ["cva\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"],
     ["cx\\(([^)]*)\\)", "(?:'|\"|`)([^']*)(?:'|\"|`)"]
-  ]
+  ],
+  // Prevent automatic file creation
+  "typescript.suggest.autoImports": false,
+  "javascript.suggest.autoImports": false,
+  "files.watcherExclude": {
+    "**/test-email*.js": true,
+    "**/app/api/debug/check-fcm-token/**": true
+  },
+  "search.exclude": {
+    "**/test-email*.js": true,
+    "**/app/api/debug/check-fcm-token/**": true
+  }
 } 
