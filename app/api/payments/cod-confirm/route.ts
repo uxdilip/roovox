@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { databases, DATABASE_ID, COLLECTIONS } from '@/lib/appwrite';
 import { serverNotificationService } from '@/lib/server-notifications';
 import { updateOfferOnBookingComplete } from '@/lib/offer-services';
+import { EmailService } from '@/lib/email-service';
+import { buildEmailNotificationData, safeEmailSend } from '@/lib/email-helpers';
 
 export async function POST(req: NextRequest) {
   try {
@@ -233,6 +235,24 @@ export async function POST(req: NextRequest) {
     } catch (error) {
       console.error('❌ Failed to create notifications:', error);
       // Don't fail the COD confirmation if notifications fail
+    }
+
+    // 📧 NEW: Send email notifications for COD booking (parallel to FCM)
+    try {
+      console.log('📧 Sending email notifications for COD booking...');
+      
+      const emailData = await buildEmailNotificationData(booking);
+      
+      // Send new booking notification email to provider
+      await safeEmailSend(
+        () => EmailService.sendNewBookingNotificationToProvider(emailData),
+        'COD booking notification email to provider'
+      );
+
+      console.log('✅ COD email notifications processed successfully');
+    } catch (error) {
+      console.error('❌ Failed to send COD email notifications:', error);
+      // Don't fail the COD confirmation if email notifications fail
     }
 
     console.log('🎉 [COD-CONFIRM] COD booking and payment created successfully');

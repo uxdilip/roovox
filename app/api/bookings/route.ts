@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { databases, DATABASE_ID, COLLECTIONS } from '@/lib/appwrite';
 import { ID, Query } from 'appwrite';
 import { serverNotificationService } from '@/lib/server-notifications';
+import { EmailService } from '@/lib/email-service';
+import { buildEmailNotificationData, safeEmailSend } from '@/lib/email-helpers';
 
 export async function POST(request: NextRequest) {
   try {
@@ -108,6 +110,24 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       console.error('❌ Failed to create notifications:', error);
       // Don't fail the booking creation if notifications fail
+    }
+
+    // 📧 NEW: Send email notifications (parallel to FCM, won't affect FCM functionality)
+    try {
+      console.log('📧 Sending email notifications for new booking...');
+      
+      const emailData = await buildEmailNotificationData(booking);
+      
+      // Send new booking notification email to provider
+      await safeEmailSend(
+        () => EmailService.sendNewBookingNotificationToProvider(emailData),
+        'Provider booking notification email'
+      );
+
+      console.log('✅ Email notifications processed successfully');
+    } catch (error) {
+      console.error('❌ Failed to send email notifications:', error);
+      // Don't fail the booking creation if email notifications fail
     }
 
     return NextResponse.json({ success: true, booking });
@@ -349,6 +369,48 @@ export async function PUT(request: NextRequest) {
     } catch (error) {
       console.error('Failed to create status change notifications:', error);
       // Don't fail the update if notifications fail
+    }
+
+    // 📧 NEW: Send email notifications for status changes (parallel to FCM)
+    try {
+      if (updateData.status) {
+        console.log('📧 Sending status change email notifications for:', updateData.status);
+        
+        const emailData = await buildEmailNotificationData(updatedBooking);
+        
+        // Send appropriate email based on status change
+        switch (updateData.status) {
+          case 'confirmed':
+            await safeEmailSend(
+              () => EmailService.sendBookingConfirmationToCustomer(emailData),
+              'Booking confirmation email to customer'
+            );
+            break;
+          case 'in_progress':
+            await safeEmailSend(
+              () => EmailService.sendServiceStartedNotification(emailData),
+              'Service started email to customer'
+            );
+            break;
+          case 'completed':
+            await safeEmailSend(
+              () => EmailService.sendServiceCompletedNotification(emailData),
+              'Service completed email to customer'
+            );
+            break;
+          case 'cancelled':
+            await safeEmailSend(
+              () => EmailService.sendBookingCancelledNotification(emailData, updateData.cancellation_reason),
+              'Booking cancelled email to customer'
+            );
+            break;
+        }
+
+        console.log('✅ Status change email notifications processed successfully');
+      }
+    } catch (error) {
+      console.error('❌ Failed to send status change email notifications:', error);
+      // Don't fail the update if email notifications fail
     }
 
     return NextResponse.json({ success: true, booking: updatedBooking });

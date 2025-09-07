@@ -34,3 +34,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# test files
+test-email*.js
+test-*.js
+
+# debug/temporary files
+app/api/debug/check-fcm-token/
+app/api/test-email/

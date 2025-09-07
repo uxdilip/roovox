@@ -29,7 +29,7 @@ export const ServiceStartedEmail = ({
       <Body style={main}>
         <Container style={container}>
           <Section style={header}>
-            <Text style={logo}>🔧 Sniket</Text>
+            <Text style={logo}>Sniket</Text>
           </Section>
 
           <Section style={content}>
@@ -55,10 +55,10 @@ export const ServiceStartedEmail = ({
 
           <Section style={footer}>
             <Text style={footerText}>
-              Thank you for choosing Sniket! 🚀
+              Thank you for choosing Sniket!
             </Text>
             <Text style={footerText}>
-              Need help? Contact us at support@sniket.com
+              Need help? Contact us at sniketofficial@gmail.com
             </Text>
           </Section>
         </Container>
