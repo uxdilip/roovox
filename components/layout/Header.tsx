@@ -29,7 +29,8 @@ import {
   Menu,
   X,
   Calendar,
-  MessageCircle
+  MessageCircle,
+  Settings
 } from 'lucide-react';
 
 import { useLocation } from '@/contexts/LocationContext';
@@ -219,6 +220,14 @@ export function Header() {
                       </Link>
                     </DropdownMenuItem>
 
+                    {/* Notification Settings - Available for all logged-in users */}
+                    <DropdownMenuItem asChild>
+                      <Link href="/notification-settings" className="flex items-center">
+                        <Bell className="mr-2 h-4 w-4" />
+                        Notification Settings
+                      </Link>
+                    </DropdownMenuItem>
+
                     {/* Role-specific menu items */}
                     {activeRole === 'customer' && (
                       <DropdownMenuItem asChild>
@@ -319,6 +328,19 @@ export function Header() {
                   >
                     <MessageCircle className="h-4 w-4 mr-3" />
                     Messages
+                  </Button>
+
+                  {/* Notification Settings */}
+                  <Button 
+                    variant="ghost" 
+                    className="w-full justify-start"
+                    onClick={() => {
+                      router.push('/notification-settings');
+                      closeMobileMenu();
+                    }}
+                  >
+                    <Bell className="h-4 w-4 mr-3" />
+                    Notification Settings
                   </Button>
 
                                   {/* Notifications */}

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { databases, DATABASE_ID, COLLECTIONS } from '@/lib/appwrite';
-import { notificationService } from '@/lib/notifications';
+import { serverNotificationService } from '@/lib/server-notifications';
 import { updateOfferOnBookingComplete } from '@/lib/offer-services';
 
 export async function POST(req: NextRequest) {
@@ -188,7 +188,7 @@ export async function POST(req: NextRequest) {
       console.log('🔔 Creating notifications for COD booking...');
       
       // Create notification for provider
-      await notificationService.createNotification({
+      await serverNotificationService.createNotification({
         type: 'booking',
         category: 'business',
         priority: 'high',
@@ -209,7 +209,7 @@ export async function POST(req: NextRequest) {
       });
 
       // Create notification for customer
-      await notificationService.createNotification({
+      await serverNotificationService.createNotification({
         type: 'booking',
         category: 'business',
         priority: 'high',

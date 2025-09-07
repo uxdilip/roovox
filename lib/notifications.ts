@@ -60,29 +60,21 @@ class NotificationService {
   async createNotification(
     data: CreateNotificationData, 
     options?: { 
+      // Active chat suppression removed – keeping shape for compatibility
       skipIfActiveChat?: boolean; 
       activeConversationId?: string | null;
       isInChatTab?: boolean;
+      skipPush?: boolean; // Option to skip FCM push notification
     }
   ): Promise<{ success: boolean; notification?: Notification; error?: string; skipped?: boolean; updated?: boolean }> {
     try {
       // 🔔 FIXED: Smart notification logic - check if user is actively viewing this conversation
-      let shouldSkipToast = false;
-      if (options?.skipIfActiveChat && data.relatedId) {
-        const isActive = await this.isUserActiveInChat(data.userId, data.relatedId);
-        
-        if (isActive) {
-          shouldSkipToast = true;
-          // 🆕 FIXED: Don't return early - still create the notification for database and real-time
-        }
-      }
+  // Always show toast now
+  let shouldSkipToast = false;
 
       // 🆕 NEW: Fiverr-style smart grouping for chat messages
       if (data.type === 'message' && data.senderId && data.relatedId) {
-        // 🆕 FIXED: Pass skipToast flag through the data object
-        const dataWithSkipToast = { ...data, skipToast: shouldSkipToast };
-        const result = await this.createOrUpdateChatNotification(dataWithSkipToast);
-        
+        const result = await this.createOrUpdateChatNotification({ ...data, skipToast: false });
         return result;
       }
 
@@ -128,6 +120,11 @@ class NotificationService {
 
       // 🆕 FIXED: Add skipToast flag to the result for toast component to use
       (notification as any).skipToast = shouldSkipToast;
+
+      // 🔥 NEW: Send push notification for high-priority notifications (unless skipped)
+      if (this.shouldSendPush(data.type) && !options?.skipPush) {
+        this.sendPushNotificationAsync(data, notification);
+      }
 
       return { success: true, notification };
 
@@ -382,7 +379,7 @@ class NotificationService {
           
           // CRITICAL: Only process notifications for this specific user
           // This prevents self-notifications and cross-user notifications
-          if (notification.user_id === userId && notification.user_type === userType) {
+          if (notification.user_id === userId) { // ignore user_type for multi-role visibility
             const notificationData: Notification = {
               id: notification.$id,
               type: notification.type,
@@ -414,7 +411,7 @@ class NotificationService {
           const notification = response.payload as any;
           
           // Only process updates for this specific user
-          if (notification.user_id === userId && notification.user_type === userType) {
+          if (notification.user_id === userId) { // ignore user_type for multi-role visibility
             const notificationData: Notification = {
               id: notification.$id,
               type: notification.type,
@@ -497,28 +494,112 @@ class NotificationService {
   // 🔔 NEW: Check if user is actively viewing a conversation (localStorage only for now)
   async isUserActiveInChat(userId: string, conversationId: string): Promise<boolean> {
     try {
+      // 🔔 FIXED: For cross-browser testing, be more conservative about skipping toasts
+      // Only skip if we're VERY confident the user is actively viewing the conversation
+      
       // Check localStorage (fastest and most reliable for now)
       if (typeof window !== 'undefined') {
         const sessionKey = `chat_session_${userId}`;
         const sessionData = localStorage.getItem(sessionKey);
         
         if (sessionData) {
-          const session = JSON.parse(sessionData);
-          const isRecent = new Date(session.lastActive).getTime() > Date.now() - (5 * 60 * 1000); // 5 minutes
-          
-          if (session.isActive && session.conversationId === conversationId && isRecent) {
-            return true;
+          try {
+            const session = JSON.parse(sessionData);
+            const isRecent = new Date(session.lastActive).getTime() > Date.now() - (30 * 1000); // 🔔 FIXED: Only 30 seconds for more accurate detection
+            
+            // 🔔 FIXED: More strict checking - user must be active AND in the exact same conversation AND very recent
+            if (session.isActive && 
+                session.conversationId === conversationId && 
+                isRecent &&
+                document.visibilityState === 'visible') { // 🔔 NEW: Also check if browser tab is visible
+              console.log(`🔔 [SESSIONS] User ${userId} is actively viewing conversation ${conversationId}`);
+              return true;
+            } else {
+              console.log(`🔔 [SESSIONS] User ${userId} is NOT actively viewing conversation ${conversationId}:`, {
+                isActive: session.isActive,
+                correctConversation: session.conversationId === conversationId,
+                isRecent,
+                isVisible: document.visibilityState === 'visible'
+              });
+            }
+          } catch (parseError) {
+            console.log(`🔔 [SESSIONS] Parse error for user ${userId}:`, parseError);
+            // If parsing fails, assume not active
+            return false;
           }
+        } else {
+          console.log(`🔔 [SESSIONS] No session data found for user ${userId}`);
         }
+      } else {
+        console.log(`🔔 [SESSIONS] No window object (server-side)`);
       }
 
-      // TODO: Enable database sessions when collection is created
-      // For now, only use localStorage to avoid 401 errors
-
+      // Default to NOT active (safer for ensuring toasts are shown)
       return false;
     } catch (error) {
       console.error('🔔 [SESSIONS] Error checking active chat session:', error);
+      // Default to NOT active to ensure toasts are shown
       return false;
+    }
+  }
+
+  /**
+   * 🔥 NEW: Check if notification type should trigger push notification
+   */
+  private shouldSendPush(type: string): boolean {
+    // Send push for important notifications
+    return ['booking', 'message', 'payment', 'system'].includes(type);
+  }
+
+  /**
+   * 🔥 NEW: Send push notification asynchronously (don't block the main flow)
+   */
+  private async sendPushNotificationAsync(data: CreateNotificationData, notification: Notification): Promise<void> {
+    try {
+      // Don't await this - run it asynchronously
+      setTimeout(async () => {
+        try {
+          console.log(`🔔 Sending push notification for ${data.type} to ${data.userType} ${data.userId}`);
+          
+          const response = await fetch('/api/fcm/send-notification', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              userId: data.userId,
+              userType: data.userType,
+              title: data.title,
+              body: data.message,
+              data: {
+                type: data.type,
+                category: data.category,
+                priority: data.priority,
+                relatedId: data.relatedId || '',
+                relatedType: data.relatedType || '',
+                notificationId: notification.id
+              },
+              action: {
+                type: data.type,
+                id: data.relatedId || ''
+              },
+              priority: data.priority === 'high' || data.priority === 'urgent' ? 'high' : 'normal'
+            }),
+          });
+
+          if (response.ok) {
+            const result = await response.json();
+            console.log(`✅ Push notification sent successfully: ${result.successCount} delivered`);
+          } else {
+            const error = await response.json();
+            console.error(`❌ Push notification failed:`, error);
+          }
+        } catch (error) {
+          console.error('❌ Error sending push notification:', error);
+        }
+      }, 100); // Small delay to not block the main notification creation
+    } catch (error) {
+      console.error('❌ Error in sendPushNotificationAsync:', error);
     }
   }
 }
