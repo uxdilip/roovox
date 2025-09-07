@@ -15,6 +15,15 @@ export async function POST(request: NextRequest) {
     console.log('🏢 [Enterprise FCM] Unregister request:', { deviceId, userId });
 
     const db = adminFirestore;
+    const messaging = adminMessaging;
+    
+    if (!db || !messaging) {
+      return NextResponse.json(
+        { error: 'Firebase admin not initialized' },
+        { status: 500 }
+      );
+    }
+
     const batch = db.batch();
 
     // 1. Mark user subscription as inactive

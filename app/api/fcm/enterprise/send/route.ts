@@ -23,6 +23,15 @@ export async function POST(request: NextRequest) {
     });
 
     const db = adminFirestore;
+    const messaging = adminMessaging;
+    
+    if (!db || !messaging) {
+      return NextResponse.json(
+        { error: 'Firebase admin not initialized' },
+        { status: 500 }
+      );
+    }
+
     const results = {
       successCount: 0,
       failureCount: 0,
@@ -103,7 +112,7 @@ export async function POST(request: NextRequest) {
     // Send to all target tokens
     const sendPromises = targetTokens.map(async (token) => {
       try {
-        const response = await adminMessaging.send({
+        const response = await messaging.send({
           ...fcmMessage,
           token
         });
@@ -154,6 +163,11 @@ export async function POST(request: NextRequest) {
 async function cleanupInvalidToken(token: string) {
   try {
     const db = adminFirestore;
+    
+    if (!db) {
+      console.error('Firebase admin not initialized for cleanup');
+      return;
+    }
     
     // Find and remove invalid token from user devices
     const subscriptionsSnapshot = await db.collection('fcm_user_subscriptions')

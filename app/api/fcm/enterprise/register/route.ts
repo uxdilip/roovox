@@ -35,6 +35,15 @@ export async function POST(request: NextRequest) {
     });
 
     const db = adminFirestore;
+    const messaging = adminMessaging;
+    
+    if (!db || !messaging) {
+      return NextResponse.json(
+        { error: 'Firebase admin not initialized' },
+        { status: 500 }
+      );
+    }
+
     const batch = db.batch();
 
     // 1. Store/update device token
@@ -59,7 +68,7 @@ export async function POST(request: NextRequest) {
     if (topics.length > 0) {
       try {
         for (const topic of topics) {
-          await adminMessaging.subscribeToTopic([deviceToken.token], topic);
+          await messaging.subscribeToTopic([deviceToken.token], topic);
         }
         console.log(`✅ [Enterprise FCM] Subscribed to topics: ${topics.join(', ')}`);
       } catch (topicError) {
