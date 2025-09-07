@@ -49,7 +49,7 @@ export const BookingConfirmationEmail = ({
       <Body style={main}>
         <Container style={container}>
           <Section style={header}>
-            <Text style={logo}>🔧 Sniket</Text>
+            <Text style={logo}>Sniket</Text>
           </Section>
 
           <Section style={content}>
@@ -71,12 +71,8 @@ export const BookingConfirmationEmail = ({
             <Section style={providerInfo}>
               <Text style={sectionTitle}>Your Service Provider</Text>
               <Text style={providerNameStyle}>{providerName}</Text>
-              <Text style={providerContact}>📞 {providerPhone}</Text>
             </Section>
 
-            <Text style={paragraph}>
-              Your technician will arrive at the scheduled time. Please ensure someone is available at the location.
-            </Text>
 
             <Text style={paragraph}>
               If you need to make any changes, please contact us immediately.
@@ -87,10 +83,10 @@ export const BookingConfirmationEmail = ({
 
           <Section style={footer}>
             <Text style={footerText}>
-              Thank you for choosing Sniket! 🚀
+              Thank you for choosing Sniket!
             </Text>
             <Text style={footerText}>
-              Need help? Contact us at support@sniket.com
+              Need help? Contact us at sniketofficial@gmail.com
             </Text>
           </Section>
         </Container>

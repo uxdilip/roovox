@@ -52,7 +52,7 @@ export const NewBookingNotificationEmail = ({
       <Body style={main}>
         <Container style={container}>
           <Section style={header}>
-            <Text style={logo}>🔧 Sniket</Text>
+            <Text style={logo}>Sniket</Text>
           </Section>
 
           <Section style={content}>
@@ -67,14 +67,13 @@ export const NewBookingNotificationEmail = ({
               <Text style={detailLabel}>Service: {serviceName}</Text>
               <Text style={detailLabel}>Device: {deviceInfo}</Text>
               <Text style={detailLabel}>Appointment: {formattedDate}</Text>
-              <Text style={detailLabel}>Location: {serviceLocation}</Text>
               <Text style={detailLabel}>Amount: ₹{totalAmount}</Text>
             </Section>
 
             <Section style={customerInfo}>
               <Text style={sectionTitle}>Customer Information</Text>
               <Text style={customerNameStyle}>{customerName}</Text>
-              <Text style={customerContact}>📞 {customerPhone}</Text>
+              <Text style={customerContact}>{customerPhone}</Text>
             </Section>
 
             <Section style={issueInfo}>
@@ -96,10 +95,10 @@ export const NewBookingNotificationEmail = ({
 
           <Section style={footer}>
             <Text style={footerText}>
-              Thank you for being part of Sniket! 🚀
+              Thank you for being part of Sniket!
             </Text>
             <Text style={footerText}>
-              Need help? Contact us at support@sniket.com
+              Need help? Contact us at sniketofficial@gmail.com
             </Text>
           </Section>
         </Container>
