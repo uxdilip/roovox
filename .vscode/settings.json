@@ -19,7 +19,7 @@
     ["cva\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"],
     ["cx\\(([^)]*)\\)", "(?:'|\"|`)([^']*)(?:'|\"|`)"]
   ],
-  // Prevent automatic file creation
+ 
   "typescript.suggest.autoImports": false,
   "javascript.suggest.autoImports": false,
   "files.watcherExclude": {
