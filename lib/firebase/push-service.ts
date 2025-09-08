@@ -33,6 +33,16 @@ export const sendPushNotification = async (
   try {
     console.log(`🔔 Sending push notification to ${notificationData.userType} ${notificationData.userId}`);
 
+    // Check if Firebase admin is initialized
+    if (!adminMessaging) {
+      console.error('Firebase admin messaging not initialized');
+      return { 
+        success: false, 
+        error: 'Firebase admin not initialized',
+        failedTokens: []
+      };
+    }
+
     // Get user's active FCM tokens
     const tokens = await fcmTokenService.getActiveTokens(
       notificationData.userId,
@@ -162,6 +172,16 @@ export const sendDataOnlyPushNotification = async (
 ): Promise<PushNotificationResult> => {
   try {
     console.log(`🔔 Sending data-only push notification to ${notificationData.userType} ${notificationData.userId}`);
+
+    // Check if Firebase admin is initialized
+    if (!adminMessaging) {
+      console.error('Firebase admin messaging not initialized');
+      return { 
+        success: false, 
+        error: 'Firebase admin not initialized',
+        failedTokens: []
+      };
+    }
 
     // Get user's active FCM tokens
     const tokens = await fcmTokenService.getActiveTokens(

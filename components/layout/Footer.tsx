@@ -1,37 +1,71 @@
 import React from 'react';
 import Link from 'next/link';
 import { Logo } from '@/components/ui/Logo';
-import { Mail, Phone, MapPin } from 'lucide-react';
+import { Mail, Phone, MapPin, Linkedin, Twitter, Instagram, Facebook } from 'lucide-react';
 
 export function Footer() {
   return (
     <footer className="bg-gray-900 text-white">
       <div className="container mx-auto px-4 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           <div className="space-y-4">
             <Logo size="lg" showText={true} variant="footer" />
             <p className="text-gray-400">
               Professional device repair services at your doorstep. Fast, reliable, and affordable.
             </p>
+            <div className="flex space-x-4">
+              <a 
+                href="https://www.linkedin.com/company/sniket/" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-gray-400 hover:text-white transition-colors"
+                aria-label="Follow us on LinkedIn"
+              >
+                <Linkedin className="h-5 w-5" />
+              </a>
+              <a 
+                href="https://x.com/sniketofficial" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-gray-400 hover:text-white transition-colors"
+                aria-label="Follow us on Twitter"
+              >
+                <Twitter className="h-5 w-5" />
+              </a>
+              <a 
+                href="https://www.instagram.com/sniketnow?igsh=MWVuZWUwY2R1NDNnbQ==" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-gray-400 hover:text-white transition-colors"
+                aria-label="Follow us on Instagram"
+              >
+                <Instagram className="h-5 w-5" />
+              </a>
+              <a 
+                href="https://www.facebook.com/share/16yUwPNGHU/" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-gray-400 hover:text-white transition-colors"
+                aria-label="Follow us on Facebook"
+              >
+                <Facebook className="h-5 w-5" />
+              </a>
+            </div>
           </div>
 
           <div>
-            <h3 className="text-lg font-semibold mb-4">Services</h3>
+            <h3 className="text-lg font-semibold mb-4">Quick Links</h3>
             <ul className="space-y-2">
-              <li><Link href="/services/phone-repair" className="text-gray-400 hover:text-white transition-colors">Phone Repair</Link></li>
-              <li><Link href="/services/laptop-repair" className="text-gray-400 hover:text-white transition-colors">Laptop Repair</Link></li>
-              <li><Link href="/services/screen-replacement" className="text-gray-400 hover:text-white transition-colors">Screen Replacement</Link></li>
-              <li><Link href="/services/battery-replacement" className="text-gray-400 hover:text-white transition-colors">Battery Replacement</Link></li>
+              <li><Link href="/book" className="text-gray-400 hover:text-white transition-colors">Book a Repair</Link></li>
+              <li><Link href="/become-provider" className="text-gray-400 hover:text-white transition-colors">Become a Provider</Link></li>
             </ul>
           </div>
 
           <div>
-            <h3 className="text-lg font-semibold mb-4">Company</h3>
+            <h3 className="text-lg font-semibold mb-4">Legal</h3>
             <ul className="space-y-2">
-              <li><Link href="/about" className="text-gray-400 hover:text-white transition-colors">About Us</Link></li>
-              <li><Link href="/become-provider" className="text-gray-400 hover:text-white transition-colors">Become a Provider</Link></li>
-              <li><Link href="/careers" className="text-gray-400 hover:text-white transition-colors">Careers</Link></li>
-              <li><Link href="/contact" className="text-gray-400 hover:text-white transition-colors">Contact</Link></li>
+              <li><Link href="/privacy" className="text-gray-400 hover:text-white transition-colors">Privacy Policy</Link></li>
+              <li><Link href="/terms" className="text-gray-400 hover:text-white transition-colors">Terms & Conditions</Link></li>
             </ul>
           </div>
 

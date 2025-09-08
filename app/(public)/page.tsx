@@ -216,7 +216,7 @@ export default function HomePage() {
             className="space-y-4"
           >
             <h1 className="text-4xl md:text-6xl lg:text-7xl xl:text-8xl font-bold text-slate-900 leading-tight tracking-tight">
-              Sniket: From Leaks to Lights
+              From Leaks to Lights
             </h1>
             <h2 className="text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-semibold text-slate-700 leading-tight">
               Just Tap, We'll Be Right

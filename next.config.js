@@ -4,22 +4,7 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   images: { unoptimized: true },
-  // Redirects to ensure canonical domain
-  async redirects() {
-    return [
-      {
-        source: '/(.*)',
-        has: [
-          {
-            type: 'host',
-            value: 'www.sniket.com',
-          },
-        ],
-        destination: 'https://sniket.com/:path*',
-        permanent: true,
-      },
-    ];
-  },
+
   // PWA and Service Worker support
   async headers() {
     return [

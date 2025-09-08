@@ -293,14 +293,6 @@ export default function BookPage() {
   }, [offerData, isFromOffer]);
 
   const handleDeviceSelect = (device: Device) => {
-    // Check if user is authenticated before proceeding
-    if (!user) {
-      const currentPath = window.location.pathname + window.location.search;
-      const returnUrl = encodeURIComponent(currentPath);
-      router.push(`/login?returnUrl=${returnUrl}`);
-      return;
-    }
-    
     setSelectedDevice(device);
     setStep(2);
   };
@@ -582,17 +574,24 @@ export default function BookPage() {
     }
   };
 
+  // Redirect to login if user is not authenticated (after loading is complete)
+  useEffect(() => {
+    if (!isLoading && isClient && !user) {
+      const currentPath = window.location.pathname + window.location.search;
+      const returnUrl = encodeURIComponent(currentPath);
+      router.push(`/login?returnUrl=${returnUrl}`);
+    }
+  }, [isLoading, isClient, user, router]);
+
   // Show loading while checking authentication or fetching offer data
-  if (isLoading || !isClient || !user || (isFromOffer && offerLoading)) {
+  if (isLoading || !isClient || (isFromOffer && offerLoading)) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-              {!user ? (
-                <p className="text-gray-600">Loading user data...</p>
-              ) : isFromOffer && offerLoading ? (
+              {isFromOffer && offerLoading ? (
                 <p className="text-gray-600">Loading your offer details...</p>
               ) : (
                 <p className="text-gray-600">Loading...</p>
@@ -602,6 +601,11 @@ export default function BookPage() {
         </div>
       </div>
     );
+  }
+
+  // If no user after loading is complete, return null (redirect will happen in useEffect)
+  if (!user) {
+    return null;
   }
 
   return (
