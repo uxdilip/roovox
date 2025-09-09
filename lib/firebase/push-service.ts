@@ -1,4 +1,5 @@
 import { adminMessaging, adminFirestore } from './admin';
+import { fcmTokenService } from '@/lib/services/fcm-token-service';
 
 export interface PushNotificationData {
   userId: string;
