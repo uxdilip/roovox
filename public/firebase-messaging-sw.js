@@ -2,11 +2,8 @@
 importScripts('https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.13.0/firebase-messaging-compat.js');
 
-// Service worker version for debugging
-const SW_VERSION = '1.0.4';
-console.log(`🚀 [SW v${SW_VERSION}] Firebase service worker loading...`);
-console.log(`🚀 [SW v${SW_VERSION}] Timestamp: ${new Date().toISOString()}`);
-console.log(`🚀 [SW v${SW_VERSION}] Location: ${self.location.href}`);
+// Service worker for Firebase messaging
+const SW_VERSION = '1.0.5';
 
 // Firebase configuration
 const firebaseConfig = {
@@ -20,27 +17,12 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase app
-console.log(`🔧 [SW v${SW_VERSION}] Initializing Firebase...`);
 firebase.initializeApp(firebaseConfig);
 
 // Get messaging instance
-console.log(`📱 [SW v${SW_VERSION}] Getting messaging instance...`);
 const messaging = firebase.messaging();
-
-// Debug: Log messaging instance details
-console.log(`📱 [SW v${SW_VERSION}] Messaging instance created:`, !!messaging);
-console.log(`📱 [SW v${SW_VERSION}] Messaging methods:`, Object.getOwnPropertyNames(Object.getPrototypeOf(messaging)));
-
 // Handle background messages
-console.log(`🎯 [SW v${SW_VERSION}] Setting up onBackgroundMessage handler...`);
 messaging.onBackgroundMessage((payload) => {
-  console.log('🔔 [SW] Background message received:', {
-    notif: payload.notification,
-    data: payload.data,
-    receivedAt: Date.now(),
-    fullPayload: payload
-  });
-
   try {
     // Check if this message should be shown (multi-user routing)
     const targetUserId = payload.data?.userId;
@@ -58,15 +40,11 @@ messaging.onBackgroundMessage((payload) => {
           );
         }
       } catch (e) {
-        console.log('📱 [SW] Could not check multi-user registrations, defaulting to show');
         shouldShow = true; // Default to showing if can't check
       }
       
       if (!shouldShow) {
-        console.log(`🚫 [SW] Message for ${targetUserType} ${targetUserId} not registered on this device - suppressing`);
         return Promise.resolve(); // Don't show notification
-      } else {
-        console.log(`✅ [SW] Message for ${targetUserType} ${targetUserId} - showing notification`);
       }
     }
     
@@ -99,17 +77,8 @@ messaging.onBackgroundMessage((payload) => {
       notificationOptions.image = imageUrl;
     }
 
-    console.log('🔔 [SW] About to show notification:', {
-      title: notificationTitle, 
-      options: notificationOptions,
-      isDataOnly: !payload.notification,
-      targetUser: `${targetUserType} ${targetUserId}`
-    });
-
     const showPromise = self.registration.showNotification(notificationTitle, notificationOptions);
-    showPromise.then(() => {
-      console.log('✅ [SW] showNotification displayed successfully', notificationOptions.tag);
-    }).catch(err => {
+    showPromise.catch(err => {
       console.error('❌ [SW] showNotification failed:', err);
     });
     
@@ -124,69 +93,8 @@ messaging.onBackgroundMessage((payload) => {
   }
 });
 
-console.log('✅ [SW] onBackgroundMessage handler registered');
-
-// Additional debugging - listen for all message events
-self.addEventListener('message', (event) => {
-  console.log('📨 [SW] Received message from client:', event.data);
-  
-  if (event.data?.type === 'TEST_MESSAGE') {
-    console.log('🧪 [SW] Handling test message');
-    event.ports[0]?.postMessage({
-      type: 'SW_RESPONSE',
-      data: { received: true, timestamp: Date.now() }
-    });
-  }
-  
-  if (event.data?.type === 'FCM_DEBUG') {
-    console.log('🔍 [SW] FCM Debug request received');
-    event.ports[0]?.postMessage({
-      type: 'FCM_DEBUG_RESPONSE',
-      data: { 
-        messagingExists: !!messaging,
-        onBackgroundMessageRegistered: true,
-        timestamp: Date.now() 
-      }
-    });
-  }
-});
-
-// Debug: Log when service worker receives any push events
-self.addEventListener('push', (event) => {
-  console.log('🔄 [SW] Raw push event received:', {
-    data: event.data ? event.data.text() : 'no data',
-    tag: event.tag,
-    timestamp: Date.now(),
-    hasData: !!event.data
-  });
-  
-  // Try to parse the data if available
-  if (event.data) {
-    try {
-      const payload = event.data.json();
-      console.log('📦 [SW] Parsed push payload:', payload);
-    } catch (e) {
-      console.log('📦 [SW] Push data (raw text):', event.data.text());
-    }
-  }
-});
-
-// Debug: Log service worker state changes
-self.addEventListener('activate', (event) => {
-  console.log('🚀 [SW] Service Worker activated at:', new Date().toISOString());
-  event.waitUntil(clients.claim());
-});
-
-// Debug: Test if messaging is working
-setTimeout(() => {
-  console.log('⏰ [SW] 5-second check - messaging still available:', !!messaging);
-  if (messaging) {
-    console.log('⏰ [SW] Messaging methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(messaging)));
-  }
-}, 5000);
+// Notification click handler
 self.addEventListener('notificationclick', (event) => {
-  console.log('🖱️ Notification clicked:', event.notification);
-
   event.notification.close();
 
   const clickAction = event.notification.data?.clickAction || '/';
@@ -229,67 +137,14 @@ self.addEventListener('notificationclick', (event) => {
   );
 });
 
-// Handle notification close
-self.addEventListener('notificationclose', (event) => {
-  console.log('🚫 Notification closed:', event.notification);
-  
-  // Track notification dismissal if needed
-  // You can send analytics here
-});
-
 // Service worker install/activate events
 self.addEventListener('install', (event) => {
-  console.log('📦 [SW] Service Worker installing...');
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
-  console.log('🚀 [SW] Service Worker activated');
   event.waitUntil(clients.claim());
 });
-
-// Test message handler for debugging
-self.addEventListener('message', (event) => {
-  console.log(`📨 [SW v${SW_VERSION}] Received message from client:`, event.data);
-  
-  if (event.data?.type === 'TEST_MESSAGE') {
-    console.log(`🧪 [SW v${SW_VERSION}] Handling test message`);
-    // Echo back to confirm SW is working
-    event.ports[0]?.postMessage({
-      type: 'SW_RESPONSE',
-      data: { received: true, timestamp: Date.now(), version: SW_VERSION }
-    });
-  }
-  
-  if (event.data?.type === 'SKIP_WAITING') {
-    console.log(`⏩ [SW v${SW_VERSION}] Skipping waiting state`);
-    self.skipWaiting();
-  }
-  
-  if (event.data?.type === 'FCM_DEBUG') {
-    console.log(`🔍 [SW v${SW_VERSION}] FCM Debug request received`);
-    event.ports[0]?.postMessage({
-      type: 'FCM_DEBUG_RESPONSE',
-      data: { 
-        messagingExists: !!messaging,
-        onBackgroundMessageRegistered: true,
-        timestamp: Date.now(),
-        version: SW_VERSION
-      }
-    });
-  }
-});
-
-// Add additional Firebase event listeners for debugging
-self.addEventListener('push', (event) => {
-  console.log('🔄 [SW] Raw push event received:', {
-    data: event.data ? event.data.text() : 'no data',
-    tag: event.tag,
-    timestamp: Date.now()
-  });
-});
-
-console.log('🎉 [SW] Service Worker fully loaded and configured!');
 
 /**
  * Get notification actions based on type
