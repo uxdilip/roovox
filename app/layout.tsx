@@ -7,6 +7,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { ChatToastNotification } from '@/components/ui/chat-toast-notification';
 import { ChatProvider } from '@/contexts/ChatContext';
 import { ServiceWorkerRegistration } from '@/components/ServiceWorkerRegistration';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -79,6 +80,7 @@ export default function RootLayout({
               <Toaster />
               {/* Chat notifications only - bottom-right */}
               <ChatToastNotification position="bottom-right" duration={4000} soundEnabled={true} />
+              <SpeedInsights />
             </ChatProvider>
           </AuthProvider>
         </LocationProvider>

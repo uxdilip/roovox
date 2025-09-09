@@ -45,6 +45,7 @@
     "@tsparticles/slim": "^3.9.1",
     "@types/nodemailer": "^6.4.17",
     "@types/react-dom": "18.2.7",
+    "@vercel/speed-insights": "^1.2.0",
     "appwrite": "^18.1.1",
     "autoprefixer": "10.4.15",
     "class-variance-authority": "^0.7.0",
