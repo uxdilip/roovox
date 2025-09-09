@@ -25,6 +25,8 @@ interface UseEnterpriseFCMReturn {
   requestPermission: () => Promise<boolean>;
   activeUsers: any[];
   sendTestNotification: () => Promise<void>;
+  verifyDatabaseSync: () => Promise<void>;
+  syncStatus: 'unknown' | 'synced' | 'out_of_sync' | 'checking';
 }
 
 export const useEnterpriseFCM = ({ 
@@ -41,42 +43,107 @@ export const useEnterpriseFCM = ({
   const [token, setToken] = useState<string | null>(null);
   const [permission, setPermission] = useState<NotificationPermission | null>(null);
   const [activeUsers, setActiveUsers] = useState<any[]>([]);
+  const [syncStatus, setSyncStatus] = useState<'unknown' | 'synced' | 'out_of_sync' | 'checking'>('unknown');
   const { toast } = useToast();
 
   // Check support and permission on mount
   useEffect(() => {
     const checkSupport = async () => {
-      const supported = ('Notification' in window) && ('serviceWorker' in navigator);
-      setIsSupported(supported);
+      // Enhanced browser support detection (WhatsApp/Slack pattern)
+      const hasNotification = 'Notification' in window;
+      const hasServiceWorker = 'serviceWorker' in navigator;
+      const hasPromise = 'Promise' in window;
+      const hasLocalStorage = 'localStorage' in window;
+      const isSecureContext = window.isSecureContext || location.protocol === 'https:' || location.hostname === 'localhost';
       
-      if (supported && typeof window !== 'undefined' && 'Notification' in window) {
+      const basicSupport = hasNotification && hasServiceWorker && hasPromise && hasLocalStorage && isSecureContext;
+      
+      console.log('🔍 [FCM Hook] Browser support check:', {
+        hasNotification,
+        hasServiceWorker,
+        hasPromise,
+        hasLocalStorage,
+        isSecureContext,
+        basicSupport,
+        userAgent: navigator.userAgent.substring(0, 50)
+      });
+      
+      setIsSupported(basicSupport);
+      
+      if (basicSupport && hasNotification) {
         setPermission(Notification.permission);
+        console.log('🔔 [FCM Hook] Current permission:', Notification.permission);
+      } else {
+        console.warn('❌ [FCM Hook] Browser not supported for FCM');
+        setError('Your browser does not support push notifications. Please use Chrome, Firefox, or Edge.');
       }
     };
     
     checkSupport();
   }, []);
 
-  // Initialize from stored data on mount
+  // Initialize from stored data with database verification
   useEffect(() => {
     const initializeFromStorage = async () => {
-      if (isSupported) {
-        const initialized = await enterpriseFCM.initializeFromStorage();
-        if (initialized) {
-          const users = enterpriseFCM.getActiveUsers();
-          setActiveUsers(users);
+      if (isSupported && userId && userType) {
+        console.log(`🔄 [FCM Hook] Initializing for ${userType} ${userId}...`);
+        
+        // ALWAYS check database first (Industry pattern: WhatsApp/Slack)
+        setSyncStatus('checking');
+        
+        try {
+          const syncResult = await enterpriseFCM.verifyRegistrationWithDatabase(userId, userType);
           
-          // Check if current user is already registered
-          const currentUser = users.find(u => u.userId === userId);
-          if (currentUser) {
+          if (syncResult.databaseExists) {
+            // Database has registration - restore state
+            console.log(`✅ [FCM Hook] Found database registration for ${userId}`);
             setIsRegistered(true);
+            setSyncStatus('synced');
+            
+            // Initialize local storage if needed
+            if (!syncResult.localExists) {
+              console.log(`🔄 [FCM Hook] Syncing local storage for ${userId}`);
+              const restored = await enterpriseFCM.restoreUserFromDatabase(userId, userType);
+              if (restored) {
+                const users = enterpriseFCM.getActiveUsers();
+                setActiveUsers(users);
+              }
+            } else {
+              // Local data exists, just initialize
+              await enterpriseFCM.initializeFromStorage();
+              const users = enterpriseFCM.getActiveUsers();
+              setActiveUsers(users);
+            }
+          } else {
+            // No database registration found
+            console.log(`❌ [FCM Hook] No database registration for ${userId}`);
+            setIsRegistered(false);
+            setSyncStatus('synced');
+            
+            // Clear any stale local data
+            if (syncResult.localExists) {
+              console.log(`🧹 [FCM Hook] Clearing stale local data for ${userId}`);
+              await enterpriseFCM.unregisterUser(userId);
+            }
           }
+        } catch (error) {
+          console.error('❌ [FCM Hook] Database check failed:', error);
+          
+          // Fallback: Check local storage only
+          const initialized = await enterpriseFCM.initializeFromStorage();
+          if (initialized) {
+            const users = enterpriseFCM.getActiveUsers();
+            setActiveUsers(users);
+            const currentUser = users.find(u => u.userId === userId);
+            setIsRegistered(!!currentUser);
+          }
+          setSyncStatus('unknown');
         }
       }
     };
 
     initializeFromStorage();
-  }, [isSupported, userId]);
+  }, [isSupported, userId, userType]);
 
   const requestPermission = useCallback(async (): Promise<boolean> => {
     if (!isSupported) {
@@ -128,6 +195,7 @@ export const useEnterpriseFCM = ({
 
       setIsRegistered(true);
       setPermission('granted');
+      setSyncStatus('synced');
 
       // Update active users list
       const users = enterpriseFCM.getActiveUsers();
@@ -207,6 +275,62 @@ export const useEnterpriseFCM = ({
     }
   }, [userId, userType, toast]);
 
+  // Database sync verification
+  const verifyDatabaseSync = useCallback(async () => {
+    if (!userId || !userType) return;
+
+    setSyncStatus('checking');
+    setError(null);
+
+    try {
+      console.log(`🔍 [FCM Hook] Verifying database sync for ${userType} ${userId}`);
+      
+      const syncResult = await enterpriseFCM.verifyRegistrationWithDatabase(userId, userType);
+      
+      if (syncResult.localExists && !syncResult.databaseExists) {
+        // Out of sync - local says registered but database doesn't have record
+        console.log(`⚠️ [FCM Hook] Out of sync detected for ${userId} - clearing local state`);
+        setIsRegistered(false);
+        setSyncStatus('out_of_sync');
+        
+        toast({
+          title: "🔄 Sync Required",
+          description: "Your notification settings need to be re-enabled",
+          duration: 5000,
+        });
+      } else if (syncResult.databaseExists) {
+        // In sync - database has record
+        setIsRegistered(true);
+        setSyncStatus('synced');
+      } else {
+        // Both local and database show not registered
+        setIsRegistered(false);
+        setSyncStatus('synced');
+      }
+
+    } catch (error: any) {
+      console.error('❌ [FCM Hook] Database sync verification failed:', error);
+      setSyncStatus('unknown');
+      setError('Failed to verify notification status');
+    }
+  }, [userId, userType, toast]);
+
+  return {
+    isSupported,
+    isRegistered,
+    isLoading,
+    error,
+    register,
+    unregister,
+    token,
+    permission,
+    requestPermission,
+    activeUsers,
+    sendTestNotification,
+    verifyDatabaseSync,
+    syncStatus
+  };
+
   // Setup enterprise message listener
   useEffect(() => {
     const handleEnterpriseMessage = (event: CustomEvent) => {
@@ -238,7 +362,7 @@ export const useEnterpriseFCM = ({
     };
   }, [isSupported, onMessageReceived, toast]);
 
-  // Auto-register when user info is available (if enabled)
+  // Auto-register when user info is available (if enabled and sync is good)
   useEffect(() => {
     if (autoRegister && 
         isSupported && 
@@ -247,14 +371,16 @@ export const useEnterpriseFCM = ({
         !isRegistered && 
         !isLoading && 
         !error && 
-        permission === 'granted') {
+        permission === 'granted' &&
+        syncStatus !== 'out_of_sync') { // Don't auto-register if out of sync
       
       console.log('🏢 [Enterprise FCM] Auto-registering...', { 
         userId, 
         userType, 
         permission, 
         isRegistered, 
-        isLoading 
+        isLoading,
+        syncStatus
       });
       
       const timeoutId = setTimeout(() => {
@@ -263,7 +389,7 @@ export const useEnterpriseFCM = ({
 
       return () => clearTimeout(timeoutId);
     }
-  }, [autoRegister, isSupported, userId, userType, isRegistered, isLoading, error, permission, register]);
+  }, [autoRegister, isSupported, userId, userType, isRegistered, isLoading, error, permission, syncStatus, register]);
 
   // Update user activity when hook is used
   useEffect(() => {
@@ -283,6 +409,8 @@ export const useEnterpriseFCM = ({
     permission,
     requestPermission,
     activeUsers,
-    sendTestNotification
+    sendTestNotification,
+    verifyDatabaseSync,
+    syncStatus
   };
 };

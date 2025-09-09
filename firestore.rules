@@ -1,0 +1,29 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // FCM Devices Collection - Server-side only access
+    match /fcm_devices/{deviceId} {
+      allow read, write: if false; // Only server-side admin SDK can access
+    }
+    
+    // FCM User Subscriptions - Server-side only access
+    match /fcm_user_subscriptions/{subscriptionId} {
+      allow read, write: if false; // Only server-side admin SDK can access
+    }
+    
+    // FCM Topics - Server-side only access
+    match /fcm_topics/{topicId} {
+      allow read, write: if false; // Only server-side admin SDK can access
+    }
+    
+    // FCM Cleanup Logs - Server-side only access
+    match /fcm_cleanup_logs/{logId} {
+      allow read, write: if false; // Only server-side admin SDK can access
+    }
+    
+    // Default deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

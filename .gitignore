@@ -42,3 +42,7 @@ test-*.js
 # debug/temporary files
 app/api/debug/check-fcm-token/
 app/api/test-email/
+
+# Firebase sensitive files
+firebase-admin-key.json
+*.serviceAccount.json

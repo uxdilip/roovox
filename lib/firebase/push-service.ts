@@ -1,5 +1,4 @@
-import { adminMessaging } from './admin';
-import { fcmTokenService, FCMTokenData } from '../services/fcm-token-service';
+import { adminMessaging, adminFirestore } from './admin';
 
 export interface PushNotificationData {
   userId: string;
@@ -24,6 +23,88 @@ export interface PushNotificationResult {
   reason?: string;
 }
 
+interface FirestoreTokenData {
+  deviceId: string;
+  token: string;
+  userId: string;
+  userType: string;
+  status: string;
+}
+
+/**
+ * Get active FCM tokens from Firestore (Enterprise pattern)
+ */
+async function getActiveTokensFromFirestore(userId: string, userType: string): Promise<FirestoreTokenData[]> {
+  try {
+    if (!adminFirestore) {
+      console.error('❌ Firestore not initialized');
+      return [];
+    }
+
+    console.log(`🔍 Getting tokens for ${userType} ${userId} from Firestore...`);
+
+    // Query active user subscriptions from Firestore
+    const subscriptionsSnapshot = await adminFirestore
+      .collection('fcm_user_subscriptions')
+      .where('userId', '==', userId)
+      .where('userType', '==', userType)
+      .where('status', '==', 'active')
+      .get();
+
+    if (subscriptionsSnapshot.empty) {
+      console.log(`📵 No active subscriptions found for ${userType} ${userId}`);
+      return [];
+    }
+
+    const tokens: FirestoreTokenData[] = [];
+    
+    for (const doc of subscriptionsSnapshot.docs) {
+      const subscription = doc.data();
+      if (subscription.deviceToken && subscription.deviceId) {
+        tokens.push({
+          deviceId: subscription.deviceId,
+          token: subscription.deviceToken,
+          userId: subscription.userId,
+          userType: subscription.userType,
+          status: subscription.status
+        });
+      }
+    }
+
+    console.log(`✅ Found ${tokens.length} active tokens for ${userType} ${userId}`);
+    return tokens;
+
+  } catch (error) {
+    console.error('❌ Error getting tokens from Firestore:', error);
+    return [];
+  }
+}
+
+/**
+ * Deactivate token in Firestore (Enterprise pattern)
+ */
+async function deactivateTokenInFirestore(token: string): Promise<void> {
+  try {
+    if (!adminFirestore) return;
+    
+    // Update subscription status to inactive
+    const subscriptionsSnapshot = await adminFirestore
+      .collection('fcm_user_subscriptions')
+      .where('deviceToken', '==', token)
+      .get();
+
+    const batch = adminFirestore.batch();
+    subscriptionsSnapshot.docs.forEach(doc => {
+      batch.update(doc.ref, { status: 'inactive', updatedAt: new Date().toISOString() });
+    });
+
+    await batch.commit();
+    console.log(`🧹 Deactivated token: ${token.substring(0, 20)}...`);
+  } catch (error) {
+    console.error('❌ Error deactivating token:', error);
+  }
+}
+
 /**
  * Send push notification to a specific user
  */
@@ -43,8 +124,8 @@ export const sendPushNotification = async (
       };
     }
 
-    // Get user's active FCM tokens
-    const tokens = await fcmTokenService.getActiveTokens(
+    // Get user's active FCM tokens from Firestore (Enterprise pattern)
+    const tokens = await getActiveTokensFromFirestore(
       notificationData.userId,
       notificationData.userType
     );
@@ -201,11 +282,17 @@ export const sendDataOnlyPushNotification = async (
 
     console.log(`📱 Found ${tokens.length} active tokens for user`);
 
-    // Prepare data-only payload (NO notification field)
+    // Prepare HYBRID payload (Industry Standard: WhatsApp/Slack pattern)
     const clickAction = getClickAction(notificationData.action, notificationData.userType);
     
     const message = {
-      // NO notification field - this ensures onBackgroundMessage is triggered
+      // INCLUDE notification field for automatic system notifications
+      notification: {
+        title: notificationData.title,
+        body: notificationData.body,
+        icon: '/assets/logo.png'
+      },
+      // INCLUDE data field for custom handling
       data: {
         type: notificationData.action?.type || 'system',
         id: notificationData.action?.id || '',
@@ -213,34 +300,115 @@ export const sendDataOnlyPushNotification = async (
         userType: notificationData.userType,
         clickAction,
         timestamp: new Date().toISOString(),
-        // Include notification data in data payload for manual handling
-        notificationTitle: notificationData.title,
-        notificationBody: notificationData.body,
-        notificationIcon: '/assets/logo.png',
-        notificationBadge: '/assets/badge.png',
-        notificationTag: `${notificationData.action?.type}_${notificationData.action?.id}`,
-        notificationRequireInteraction: notificationData.priority === 'high' ? 'true' : 'false',
-        ...(notificationData.imageUrl && { notificationImage: notificationData.imageUrl }),
         priority: notificationData.priority || 'normal',
+        source: 'enterprise-fcm', // Mark as enterprise message
         ...notificationData.data
       },
       tokens: tokens.map(t => t.token),
       webpush: {
+        notification: {
+          title: notificationData.title,
+          body: notificationData.body,
+          icon: '/assets/logo.png',
+          badge: '/assets/badge.png',
+          tag: `${notificationData.action?.type}_${notificationData.action?.id}`,
+          requireInteraction: notificationData.priority === 'high',
+          ...(notificationData.imageUrl && { image: notificationData.imageUrl }),
+          actions: getNotificationActions(notificationData.action?.type)
+        },
+        fcmOptions: {
+          link: clickAction
+        },
         headers: {
           Urgency: notificationData.priority === 'high' ? 'high' : 'normal'
         }
       },
       android: {
-        priority: (notificationData.priority === 'high' ? 'high' : 'normal') as 'high' | 'normal'
+        priority: (notificationData.priority === 'high' ? 'high' : 'normal') as 'high' | 'normal',
+        notification: {
+          clickAction,
+          channelId: getChannelId(notificationData.action?.type),
+          ...(notificationData.imageUrl && { imageUrl: notificationData.imageUrl })
+        }
+      },
+      apns: {
+        payload: {
+          aps: {
+            category: notificationData.action?.type || 'system',
+            'thread-id': `${notificationData.action?.type}_${notificationData.userId}`,
+          }
+        }
       }
     };
 
-    console.log('📤 Sending data-only message:', JSON.stringify(message, null, 2));
+    console.log('📤 Sending hybrid notification message (WhatsApp/Slack pattern):', {
+      title: notificationData.title,
+      userType: notificationData.userType,
+      userId: notificationData.userId,
+      tokenCount: tokens.length
+    });
+
+    // Industry Standard: Try topic-based delivery first (more reliable)
+    const topic = `${notificationData.userType}_${notificationData.userId}`;
+    
+    try {
+      console.log(`📡 Attempting topic-based delivery to: ${topic}`);
+      
+      const topicMessage = {
+        notification: {
+          title: notificationData.title,
+          body: notificationData.body,
+          icon: '/assets/logo.png'
+        },
+        data: {
+          type: notificationData.action?.type || 'system',
+          id: notificationData.action?.id || '',
+          userId: notificationData.userId,
+          userType: notificationData.userType,
+          clickAction,
+          timestamp: new Date().toISOString(),
+          priority: notificationData.priority || 'normal',
+          source: 'enterprise-fcm',
+          ...notificationData.data
+        },
+        topic: topic,
+        webpush: {
+          notification: {
+            title: notificationData.title,
+            body: notificationData.body,
+            icon: '/assets/logo.png',
+            badge: '/assets/badge.png',
+            tag: `${notificationData.action?.type}_${notificationData.action?.id}`,
+            requireInteraction: notificationData.priority === 'high',
+            ...(notificationData.imageUrl && { image: notificationData.imageUrl })
+          },
+          fcmOptions: {
+            link: clickAction
+          }
+        }
+      };
+
+      const topicResponse = await adminMessaging.send(topicMessage);
+      console.log(`✅ Topic-based delivery successful: ${topicResponse}`);
+      
+      return {
+        success: true,
+        successCount: 1,
+        failureCount: 0,
+        failedTokens: []
+      };
+      
+    } catch (topicError: any) {
+      console.warn(`⚠️ Topic delivery failed, falling back to token-based:`, topicError.message);
+    }
+
+    // Fallback: Token-based delivery (WhatsApp fallback pattern)
+    console.log(`📱 Using token-based delivery for ${tokens.length} tokens`);
 
     // Send via Firebase Admin SDK
     const response = await adminMessaging.sendEachForMulticast(message);
 
-    console.log(`📊 Data-only push notification result: ${response.successCount} success, ${response.failureCount} failures`);
+    console.log(`📊 Hybrid push notification result: ${response.successCount} success, ${response.failureCount} failures`);
 
     // Handle failed tokens
     const failedTokens: string[] = [];

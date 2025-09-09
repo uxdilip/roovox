@@ -34,24 +34,29 @@ export async function POST(request: NextRequest) {
       topics: topics.length
     });
 
-    const db = adminFirestore;
-    const messaging = adminMessaging;
-    
-    if (!db || !messaging) {
-      return NextResponse.json(
-        { error: 'Firebase admin not initialized' },
-        { status: 500 }
-      );
+    // Ensure Firebase admin is available - critical for production
+    if (!adminFirestore || !adminMessaging) {
+      console.error('🔥 [Enterprise FCM] Firebase admin not initialized - this is a critical error in production');
+      return NextResponse.json({
+        success: false,
+        error: 'Firebase services not available',
+        code: 'FIREBASE_UNAVAILABLE'
+      }, { status: 503 }); // Service Unavailable
     }
 
+    const db = adminFirestore;
+    const messaging = adminMessaging;
+
+    // Start a batch operation for atomic writes
     const batch = db.batch();
 
-    // 1. Store/update device token
+    // 1. Store/update device token with enhanced metadata
     const deviceRef = db.collection('fcm_devices').doc(deviceToken.deviceId);
     batch.set(deviceRef, {
       ...deviceToken,
       updatedAt: new Date().toISOString(),
-      status: 'active'
+      status: 'active',
+      lastValidated: new Date().toISOString()
     }, { merge: true });
 
     // 2. Store user subscription on this device
@@ -61,19 +66,23 @@ export async function POST(request: NextRequest) {
       deviceId: deviceToken.deviceId,
       deviceToken: deviceToken.token,
       subscribedAt: new Date().toISOString(),
-      status: 'active'
+      status: 'active',
+      lastActivity: new Date().toISOString()
     }, { merge: true });
 
-    // 3. Subscribe to topics
+    // 3. Subscribe to topics with error handling
+    const topicResults: { topic: string; success: boolean; error?: string }[] = [];
+    
     if (topics.length > 0) {
-      try {
-        for (const topic of topics) {
+      for (const topic of topics) {
+        try {
           await messaging.subscribeToTopic([deviceToken.token], topic);
+          topicResults.push({ topic, success: true });
+          console.log(`✅ [Enterprise FCM] Subscribed to topic: ${topic}`);
+        } catch (topicError: any) {
+          console.warn(`⚠️ [Enterprise FCM] Topic subscription failed for ${topic}:`, topicError.message);
+          topicResults.push({ topic, success: false, error: topicError.message });
         }
-        console.log(`✅ [Enterprise FCM] Subscribed to topics: ${topics.join(', ')}`);
-      } catch (topicError) {
-        console.warn('⚠️ [Enterprise FCM] Topic subscription failed:', topicError);
-        // Don't fail the entire registration for topic errors
       }
     }
 
@@ -88,11 +97,13 @@ export async function POST(request: NextRequest) {
         browser: deviceToken.browser,
         platform: deviceToken.platform,
         lastActive: userSubscription.lastActive,
-        sessionId: userSubscription.activeSessionId
+        sessionId: userSubscription.activeSessionId,
+        registeredAt: new Date().toISOString()
       }),
       updatedAt: new Date().toISOString()
     }, { merge: true });
 
+    // Commit the batch operation
     await batch.commit();
 
     console.log(`✅ [Enterprise FCM] User ${userSubscription.userType} ${userSubscription.userId} registered on device ${deviceToken.deviceId}`);
@@ -100,18 +111,40 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       deviceId: deviceToken.deviceId,
-      subscriptions: topics,
-      message: 'Enterprise FCM registration successful'
+      subscriptions: topicResults,
+      method: 'firebase_production',
+      message: 'Enterprise FCM registration successful',
+      timestamp: new Date().toISOString()
     });
 
   } catch (error: any) {
     console.error('❌ [Enterprise FCM] Registration failed:', error);
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: error.message || 'Enterprise FCM registration failed' 
-      },
-      { status: 500 }
-    );
+    
+    // Handle specific Firebase errors
+    if (error.code === 5 || error.message.includes('Cloud Firestore API has not been used')) {
+      return NextResponse.json({
+        success: false,
+        error: 'Firestore API is not properly enabled',
+        code: 'FIRESTORE_API_DISABLED',
+        helpUrl: 'https://console.developers.google.com/apis/api/firestore.googleapis.com/overview?project=sniket-d2766'
+      }, { status: 503 });
+    }
+
+    // Handle messaging API errors
+    if (error.message.includes('messaging')) {
+      return NextResponse.json({
+        success: false,
+        error: 'Firebase Cloud Messaging error',
+        code: 'FCM_ERROR',
+        details: error.message
+      }, { status: 500 });
+    }
+    
+    return NextResponse.json({
+      success: false, 
+      error: error.message || 'Enterprise FCM registration failed',
+      code: error.code || 'UNKNOWN_ERROR',
+      timestamp: new Date().toISOString()
+    }, { status: 500 });
   }
 }
