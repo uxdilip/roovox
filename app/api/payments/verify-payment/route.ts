@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { databases, DATABASE_ID, COLLECTIONS } from '@/lib/appwrite';
 import crypto from 'crypto';
 import { updateOfferOnBookingComplete } from '@/lib/offer-services';
+import { EmailService } from '@/lib/email-service';
+import { buildEmailNotificationData, safeEmailSend } from '@/lib/email-helpers';
 
 export async function POST(req: NextRequest) {
   try {
@@ -150,6 +152,30 @@ export async function POST(req: NextRequest) {
     } catch (error: any) {
       console.error('Error creating payment document:', error);
       return NextResponse.json({ success: false, error: 'Failed to create payment record: ' + error.message }, { status: 500 });
+    }
+
+    // 📧 NEW: Send email notifications for online payment booking
+    try {
+      console.log('📧 Sending email notifications for online payment booking...');
+      
+      const emailData = await buildEmailNotificationData(booking);
+      
+      // Send booking confirmation email to customer (payment processed, booking confirmed)
+      await safeEmailSend(
+        () => EmailService.sendBookingConfirmationToCustomer(emailData),
+        'Customer booking confirmation email (online payment)'
+      );
+      
+      // Send new booking notification email to provider (confirmed booking with payment received)
+      await safeEmailSend(
+        () => EmailService.sendNewBookingNotificationToProvider(emailData),
+        'Provider booking notification email (online payment)'
+      );
+
+      console.log('✅ Email notifications processed successfully for online payment');
+    } catch (error) {
+      console.error('❌ Failed to send email notifications for online payment:', error);
+      // Don't fail the payment verification if email notifications fail
     }
 
     // ✅ NEW: Update offer status when booking is completed
