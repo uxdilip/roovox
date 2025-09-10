@@ -243,6 +243,12 @@ export async function POST(req: NextRequest) {
       
       const emailData = await buildEmailNotificationData(booking);
       
+      // Send booking confirmation email to customer (COD booking created)
+      await safeEmailSend(
+        () => EmailService.sendBookingConfirmationToCustomer(emailData),
+        'COD booking confirmation email to customer'
+      );
+      
       // Send new booking notification email to provider
       await safeEmailSend(
         () => EmailService.sendNewBookingNotificationToProvider(emailData),
