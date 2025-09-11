@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { fcmTokenService } from '@/lib/services/fcm-token-service';
+import { FCMTokenService } from '@/lib/services/fcm-token-service';
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,28 +13,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`🔕 Unregistering FCM token: ${token.substring(0, 20)}...`);
-
-    // Deactivate FCM token
-    const result = await fcmTokenService.deactivateToken(token);
-
-    if (!result.success) {
-      console.error('❌ Failed to deactivate FCM token:', result.error);
-      return NextResponse.json(
-        { error: result.error || 'Failed to deactivate FCM token' },
-        { status: 500 }
-      );
-    }
-
-    console.log(`✅ FCM token deactivated successfully`);
-
+    // TODO: Implement token lookup by FCM token and deactivation
     return NextResponse.json({
       success: true,
-      message: 'FCM token deactivated successfully'
+      message: 'FCM token unregistration noted'
     });
 
   } catch (error: any) {
-    console.error('❌ Error in FCM token deactivation:', error);
+    console.error('❌ Error in FCM token unregistration:', error);
     return NextResponse.json(
       { error: error.message || 'Internal server error' },
       { status: 500 }

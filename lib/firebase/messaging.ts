@@ -8,6 +8,32 @@ export interface NotificationPermissionResult {
 }
 
 /**
+ * Generate a unique device ID based on browser fingerprint
+ */
+const generateDeviceId = (): string => {
+  // Create a fingerprint based on stable browser/device characteristics
+  const fingerprint = [
+    navigator.userAgent,
+    navigator.language,
+    navigator.platform,
+    screen.width + 'x' + screen.height,
+    new Date().getTimezoneOffset(),
+    navigator.hardwareConcurrency || 'unknown',
+    (navigator as any).deviceMemory || 'unknown'
+  ].join('|');
+  
+  // Generate a hash-like ID from the fingerprint
+  let hash = 0;
+  for (let i = 0; i < fingerprint.length; i++) {
+    const char = fingerprint.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  
+  return `device_${Math.abs(hash).toString(36)}_${Date.now().toString(36)}`;
+};
+
+/**
  * Request notification permission and get FCM token
  */
 export const requestNotificationPermission = async (): Promise<NotificationPermissionResult> => {
@@ -96,6 +122,9 @@ export const registerFCMToken = async (userId: string, userType: 'customer' | 'p
       };
     }
 
+    // Generate unique device ID
+    const deviceId = generateDeviceId();
+
     // Save token to database
     const response = await fetch('/api/fcm/register', {
       method: 'POST',
@@ -106,6 +135,7 @@ export const registerFCMToken = async (userId: string, userType: 'customer' | 'p
         userId,
         userType,
         token,
+        deviceId, // Include device ID for deduplication
         deviceInfo: {
           platform: navigator.platform,
           browser: getBrowserInfo(),

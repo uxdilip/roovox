@@ -1,80 +1,147 @@
 import { databases, DATABASE_ID, COLLECTIONS } from '@/lib/appwrite';
-import { ID, Query } from 'appwrite';
+import { Query, ID } from 'appwrite';
 
 export interface FCMTokenData {
   userId: string;
-  userType: 'customer' | 'provider' | 'admin';
+  userType: 'customer' | 'provider' | 'admin' | 'technician';
   token: string;
-  deviceInfo: {
-    platform: string;
-    browser: string;
-    userAgent: string;
-  };
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
+  deviceInfo: any;
+  deviceId?: string; // Optional for backward compatibility
+  platform?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
-class FCMTokenService {
+export interface FCMToken {
+  $id: string;
+  user_id: string;
+  user_type: string;
+  token: string;
+  device_info: string;
+  device_id?: string;
+  platform?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export class FCMTokenService {
   /**
-   * Save FCM token to Appwrite database
+   * Save FCM token with device-based deduplication
    */
-  async saveToken(tokenData: FCMTokenData): Promise<{ success: boolean; tokenId?: string; error?: string }> {
+  static async saveToken(tokenData: FCMTokenData): Promise<FCMToken> {
+    const now = new Date().toISOString();
+    const tokenDataWithDates = {
+      ...tokenData,
+      createdAt: tokenData.createdAt || now,
+      updatedAt: now
+    };
+
     try {
-      // Check if token already exists
-      const existingTokens = await databases.listDocuments(
+      // Deactivate existing tokens for this specific device to prevent duplicates
+      if (tokenData.deviceId) {
+        await this.deactivateDeviceTokens(tokenData.userId, tokenData.userType, tokenData.deviceId);
+      } else {
+        // Fallback to user-level cleanup if no deviceId
+        await this.deactivateUserTokens(tokenData.userId, tokenData.userType);
+      }
+
+      // Create new active token
+      const newToken = await databases.createDocument(
         DATABASE_ID,
         COLLECTIONS.FCM_TOKENS,
-        [
-          Query.equal('token', tokenData.token),
-          Query.equal('user_id', tokenData.userId)
-        ]
+        ID.unique(),
+        {
+          user_id: tokenDataWithDates.userId,
+          user_type: tokenDataWithDates.userType,
+          token: tokenDataWithDates.token,
+          device_info: JSON.stringify(tokenDataWithDates.deviceInfo),
+          device_id: tokenDataWithDates.deviceId || null,
+          is_active: true,
+          created_at: tokenDataWithDates.createdAt,
+          updated_at: tokenDataWithDates.updatedAt
+        }
       );
 
-      if (existingTokens.documents.length > 0) {
-        // Update existing token
-        const existingToken = existingTokens.documents[0];
-        const updatedToken = await databases.updateDocument(
-          DATABASE_ID,
-          COLLECTIONS.FCM_TOKENS,
-          existingToken.$id,
-          {
-            is_active: true,
-            updated_at: new Date().toISOString(),
-            device_info: JSON.stringify(tokenData.deviceInfo)
-          }
-        );
-        
-        return { success: true, tokenId: updatedToken.$id };
-      } else {
-        // Create new token
-        const newToken = await databases.createDocument(
-          DATABASE_ID,
-          COLLECTIONS.FCM_TOKENS,
-          ID.unique(),
-          {
-            user_id: tokenData.userId,
-            user_type: tokenData.userType,
-            token: tokenData.token,
-            device_info: JSON.stringify(tokenData.deviceInfo),
-            is_active: true,
-            created_at: tokenData.createdAt,
-            updated_at: tokenData.updatedAt
-          }
-        );
-        
-        return { success: true, tokenId: newToken.$id };
-      }
-    } catch (error: any) {
-      console.error('Error saving FCM token:', error);
-      return { success: false, error: error.message };
+      return newToken as unknown as FCMToken;
+
+    } catch (error) {
+      console.error('❌ [FCM Service] Error saving token:', error);
+      throw error;
     }
   }
 
   /**
-   * Get active FCM tokens for a user
+   * Deactivate all existing tokens for a user
    */
-  async getActiveTokens(userId: string, userType: string): Promise<FCMTokenData[]> {
+  static async deactivateUserTokens(userId: string, userType: string): Promise<void> {
+    try {
+      const existingTokens = await databases.listDocuments(
+        DATABASE_ID,
+        COLLECTIONS.FCM_TOKENS,
+        [
+          Query.equal('user_id', userId),
+          Query.equal('user_type', userType),
+          Query.equal('is_active', true)
+        ]
+      );
+
+      if (existingTokens.documents.length > 0) {
+        for (const token of existingTokens.documents) {
+          await databases.updateDocument(
+            DATABASE_ID,
+            COLLECTIONS.FCM_TOKENS,
+            token.$id,
+            {
+              is_active: false,
+              updated_at: new Date().toISOString()
+            }
+          );
+        }
+      }
+    } catch (error) {
+      console.error('❌ [FCM Service] Error deactivating user tokens:', error);
+    }
+  }
+
+  /**
+   * Deactivate existing tokens for a specific device (enhanced deduplication)
+   */
+  static async deactivateDeviceTokens(userId: string, userType: string, deviceId: string): Promise<void> {
+    try {
+      const existingTokens = await databases.listDocuments(
+        DATABASE_ID,
+        COLLECTIONS.FCM_TOKENS,
+        [
+          Query.equal('user_id', userId),
+          Query.equal('user_type', userType),
+          Query.equal('device_id', deviceId),
+          Query.equal('is_active', true)
+        ]
+      );
+
+      if (existingTokens.documents.length > 0) {
+        for (const token of existingTokens.documents) {
+          await databases.updateDocument(
+            DATABASE_ID,
+            COLLECTIONS.FCM_TOKENS,
+            token.$id,
+            {
+              is_active: false,
+              updated_at: new Date().toISOString()
+            }
+          );
+        }
+      }
+    } catch (error) {
+      console.error('❌ [FCM Service] Error deactivating device tokens:', error);
+    }
+  }
+
+  /**
+   * Get active tokens for a user
+   */
+  static async getActiveTokensForUser(userId: string, userType: string): Promise<FCMToken[]> {
     try {
       const result = await databases.listDocuments(
         DATABASE_ID,
@@ -82,117 +149,117 @@ class FCMTokenService {
         [
           Query.equal('user_id', userId),
           Query.equal('user_type', userType),
-          Query.equal('is_active', true),
-          Query.orderDesc('updated_at')
+          Query.equal('is_active', true)
         ]
       );
 
-      return result.documents.map(doc => ({
-        userId: doc.user_id,
-        userType: doc.user_type,
-        token: doc.token,
-        deviceInfo: JSON.parse(doc.device_info || '{}'),
-        isActive: doc.is_active,
-        createdAt: doc.created_at,
-        updatedAt: doc.updated_at
-      }));
+      return result.documents as unknown as FCMToken[];
     } catch (error) {
-      console.error('Error getting active tokens:', error);
+      console.error('❌ [FCM Service] Error getting active tokens:', error);
       return [];
     }
   }
 
   /**
-   * Deactivate FCM token (when invalid or user logs out)
+   * Get all active tokens from Appwrite for push notifications
    */
-  async deactivateToken(token: string): Promise<{ success: boolean; error?: string }> {
-    try {
-      const existingTokens = await databases.listDocuments(
-        DATABASE_ID,
-        COLLECTIONS.FCM_TOKENS,
-        [Query.equal('token', token)]
-      );
-
-      if (existingTokens.documents.length > 0) {
-        const tokenDoc = existingTokens.documents[0];
-        await databases.updateDocument(
-          DATABASE_ID,
-          COLLECTIONS.FCM_TOKENS,
-          tokenDoc.$id,
-          {
-            is_active: false,
-            updated_at: new Date().toISOString()
-          }
-        );
-      }
-
-      return { success: true };
-    } catch (error: any) {
-      console.error('Error deactivating token:', error);
-      return { success: false, error: error.message };
-    }
-  }
-
-  /**
-   * Get all active tokens for multiple users (for broadcast notifications)
-   */
-  async getTokensForUsers(userIds: string[], userType: string): Promise<FCMTokenData[]> {
+  static async getAllActiveTokens(): Promise<FCMToken[]> {
     try {
       const result = await databases.listDocuments(
         DATABASE_ID,
         COLLECTIONS.FCM_TOKENS,
         [
-          Query.equal('user_id', userIds),
-          Query.equal('user_type', userType),
-          Query.equal('is_active', true)
+          Query.equal('is_active', true),
+          Query.limit(1000) // Adjust as needed
         ]
       );
 
-      return result.documents.map(doc => ({
-        userId: doc.user_id,
-        userType: doc.user_type,
-        token: doc.token,
-        deviceInfo: JSON.parse(doc.device_info || '{}'),
-        isActive: doc.is_active,
-        createdAt: doc.created_at,
-        updatedAt: doc.updated_at
-      }));
+      return result.documents as unknown as FCMToken[];
     } catch (error) {
-      console.error('Error getting tokens for users:', error);
+      console.error('❌ [FCM Service] Error getting all active tokens:', error);
       return [];
     }
   }
 
   /**
-   * Cleanup inactive tokens (older than 30 days)
+   * Remove a specific token
    */
-  async cleanupInactiveTokens(): Promise<{ success: boolean; deletedCount?: number; error?: string }> {
+  static async removeToken(tokenId: string): Promise<void> {
     try {
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      await databases.updateDocument(
+        DATABASE_ID,
+        COLLECTIONS.FCM_TOKENS,
+        tokenId,
+        {
+          is_active: false,
+          updated_at: new Date().toISOString()
+        }
+      );
+    } catch (error) {
+      console.error('❌ [FCM Service] Error removing token:', error);
+      throw error;
+    }
+  }
 
-      const inactiveTokens = await databases.listDocuments(
+  /**
+   * Update token's last used timestamp
+   */
+  static async updateTokenUsage(tokenId: string): Promise<void> {
+    try {
+      await databases.updateDocument(
+        DATABASE_ID,
+        COLLECTIONS.FCM_TOKENS,
+        tokenId,
+        {
+          updated_at: new Date().toISOString()
+        }
+      );
+    } catch (error) {
+      console.error('❌ [FCM Service] Error updating token usage:', error);
+    }
+  }
+
+  /**
+   * Debug: Get all tokens for diagnostics
+   */
+  static async getAllTokens(): Promise<FCMToken[]> {
+    try {
+      const result = await databases.listDocuments(
         DATABASE_ID,
         COLLECTIONS.FCM_TOKENS,
         [
-          Query.equal('is_active', false),
-          Query.lessThan('updated_at', thirtyDaysAgo.toISOString())
+          Query.limit(1000)
         ]
       );
 
-      let deletedCount = 0;
-      for (const token of inactiveTokens.documents) {
-        await databases.deleteDocument(DATABASE_ID, COLLECTIONS.FCM_TOKENS, token.$id);
-        deletedCount++;
-      }
+      return result.documents as unknown as FCMToken[];
+    } catch (error) {
+      console.error('❌ [FCM Service] Error getting all tokens:', error);
+      return [];
+    }
+  }
 
-      return { success: true, deletedCount };
-    } catch (error: any) {
-      console.error('Error cleaning up inactive tokens:', error);
-      return { success: false, error: error.message };
+  /**
+   * Debug: Get tokens by user
+   */
+  static async getTokensByUser(userId: string): Promise<FCMToken[]> {
+    try {
+      const result = await databases.listDocuments(
+        DATABASE_ID,
+        COLLECTIONS.FCM_TOKENS,
+        [
+          Query.equal('user_id', userId),
+          Query.limit(100)
+        ]
+      );
+
+      return result.documents as unknown as FCMToken[];
+    } catch (error) {
+      console.error('❌ [FCM Service] Error getting tokens by user:', error);
+      return [];
     }
   }
 }
 
-export const fcmTokenService = new FCMTokenService();
-export default fcmTokenService;
+// Export default for backward compatibility
+export default FCMTokenService;
