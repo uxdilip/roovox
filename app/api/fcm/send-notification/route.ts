@@ -15,10 +15,20 @@ export async function POST(request: NextRequest) {
       priority 
     } = await request.json();
 
-    // Validate required fields
-    if (!title || !body) {
+    // Enhanced: Support data-only notifications with rich content
+    let notificationTitle = title;
+    let notificationBody = body;
+
+    // If no title/body provided, generate them from data
+    if (!title && !body && data) {
+      notificationTitle = generateTitleFromData(data);
+      notificationBody = generateBodyFromData(data);
+    }
+
+    // Validate required fields (either traditional or enhanced data)
+    if (!notificationTitle || !notificationBody) {
       return NextResponse.json(
-        { error: 'Missing required fields: title, body' },
+        { error: 'Missing notification content. Provide either title/body or enhanced data.' },
         { status: 400 }
       );
     }
@@ -29,8 +39,8 @@ export async function POST(request: NextRequest) {
       console.log(`🔔 Sending bulk push notification to ${users.length} users`);
       
       const result = await sendBulkPushNotifications(users, {
-        title,
-        body,
+        title: notificationTitle,
+        body: notificationBody,
         data,
         action,
         imageUrl,
@@ -62,13 +72,13 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      console.log(`🔔 Sending push notification to ${userType} ${userId}`);
+      console.log(`Sending enhanced push notification to ${userType} ${userId}`);
 
       const result = await sendPushNotification({
         userId,
         userType,
-        title,
-        body,
+        title: notificationTitle,
+        body: notificationBody,
         data,
         action,
         imageUrl,
@@ -86,10 +96,77 @@ export async function POST(request: NextRequest) {
     }
 
   } catch (error: any) {
-    console.error('❌ Error in send notification API:', error);
+    console.error('Error in send notification API:', error);
     return NextResponse.json(
       { error: error.message || 'Internal server error' },
       { status: 500 }
     );
+  }
+}
+
+// Enhanced: Generate title from data
+function generateTitleFromData(data: any): string {
+  const type = data?.type || 'system';
+  
+  switch (type) {
+    case 'chat':
+    case 'message':
+      const senderName = data?.senderName || 'Someone';
+      return `Message from ${senderName}`;
+    
+    case 'booking':
+      return 'Booking Update';
+    
+    case 'payment':
+      return 'Payment Notification';
+    
+    case 'provider_verification':
+      return 'Provider Verification';
+    
+    case 'quote_request':
+      return 'Quote Request';
+    
+    case 'service_update':
+      return 'Service Update';
+    
+    case 'system':
+    default:
+      return 'Sniket Notification';
+  }
+}
+
+// Enhanced: Generate body from data
+function generateBodyFromData(data: any): string {
+  const type = data?.type || 'system';
+  
+  switch (type) {
+    case 'chat':
+    case 'message':
+      const messageContent = data?.messageContent || 'New message received';
+      const isLongMessage = messageContent.length > 50;
+      return isLongMessage ? messageContent.substring(0, 50) + '...' : messageContent;
+    
+    case 'booking':
+      const bookingStatus = data?.bookingStatus || 'updated';
+      return `Your booking has been ${bookingStatus}. Tap to view details.`;
+    
+    case 'payment':
+      const amount = data?.amount || 'amount';
+      return `Payment of ₹${amount} processed successfully.`;
+    
+    case 'provider_verification':
+      return 'Your provider application has been reviewed. Check status.';
+    
+    case 'quote_request':
+      const deviceType = data?.deviceType || 'device';
+      return `New quote request for ${deviceType} repair.`;
+    
+    case 'service_update':
+      const serviceStatus = data?.serviceStatus || 'updated';
+      return `Service status: ${serviceStatus}. View progress.`;
+    
+    case 'system':
+    default:
+      return 'You have a new notification from Sniket.';
   }
 }
