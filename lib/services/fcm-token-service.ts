@@ -38,15 +38,75 @@ export class FCMTokenService {
     };
 
     try {
-      // Deactivate existing tokens for this specific device to prevent duplicates
-      if (tokenData.deviceId) {
-        await this.deactivateDeviceTokens(tokenData.userId, tokenData.userType, tokenData.deviceId);
-      } else {
-        // Fallback to user-level cleanup if no deviceId
-        await this.deactivateUserTokens(tokenData.userId, tokenData.userType);
+      // First, check if the exact same token already exists and is active
+      const existingSameToken = await databases.listDocuments(
+        DATABASE_ID,
+        COLLECTIONS.FCM_TOKENS,
+        [
+          Query.equal('user_id', tokenData.userId),
+          Query.equal('user_type', tokenData.userType),
+          Query.equal('token', tokenData.token),
+          Query.equal('is_active', true)
+        ]
+      );
+
+      // If the same token already exists and is active, just return it
+      if (existingSameToken.documents.length > 0) {
+        console.log('🔄 [FCM Service] Same token already exists and is active, returning existing token');
+        return existingSameToken.documents[0] as unknown as FCMToken;
       }
 
-      // Create new active token
+      // Check if there's an existing active token for this device that's different
+      let shouldDeactivateOld = false;
+      if (tokenData.deviceId) {
+        const existingDeviceTokens = await databases.listDocuments(
+          DATABASE_ID,
+          COLLECTIONS.FCM_TOKENS,
+          [
+            Query.equal('user_id', tokenData.userId),
+            Query.equal('user_type', tokenData.userType),
+            Query.equal('device_id', tokenData.deviceId),
+            Query.equal('is_active', true)
+          ]
+        );
+        
+        // Only deactivate if there are existing tokens with different FCM tokens
+        if (existingDeviceTokens.documents.length > 0) {
+          const differentTokenExists = existingDeviceTokens.documents.some(
+            (doc: any) => doc.token !== tokenData.token
+          );
+          shouldDeactivateOld = differentTokenExists;
+        }
+      } else {
+        // Fallback: check for any different active tokens for this user
+        const existingUserTokens = await databases.listDocuments(
+          DATABASE_ID,
+          COLLECTIONS.FCM_TOKENS,
+          [
+            Query.equal('user_id', tokenData.userId),
+            Query.equal('user_type', tokenData.userType),
+            Query.equal('is_active', true)
+          ]
+        );
+        
+        if (existingUserTokens.documents.length > 0) {
+          const differentTokenExists = existingUserTokens.documents.some(
+            (doc: any) => doc.token !== tokenData.token
+          );
+          shouldDeactivateOld = differentTokenExists;
+        }
+      }
+
+      // Only deactivate old tokens if we found different ones
+      if (shouldDeactivateOld) {
+        if (tokenData.deviceId) {
+          await this.deactivateDeviceTokens(tokenData.userId, tokenData.userType, tokenData.deviceId);
+        } else {
+          await this.deactivateUserTokens(tokenData.userId, tokenData.userType);
+        }
+      }
+
+      // Create new active token only if it doesn't already exist
       const newToken = await databases.createDocument(
         DATABASE_ID,
         COLLECTIONS.FCM_TOKENS,
@@ -135,6 +195,31 @@ export class FCMTokenService {
       }
     } catch (error) {
       console.error('❌ [FCM Service] Error deactivating device tokens:', error);
+    }
+  }
+
+  /**
+   * Update existing token instead of creating a new one
+   */
+  static async updateExistingToken(tokenId: string, tokenData: FCMTokenData): Promise<FCMToken> {
+    try {
+      const updatedToken = await databases.updateDocument(
+        DATABASE_ID,
+        COLLECTIONS.FCM_TOKENS,
+        tokenId,
+        {
+          token: tokenData.token,
+          device_info: JSON.stringify(tokenData.deviceInfo),
+          device_id: tokenData.deviceId || null,
+          is_active: true,
+          updated_at: new Date().toISOString()
+        }
+      );
+
+      return updatedToken as unknown as FCMToken;
+    } catch (error) {
+      console.error('❌ [FCM Service] Error updating existing token:', error);
+      throw error;
     }
   }
 

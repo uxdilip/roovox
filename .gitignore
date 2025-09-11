@@ -46,3 +46,52 @@ app/api/test-email/
 # Firebase sensitive files
 firebase-admin-key.json
 *.serviceAccount.json
+
+# Debug/Test FCM files and folders
+app/debug-push/
+app/fcm-debug/
+app/notification-debug/
+app/practical-fcm-test/
+app/test-background-notifications/
+app/test-enterprise-fcm/
+app/toast-comparison-test/
+app/token-persistence-test/
+app/(public)/debug-chat-notifications/
+app/(public)/test-notifications/
+app/api/fcm/debug-tokens/
+app/api/fcm/send-data-only/
+app/api/fcm/test-full/
+app/api/fcm/test-send/
+app/api/notifications/test/
+app/api/test-chat-notification/
+app/api/test-notification/
+app/api/test-user-lookup/
+
+# Debug files
+debug-notification.js
+public/debug-fcm.js
+public/enterprise-fcm-test.js
+public/firebase-messaging-sw-clean.js
+public/firebase-messaging-sw-enterprise.js
+public/simple-fcm-sw.js
+
+# Test files
+test-fcm-background.html
+test-fcm-setup.sh
+test-fcm-static.sh
+test-fcm.sh
+fcm-universal-test.html
+fix-provider-fcm.html
+
+# Documentation files
+DEVICE_DEDUPLICATION_FIX.md
+FCM_FIXES_SUMMARY.md
+FCM_FIX_SUMMARY.md
+FIREBASE_FCM_IMPLEMENTATION.md
+NOTIFICATION_ISSUE_ANALYSIS.md
+NOTIFICATION_TESTING.md
+
+# Component test files
+components/EnterpriseFCMTest.tsx
+components/MultiUserFCMTest.tsx
+hooks/use-smart-notifications.ts

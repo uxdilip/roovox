@@ -2,7 +2,9 @@
   "css.validate": false,
   "less.validate": false,
   "scss.validate": false,
-  "css.customData": [".vscode/css_custom_data.json"],
+  "css.customData": [
+    ".vscode/css_custom_data.json"
+  ],
   "files.associations": {
     "*.css": "tailwindcss"
   },
@@ -16,18 +18,40 @@
     "html": "HTML"
   },
   "tailwindCSS.experimental.classRegex": [
-    ["cva\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"],
-    ["cx\\(([^)]*)\\)", "(?:'|\"|`)([^']*)(?:'|\"|`)"]
+    [
+      "cva\\(([^)]*)\\)",
+      "[\"'`]([^\"'`]*).*?[\"'`]"
+    ],
+    [
+      "cx\\(([^)]*)\\)",
+      "(?:'|\"|`)([^']*)(?:'|\"|`)"
+    ]
   ],
- 
   "typescript.suggest.autoImports": false,
   "javascript.suggest.autoImports": false,
+  "typescript.preferences.includeAutoImports": "off",
+  "typescript.preferences.includePackageJsonAutoImports": "off",
+  "typescript.suggest.includeAutomaticOptionalChainCompletions": false,
+  "typescript.suggest.includeCompletionsForImportStatements": false,
+  "typescript.validate.enable": false,
+  "typescript.format.enable": false,
+  "typescript.updateImportsOnFileMove.enabled": "never",
+  "typescript.suggest.enabled": false,
   "files.watcherExclude": {
     "**/test-email*.js": true,
-    "**/app/api/debug/check-fcm-token/**": true
+    "**/app/api/debug/check-fcm-token/**": true,
+    "**/app/debug-push/**": true,
+    "**/app/fcm-debug/**": true,
+    "**/app/notification-debug/**": true,
+    "**/app/practical-fcm-test/**": true,
+    "**/app/test-*/**": true,
+    "**/app/api/fcm/debug-tokens/**": true,
+    "**/app/api/fcm/send-data-only/**": true,
+    "**/app/api/fcm/test-*/**": true,
+    "**/app/api/test-*/**": true
   },
   "search.exclude": {
     "**/test-email*.js": true,
     "**/app/api/debug/check-fcm-token/**": true
   }
-} 
+}
