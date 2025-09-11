@@ -368,7 +368,7 @@ export class RealtimeChatService {
               console.log(`🚀 [CHAT] Sender: ${message.sender_id} (${message.sender_type})`);
               console.log(`🚀 [CHAT] Recipient: ${recipientId} (${recipientType})`);
               
-              // Send regular FCM notification (works in both foreground and background)
+              // Send enhanced FCM notification with rich content
               const fcmResponse = await fetch('/api/fcm/send-notification', {
                 method: 'POST',
                 headers: {
@@ -377,20 +377,28 @@ export class RealtimeChatService {
                 body: JSON.stringify({
                   userId: recipientId,
                   userType: recipientType,
-                  title: 'New Message',
-                  body: `New message from ${senderName}`,
+                  // Enhanced notification data for rich notifications
                   data: {
                     type: 'message',
+                    senderName: senderName,
+                    messageContent: message.content,
+                    conversationId: conversationId,
+                    relatedId: conversationId,
+                    userId: recipientId,
+                    userType: recipientType,
+                    clickAction: `/chat/${conversationId}`,
+                    notificationIcon: '/assets/chat-icon.png',
+                    notificationBadge: '/assets/badge.png',
+                    priority: 'high',
+                    timestamp: new Date().toISOString(),
                     category: 'chat',
-                    priority: 'medium',
-                    relatedId: conversationId || '',
                     relatedType: 'conversation'
                   },
                   action: {
                     type: 'message',
                     id: conversationId || ''
                   },
-                  priority: 'normal'
+                  priority: 'high' // Important for chat messages
                 }),
               });
 
