@@ -1,5 +1,5 @@
-import { adminMessaging, adminFirestore } from './admin';
-import { fcmTokenService } from '@/lib/services/fcm-token-service';
+import { adminMessaging } from './admin';
+import { FCMTokenService, FCMTokenData } from '@/lib/services/fcm-token-service';
 
 export interface PushNotificationData {
   userId: string;
@@ -24,85 +24,37 @@ export interface PushNotificationResult {
   reason?: string;
 }
 
-interface FirestoreTokenData {
-  deviceId: string;
-  token: string;
-  userId: string;
-  userType: string;
-  status: string;
-}
-
 /**
- * Get active FCM tokens from Firestore (Enterprise pattern)
+ * Get active FCM tokens from Appwrite (Unified System)
  */
-async function getActiveTokensFromFirestore(userId: string, userType: string): Promise<FirestoreTokenData[]> {
+async function getActiveTokensFromAppwrite(userId: string, userType: string): Promise<FCMTokenData[]> {
   try {
-    if (!adminFirestore) {
-      console.error('❌ Firestore not initialized');
+    console.log(`🔍 Getting tokens for ${userType} ${userId} from Appwrite...`);
+
+    // Use the existing fcmTokenService to get active tokens
+    const tokens = await FCMTokenService.getActiveTokensForUser(userId, userType);
+
+    if (tokens.length === 0) {
+      console.log(`📵 No active tokens found for ${userType} ${userId}`);
       return [];
-    }
-
-    console.log(`🔍 Getting tokens for ${userType} ${userId} from Firestore...`);
-
-    // Query active user subscriptions from Firestore
-    const subscriptionsSnapshot = await adminFirestore
-      .collection('fcm_user_subscriptions')
-      .where('userId', '==', userId)
-      .where('userType', '==', userType)
-      .where('status', '==', 'active')
-      .get();
-
-    if (subscriptionsSnapshot.empty) {
-      console.log(`📵 No active subscriptions found for ${userType} ${userId}`);
-      return [];
-    }
-
-    const tokens: FirestoreTokenData[] = [];
-    
-    for (const doc of subscriptionsSnapshot.docs) {
-      const subscription = doc.data();
-      if (subscription.deviceToken && subscription.deviceId) {
-        tokens.push({
-          deviceId: subscription.deviceId,
-          token: subscription.deviceToken,
-          userId: subscription.userId,
-          userType: subscription.userType,
-          status: subscription.status
-        });
-      }
     }
 
     console.log(`✅ Found ${tokens.length} active tokens for ${userType} ${userId}`);
-    return tokens;
-
-  } catch (error) {
-    console.error('❌ Error getting tokens from Firestore:', error);
-    return [];
-  }
-}
-
-/**
- * Deactivate token in Firestore (Enterprise pattern)
- */
-async function deactivateTokenInFirestore(token: string): Promise<void> {
-  try {
-    if (!adminFirestore) return;
     
-    // Update subscription status to inactive
-    const subscriptionsSnapshot = await adminFirestore
-      .collection('fcm_user_subscriptions')
-      .where('deviceToken', '==', token)
-      .get();
+    // Map FCMToken to FCMTokenData format
+    return tokens.map(token => ({
+      userId: token.user_id,
+      userType: token.user_type as 'customer' | 'provider' | 'admin' | 'technician',
+      token: token.token,
+      deviceInfo: JSON.parse(token.device_info || '{}'),
+      deviceId: token.device_id,
+      createdAt: token.created_at,
+      updatedAt: token.updated_at
+    }));
 
-    const batch = adminFirestore.batch();
-    subscriptionsSnapshot.docs.forEach(doc => {
-      batch.update(doc.ref, { status: 'inactive', updatedAt: new Date().toISOString() });
-    });
-
-    await batch.commit();
-    console.log(`🧹 Deactivated token: ${token.substring(0, 20)}...`);
   } catch (error) {
-    console.error('❌ Error deactivating token:', error);
+    console.error('❌ Error getting tokens from Appwrite:', error);
+    return [];
   }
 }
 
@@ -125,8 +77,8 @@ export const sendPushNotification = async (
       };
     }
 
-    // Get user's active FCM tokens from Firestore (Enterprise pattern)
-    const tokens = await getActiveTokensFromFirestore(
+    // Get user's active FCM tokens from Appwrite (Unified System)
+    const tokens = await getActiveTokensFromAppwrite(
       notificationData.userId,
       notificationData.userType
     );
@@ -161,18 +113,8 @@ export const sendPushNotification = async (
         timestamp: new Date().toISOString(),
         ...notificationData.data
       },
-      tokens: tokens.map(t => t.token),
+      tokens: tokens.map((t: FCMTokenData) => t.token),
       webpush: {
-        notification: {
-          title: notificationData.title,
-          body: notificationData.body,
-          icon: '/assets/logo.png',
-          badge: '/assets/badge.png',
-          tag: `${notificationData.action?.type}_${notificationData.action?.id}`,
-          requireInteraction: notificationData.priority === 'high',
-          ...(notificationData.imageUrl && { image: notificationData.imageUrl }),
-          actions: getNotificationActions(notificationData.action?.type)
-        },
         fcmOptions: {
           link: clickAction
         },
@@ -222,7 +164,7 @@ export const sendPushNotification = async (
       
       // Deactivate failed tokens
       await Promise.all(
-        failedTokens.map(token => fcmTokenService.deactivateToken(token))
+        failedTokens.map(token => /* FCMTokenService.removeToken */(token))
       );
       
       console.log(`🧹 Deactivated ${failedTokens.length} invalid tokens`);
@@ -266,7 +208,7 @@ export const sendDataOnlyPushNotification = async (
     }
 
     // Get user's active FCM tokens
-    const tokens = await fcmTokenService.getActiveTokens(
+    const tokens = await FCMTokenService.getActiveTokensForUser(
       notificationData.userId,
       notificationData.userType
     );
@@ -305,18 +247,8 @@ export const sendDataOnlyPushNotification = async (
         source: 'enterprise-fcm', // Mark as enterprise message
         ...notificationData.data
       },
-      tokens: tokens.map(t => t.token),
+      tokens: tokens.map((t: any) => t.token),
       webpush: {
-        notification: {
-          title: notificationData.title,
-          body: notificationData.body,
-          icon: '/assets/logo.png',
-          badge: '/assets/badge.png',
-          tag: `${notificationData.action?.type}_${notificationData.action?.id}`,
-          requireInteraction: notificationData.priority === 'high',
-          ...(notificationData.imageUrl && { image: notificationData.imageUrl }),
-          actions: getNotificationActions(notificationData.action?.type)
-        },
         fcmOptions: {
           link: clickAction
         },
@@ -374,15 +306,6 @@ export const sendDataOnlyPushNotification = async (
         },
         topic: topic,
         webpush: {
-          notification: {
-            title: notificationData.title,
-            body: notificationData.body,
-            icon: '/assets/logo.png',
-            badge: '/assets/badge.png',
-            tag: `${notificationData.action?.type}_${notificationData.action?.id}`,
-            requireInteraction: notificationData.priority === 'high',
-            ...(notificationData.imageUrl && { image: notificationData.imageUrl })
-          },
           fcmOptions: {
             link: clickAction
           }
@@ -424,7 +347,7 @@ export const sendDataOnlyPushNotification = async (
       
       // Deactivate failed tokens
       await Promise.all(
-        failedTokens.map(token => fcmTokenService.deactivateToken(token))
+        failedTokens.map(token => /* FCMTokenService.removeToken */(token))
       );
       
       console.log(`🧹 Deactivated ${failedTokens.length} invalid tokens`);

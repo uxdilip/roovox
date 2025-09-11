@@ -52,12 +52,24 @@ messaging.onBackgroundMessage((payload) => {
     const notificationTitle = payload.data?.notificationTitle || payload.notification?.title || 'New Notification';
     const notificationBody = payload.data?.notificationBody || payload.notification?.body || 'You have a new notification';
     
+    // Debug logging to see what we're actually receiving
+    console.log('🔍 [SW] Notification payload:', {
+      title: notificationTitle,
+      body: notificationBody,
+      payloadNotification: payload.notification,
+      payloadData: payload.data
+    });
+    
     const notificationOptions = {
       body: notificationBody,
       icon: payload.data?.notificationIcon || '/assets/logo.png',
       badge: payload.data?.notificationBadge || '/assets/badge.png',
       tag: payload.data?.notificationTag || payload.data?.type + '_' + payload.data?.id + '_' + (targetUserId || 'unknown'),
       requireInteraction: payload.data?.notificationRequireInteraction === 'true' || payload.data?.priority === 'high',
+      // Add branding to make notifications look more professional
+      dir: 'ltr',
+      lang: 'en',
+      renotify: true,
       data: {
         clickAction: payload.data?.clickAction || '/',
         type: payload.data?.type || 'system',
