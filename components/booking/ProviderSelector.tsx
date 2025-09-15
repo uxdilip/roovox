@@ -187,13 +187,15 @@ export function ProviderSelector({ device, services, partQuality, onProviderSele
           // Users
           databases.listDocuments(
             DATABASE_ID,
-            "User", // Using exact collection name from dashboard (capital U)
+            COLLECTIONS.USERS, // Use consistent collection reference
             [Query.contains('user_id', validProviderIds)]
           )
         ]);
 
         console.log('🔍 Users collection result:', usersRes.documents.length, 'documents');
+        console.log('🔍 Sample user data structure:', usersRes.documents[0]);
         console.log('🔍 Business setups result:', businessSetups.filter(b => b).length, 'documents');
+        console.log('🔍 Sample business setup structure:', businessSetups.find(b => b));
 
         // Step 4: Build provider cards with tier pricing
         const providerCards = validProviderIds.map((pid) => {
@@ -300,18 +302,26 @@ export function ProviderSelector({ device, services, partQuality, onProviderSele
 
           // Parse onboarding_data JSON string to get business details
           let parsedOnboardingData: any = {};
-          if (businessInfo?.onboarding_data && typeof businessInfo.onboarding_data === 'string') {
+          if (businessInfo?.onboarding_data) {
             try {
-              parsedOnboardingData = JSON.parse(businessInfo.onboarding_data);
-              console.log('🔍 Parsed onboarding data for', pid, ':', parsedOnboardingData);
+              parsedOnboardingData = typeof businessInfo.onboarding_data === 'string' 
+                ? JSON.parse(businessInfo.onboarding_data)
+                : businessInfo.onboarding_data;
+              console.log('🔍 Successfully parsed onboarding data for', pid, ':', parsedOnboardingData);
             } catch (e) {
               console.error('❌ Error parsing onboarding_data for provider', pid, ':', e);
+              console.log('❌ Raw onboarding_data:', businessInfo.onboarding_data);
+              // Try alternative parsing or use raw data structure
+              if (typeof businessInfo.onboarding_data === 'object') {
+                parsedOnboardingData = businessInfo.onboarding_data;
+                console.log('✅ Using raw object instead of JSON parsing');
+              }
             }
           }
 
           // Extract business details from parsed onboarding data
           const businessNameFromOnboarding = parsedOnboardingData?.businessInfo?.businessName;
-          const experienceFromOnboarding = parsedOnboardingData?.businessInfo?.experience;
+          const experienceFromOnboarding = parsedOnboardingData?.businessInfo?.yearsOfExperience;
           const locationFromOnboarding = parsedOnboardingData?.businessInfo?.address || 
                                        parsedOnboardingData?.businessInfo?.city || 
                                        parsedOnboardingData?.businessInfo?.state;
@@ -338,22 +348,60 @@ export function ProviderSelector({ device, services, partQuality, onProviderSele
             'businessInfo structure': businessInfo ? Object.keys(businessInfo) : 'null'
           });
 
+          // Debug: Log location and experience data sources
+          console.log('🔍 Location/Experience debug for', pid, {
+            'serviceSetup?.location': serviceSetup?.location,
+            'parsedOnboardingData?.businessInfo?.yearsOfExperience': parsedOnboardingData?.businessInfo?.yearsOfExperience,
+            'experienceFromOnboarding': experienceFromOnboarding,
+            'final_experience': parseInt(experienceFromOnboarding) || 0,
+            'serviceSetup?.location?.address': serviceSetup?.location?.address,
+            'serviceSetup?.location?.city': serviceSetup?.location?.city,
+            'serviceSetup?.location?.state': serviceSetup?.location?.state
+          });
+
+          // Debug: Log all possible name sources
+          console.log('🔍 Name extraction debug for', pid, {
+            'user?.name': (user as any)?.name,
+            'user?.username': (user as any)?.username,
+            'user?.email': (user as any)?.email,
+            'businessInfo?.personalDetails?.name': businessInfo?.personalDetails?.name,
+            'businessInfo?.personalDetails?.businessName': businessInfo?.personalDetails?.businessName,
+            'businessNameFromOnboarding': businessNameFromOnboarding,
+            'prov?.name': prov?.name,
+            'businessInfo?.businessName': businessInfo?.businessName
+          });
+
           return {
             id: pid,
-            name: (user as any)?.name || 'Provider',
+            name: (user as any)?.name || 
+                  (user as any)?.username || 
+                  businessInfo?.personalDetails?.name || 
+                  businessNameFromOnboarding || 
+                  prov?.name || 
+                  'Provider',
             phone: (user as any)?.phone || '-',
             isVerified: prov?.isVerified || false,
             isApproved: prov?.isApproved || false,
             totalBookings,
             rating: avgRating, // This matches what ProviderCard expects
-            yearsOfExperience: experienceFromOnboarding || businessInfo?.personalDetails?.experience || 0, // Use parsed onboarding data first
+            yearsOfExperience: parseInt(experienceFromOnboarding) || 0,
             todayAvailability,
             distance,
             matchingServices,
-            businessName: businessNameFromOnboarding || (user as any)?.name || 'Business Name N/A', // Use parsed onboarding data first
-            location: locationFromOnboarding || (serviceSetup?.serviceMode === 'instore' && serviceSetup?.location?.address)
-              ? serviceSetup.location.address
-              : serviceSetup?.location?.city || serviceSetup?.location?.state || 'Location N/A', // Use parsed onboarding data first
+            businessName: businessNameFromOnboarding || 
+                         businessInfo?.personalDetails?.businessName ||
+                         businessInfo?.businessName ||
+                         (user as any)?.name || 
+                         'Business Name N/A',
+            location: serviceSetup?.location?.address ||
+                     serviceSetup?.location?.city ||
+                     serviceSetup?.location?.state ||
+                     locationFromOnboarding ||
+                     businessInfo?.personalDetails?.address ||
+                     businessInfo?.address ||
+                     businessInfo?.city ||
+                     businessInfo?.state ||
+                     'Location N/A',
             profilePicture: (user as any)?.profilePicture || '',
             serviceMode: serviceSetup?.serviceMode || 'both',
             storeAddress: serviceSetup?.location || null,
@@ -543,48 +591,55 @@ export function ProviderSelector({ device, services, partQuality, onProviderSele
   // No providers message is now handled in the provider list section
 
   return (
-    <div className="max-w-7xl mx-auto px-6 py-8">
-      {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Select a Provider</h1>
-            <p className="text-lg text-gray-600">
-              Found {filteredProviders.length} provider{filteredProviders.length !== 1 ? 's' : ''} for your {device.brand} {device.model}
-            </p>
-          </div>
-          <Button variant="outline" onClick={onBack} className="h-11 px-6">
-            ← Back
-          </Button>
-        </div>
-
-        {/* Filters & Sorting */}
-        <Card className="p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2">
-                <SlidersHorizontal className="w-5 h-5 text-gray-500" />
-                <span className="font-medium text-gray-700">Filters & Sorting</span>
-              </div>
-              
-              <div className="flex items-center gap-3">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={verifiedOnly}
-                    onChange={(e) => setVerifiedOnly(e.target.checked)}
-                    className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
-                  />
-                  <span className="text-sm text-gray-700">Verified only</span>
-                </label>
+    <div className="min-h-screen bg-gray-50">
+      {/* Mobile-First Header */}
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
+        <div className="container mx-auto px-4 lg:px-6">
+          <div className="py-4 lg:py-6">
+            {/* Back Button & Title */}
+            <div className="flex items-center justify-between mb-3 lg:mb-4">
+              <Button 
+                variant="ghost" 
+                onClick={onBack} 
+                className="p-2 lg:p-3 -ml-2 hover:bg-gray-100"
+              >
+                ← Back
+              </Button>
+              <div className="text-right">
+                <div className="text-xs lg:text-sm text-gray-500">
+                  {filteredProviders.length} provider{filteredProviders.length !== 1 ? 's' : ''}
+                </div>
               </div>
             </div>
+            
+            {/* Title and Device Info */}
+            <div className="mb-4">
+              <h1 className="text-xl lg:text-3xl font-bold text-gray-900 mb-1 lg:mb-2">
+                Select a Provider
+              </h1>
+              <p className="text-sm lg:text-lg text-gray-600">
+                For your {device.brand} {device.model}
+              </p>
+            </div>
 
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-gray-600">Sort by:</span>
+            {/* Mobile Filters Bar */}
+            <div className="flex items-center justify-between gap-3">
+              {/* Verified Toggle */}
+              <label className="flex items-center gap-2 cursor-pointer bg-gray-100 rounded-full px-3 py-2">
+                <input
+                  type="checkbox"
+                  checked={verifiedOnly}
+                  onChange={(e) => setVerifiedOnly(e.target.checked)}
+                  className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                />
+                <span className="text-sm font-medium text-gray-700">Verified</span>
+              </label>
+
+              {/* Sort Dropdown */}
               <Select value={sortBy} onValueChange={(value: 'distance' | 'experience') => setSortBy(value)}>
-                <SelectTrigger className="w-40 h-10">
-                  <SelectValue />
+                <SelectTrigger className="w-auto h-9 bg-gray-100 border-0 text-sm">
+                  <ArrowUpDown className="w-4 h-4 mr-2" />
+                  <SelectValue placeholder="Sort by" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="distance">Distance</SelectItem>
@@ -593,56 +648,63 @@ export function ProviderSelector({ device, services, partQuality, onProviderSele
               </Select>
             </div>
           </div>
-        </Card>
+        </div>
       </div>
 
-      {/* Provider List */}
-      {loading ? (
-        <div className="flex items-center justify-center py-16">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-6"></div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">Finding providers...</h3>
-            <p className="text-gray-600">Searching for the best service providers with tier pricing</p>
-          </div>
-        </div>
-      ) : filteredProviders.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-8">
-          {filteredProviders.map((provider) => (
-            <ProviderCard
-              key={provider.id}
-              provider={provider}
-              servicesOffered={provider.matchingServices}
-              selectedIssues={selectedIssues}
-              selectedModel={`${device.brand} ${device.model}`}
-              onViewProfile={() => handleSelectProvider(provider)}
-              onGetQuote={() => handleGetQuote(provider)}
-              onDirectChat={() => handleDirectChat(provider)}
-              hasActiveNegotiation={false} // TODO: Check for active negotiations
-              hasActiveConversation={providerConversations[provider.id] || false} // ✅ NEW: Pass conversation status
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="text-center py-16">
-          <div className="max-w-md mx-auto">
-            <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Users className="w-12 h-12 text-gray-400" />
+      {/* Provider List Container */}
+      <div className="container mx-auto px-4 lg:px-6 py-4 lg:py-8">
+        {loading ? (
+          <div className="flex items-center justify-center py-16">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-6"></div>
+              <h3 className="text-lg lg:text-xl font-semibold text-gray-900 mb-2">Finding providers...</h3>
+              <p className="text-sm lg:text-base text-gray-600">Searching for the best service providers</p>
             </div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-3">No providers found</h3>
-            <p className="text-gray-600 mb-6">
-              We couldn't find any providers for your selected device and services. Try selecting different services or check back later for more providers.
-            </p>
-            <Button onClick={onBack} variant="outline" className="h-11 px-8">
-              ← Go Back
-            </Button>
           </div>
-        </div>
-      )}
+        ) : filteredProviders.length > 0 ? (
+          /* Mobile: Single Column, Tablet: 1 Column, Desktop: 2-3 Columns */
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-2 gap-4 lg:gap-6">
+            {filteredProviders.map((provider) => (
+              <ProviderCard
+                key={provider.id}
+                provider={provider}
+                servicesOffered={provider.matchingServices}
+                selectedIssues={selectedIssues}
+                selectedModel={`${device.brand} ${device.model}`}
+                onViewProfile={() => handleSelectProvider(provider)}
+                onGetQuote={() => handleGetQuote(provider)}
+                onDirectChat={() => handleDirectChat(provider)}
+                hasActiveNegotiation={false}
+                hasActiveConversation={providerConversations[provider.id] || false}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-16">
+            <div className="max-w-md mx-auto">
+              <div className="w-20 lg:w-24 h-20 lg:h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Users className="w-10 lg:w-12 h-10 lg:h-12 text-gray-400" />
+              </div>
+              <h3 className="text-lg lg:text-xl font-semibold text-gray-900 mb-3">No providers found</h3>
+              <p className="text-sm lg:text-base text-gray-600 mb-6">
+                We couldn't find any providers for your selected device and services. Try different filters or check back later.
+              </p>
+              <Button onClick={onBack} variant="outline" className="px-6 lg:px-8">
+                ← Go Back
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
 
-      {/* Continue Button */}
+      {/* Continue Button - Fixed at Bottom on Mobile */}
       {selectedProvider && (
-        <div className="fixed bottom-6 right-6">
-          <Button onClick={handleContinue} size="lg" className="shadow-lg">
+        <div className="fixed bottom-4 left-4 right-4 lg:bottom-6 lg:right-6 lg:left-auto z-20">
+          <Button 
+            onClick={handleContinue} 
+            size="lg" 
+            className="w-full lg:w-auto shadow-lg text-sm lg:text-base"
+          >
             Continue with {selectedProvider.businessName || selectedProvider.name}
             <ChevronRight className="h-4 w-4 ml-2" />
           </Button>

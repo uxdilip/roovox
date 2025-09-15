@@ -317,6 +317,21 @@ html, body {
   .scroll-smooth {
     scroll-behavior: smooth;
   }
+  
+  /* Hide scrollbar for horizontal scroll on mobile */
+  .scrollbar-hide {
+    /* Firefox */
+    scrollbar-width: none;
+    /* Safari and Chrome */
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+  
+  /* Improved mobile touch scrolling */
+  .scroll-touch {
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 /* Leaflet Map Styles */

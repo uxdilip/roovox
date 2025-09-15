@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { DeviceSelector } from '@/components/booking/DeviceSelector';
+import DeviceSelector from '@/components/booking/DeviceSelector';
 import { ServiceSelector } from '@/components/booking/ServiceSelector';
 import { BookingForm } from '@/components/booking/BookingForm';
 import { ProviderSelector } from '@/components/booking/ProviderSelector';
@@ -42,6 +42,7 @@ export default function BookPage() {
   const [selectedPartQuality, setSelectedPartQuality] = useState<PartQuality | null>(null);
   const [selectedIssuesWithPartType, setSelectedIssuesWithPartType] = useState<{ id: string; partType?: string }[]>([]);
   const [isClient, setIsClient] = useState(false);
+  const [deviceSelectorKey, setDeviceSelectorKey] = useState(0); // Force DeviceSelector reset
   
   // NEW: Offer context state
   const [offerData, setOfferData] = useState<any>(null);
@@ -317,6 +318,13 @@ export default function BookPage() {
       setSelectedPartQuality(partQuality);
     }
     setStep(4);
+  };
+
+  // Contextual back navigation handler
+  const handleServiceSelectorBack = () => {
+    setSelectedDevice(null);
+    setDeviceSelectorKey(prev => prev + 1); // Force DeviceSelector to reset
+    setStep(1);
   };
 
   const handleBookingSubmit = (bookingData: any) => {
@@ -643,13 +651,16 @@ export default function BookPage() {
           <div className="container mx-auto px-4 py-8">
             <div className="max-w-4xl mx-auto">
               {step === 1 && (
-                <DeviceSelector onDeviceSelect={handleDeviceSelect} />
+                <DeviceSelector 
+                  key={deviceSelectorKey}
+                  onDeviceSelect={handleDeviceSelect}
+                />
               )}
               {step === 2 && selectedDevice && (
                 <ServiceSelector
                   device={selectedDevice}
                   onServiceSelect={handleServiceSelect}
-                  onBack={() => setStep(1)}
+                  onBack={handleServiceSelectorBack}
                 />
               )}
             </div>

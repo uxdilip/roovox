@@ -179,7 +179,7 @@ export default function HomePage() {
       
       {/* Hero Section with Aurora Background */}
       <AuroraBackground>
-        <motion.div
+                  <motion.div
           initial={{ opacity: 0.0, y: 40 }}
           whileInView={{ opacity: 1, y: 0 }}
           transition={{
@@ -187,7 +187,7 @@ export default function HomePage() {
             duration: 0.8,
             ease: "easeInOut",
           }}
-          className="relative flex flex-col gap-6 items-center justify-center px-4 text-center max-w-6xl mx-auto"
+          className="relative flex flex-col gap-4 lg:gap-6 items-center justify-center px-4 lg:px-6 text-center max-w-6xl mx-auto"
         >
           {/* Badge */}
           <motion.div
@@ -199,7 +199,7 @@ export default function HomePage() {
               ease: "easeOut",
             }}
           >
-            <Badge variant="secondary" className="mb-4 text-sm font-medium px-6 py-2 bg-white/90 backdrop-blur-sm border-0 shadow-lg text-gray-700 hover:shadow-xl transition-shadow duration-300">
+            <Badge variant="secondary" className="mb-2 lg:mb-4 text-xs sm:text-sm font-medium px-4 sm:px-6 py-1 sm:py-2 bg-white/90 backdrop-blur-sm border-0 shadow-lg text-gray-700 hover:shadow-xl transition-shadow duration-300">
               📱 Professional Device Repair Services
             </Badge>
           </motion.div>
@@ -213,12 +213,12 @@ export default function HomePage() {
               duration: 0.8,
               ease: "easeOut",
             }}
-            className="space-y-4"
+            className="space-y-2 lg:space-y-4"
           >
-            <h1 className="text-4xl md:text-6xl lg:text-7xl xl:text-8xl font-bold text-slate-900 leading-tight tracking-tight">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-6xl xl:text-7xl 2xl:text-8xl font-bold text-slate-900 leading-tight tracking-tight">
               From Leaks to Lights
             </h1>
-            <h2 className="text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-semibold text-slate-700 leading-tight">
+            <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl xl:text-4xl 2xl:text-5xl font-semibold text-slate-700 leading-tight">
               Just Tap, We'll Be Right
             </h2>
           </motion.div>
@@ -232,7 +232,7 @@ export default function HomePage() {
               duration: 0.8,
               ease: "easeOut",
             }}
-            className="text-lg md:text-xl lg:text-2xl text-slate-600 max-w-4xl mx-auto leading-relaxed font-light px-4"
+            className="text-sm sm:text-base md:text-lg lg:text-xl xl:text-2xl text-slate-600 max-w-4xl mx-auto leading-relaxed font-light px-2 sm:px-4"
           >
             From quick fixes to big repairs, Sniket connects you with trusted local experts - so you spend less time searching and more time living.
           </motion.p>
@@ -246,17 +246,17 @@ export default function HomePage() {
               duration: 0.8,
               ease: "easeOut",
             }}
-            className="flex flex-col sm:flex-row gap-4 justify-center items-center mt-8"
+            className="flex flex-col sm:flex-row gap-3 lg:gap-4 justify-center items-center mt-6 lg:mt-8 w-full max-w-md sm:max-w-none"
           >
             <Button 
               size="lg" 
               asChild 
-              className="group relative text-lg px-8 py-4 bg-slate-900 hover:bg-slate-800 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 border-0"
+              className="group relative text-sm sm:text-base lg:text-lg px-6 sm:px-8 py-3 sm:py-4 bg-slate-900 hover:bg-slate-800 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 border-0 w-full sm:w-auto"
             >
               <Link href="/book">
-                <span className="flex items-center">
+                <span className="flex items-center justify-center">
                   Book Repair Now 
-                  <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform duration-300" />
+                  <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5 group-hover:translate-x-1 transition-transform duration-300" />
                 </span>
               </Link>
             </Button>
@@ -265,9 +265,9 @@ export default function HomePage() {
               size="lg" 
               variant="outline" 
               asChild 
-              className="group text-lg px-8 py-4 border-2 border-slate-300 hover:border-slate-400 bg-white/80 backdrop-blur-sm hover:bg-white text-slate-700 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+              className="group text-sm sm:text-base lg:text-lg px-6 sm:px-8 py-3 sm:py-4 border-2 border-slate-300 hover:border-slate-400 bg-white/80 backdrop-blur-sm hover:bg-white text-slate-700 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl w-full sm:w-auto"
             >
-              <a href="#how-it-works" className="scroll-smooth flex items-center">
+              <a href="#how-it-works" className="scroll-smooth flex items-center justify-center">
                 How It Works
                 <div className="ml-2 w-2 h-2 bg-slate-600 rounded-full animate-pulse"></div>
               </a>
@@ -280,40 +280,40 @@ export default function HomePage() {
       </AuroraBackground>
 
       {/* Services Section */}
-      <section className="py-12 md:py-20 bg-slate-50">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-8 md:mb-16">
-            <h2 className="text-2xl md:text-4xl font-bold mb-3 md:mb-4 text-slate-900">Our Services</h2>
-            <p className="text-base md:text-lg text-slate-600 max-w-2xl mx-auto leading-relaxed px-4">
+      <section className="py-8 sm:py-12 lg:py-20 bg-slate-50">
+        <div className="container mx-auto px-4 lg:px-6">
+          <div className="text-center mb-6 sm:mb-8 lg:mb-16">
+            <h2 className="text-xl sm:text-2xl lg:text-3xl xl:text-4xl font-bold mb-2 sm:mb-3 lg:mb-4 text-slate-900">Our Services</h2>
+            <p className="text-sm sm:text-base lg:text-lg text-slate-600 max-w-2xl mx-auto leading-relaxed px-2 sm:px-4">
               Professional repair services for all major device brands with genuine parts and expert care.
             </p>
           </div>
 
-          {/* Mobile: Row Layout (like Urban Company) */}
-          <div className="space-y-4 md:hidden max-w-xl mx-auto">
+          {/* Mobile: Enhanced Row Layout (Urban Company Style) */}
+          <div className="space-y-3 sm:space-y-4 md:hidden max-w-lg mx-auto">
             {/* Phone Repair Card - Mobile Row */}
-            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden hover:shadow-lg transition-all duration-300 hover:border-slate-300">
+            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden hover:shadow-lg transition-all duration-300 hover:border-slate-300 group">
               <div className="flex flex-row">
                 {/* Image */}
-                <div className="w-24 h-24 bg-slate-50 flex items-center justify-center flex-shrink-0">
+                <div className="w-20 sm:w-24 h-20 sm:h-24 bg-slate-50 flex items-center justify-center flex-shrink-0 group-hover:bg-slate-100 transition-colors">
                   <img
                     src="/assets/phone.png"
                     alt="Phone Repair"
-                    className="object-contain h-16 w-auto"
+                    className="object-contain h-12 sm:h-16 w-auto"
                   />
                 </div>
                 
                 {/* Content */}
-                <div className="flex-1 p-4 flex flex-col justify-center">
-                  <h3 className="text-base font-semibold text-slate-900 mb-1">Phone Repair</h3>
-                  <p className="text-xs text-slate-600 leading-relaxed mb-3">
+                <div className="flex-1 p-3 sm:p-4 flex flex-col justify-center">
+                  <h3 className="text-sm sm:text-base font-semibold text-slate-900 mb-1">Phone Repair</h3>
+                  <p className="text-xs sm:text-sm text-slate-600 leading-relaxed mb-2 sm:mb-3">
                     Screen replacement, battery fixes, water damage repair
                   </p>
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-slate-500">Starting from ₹499</span>
+                    <span className="text-xs sm:text-sm text-slate-500 font-medium">Starting from ₹499</span>
                     <Button 
                       size="sm"
-                      className="bg-slate-900 hover:bg-slate-800 text-white px-3 py-1 text-xs" 
+                      className="bg-slate-900 hover:bg-slate-800 text-white px-2 sm:px-3 py-1 text-xs sm:text-sm h-7 sm:h-8" 
                       asChild
                     >
                       <Link href="/book">Book Now</Link>
@@ -324,28 +324,28 @@ export default function HomePage() {
             </div>
 
             {/* Laptop Repair Card - Mobile Row */}
-            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden hover:shadow-lg transition-all duration-300 hover:border-slate-300">
+            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden hover:shadow-lg transition-all duration-300 hover:border-slate-300 group">
               <div className="flex flex-row">
                 {/* Image */}
-                <div className="w-24 h-24 bg-slate-50 flex items-center justify-center flex-shrink-0">
+                <div className="w-20 sm:w-24 h-20 sm:h-24 bg-slate-50 flex items-center justify-center flex-shrink-0 group-hover:bg-slate-100 transition-colors">
                   <img
                     src="/assets/laptop.png"
                     alt="Laptop Repair"
-                    className="object-contain h-16 w-auto"
+                    className="object-contain h-12 sm:h-16 w-auto"
                   />
                 </div>
                 
                 {/* Content */}
-                <div className="flex-1 p-4 flex flex-col justify-center">
-                  <h3 className="text-base font-semibold text-slate-900 mb-1">Laptop Repair</h3>
-                  <p className="text-xs text-slate-600 leading-relaxed mb-3">
+                <div className="flex-1 p-3 sm:p-4 flex flex-col justify-center">
+                  <h3 className="text-sm sm:text-base font-semibold text-slate-900 mb-1">Laptop Repair</h3>
+                  <p className="text-xs sm:text-sm text-slate-600 leading-relaxed mb-2 sm:mb-3">
                     Hardware fixes, software issues, performance optimization
                   </p>
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-slate-500">Starting from ₹799</span>
+                    <span className="text-xs sm:text-sm text-slate-500 font-medium">Starting from ₹799</span>
                     <Button 
                       size="sm"
-                      className="bg-slate-900 hover:bg-slate-800 text-white px-3 py-1 text-xs" 
+                      className="bg-slate-900 hover:bg-slate-800 text-white px-2 sm:px-3 py-1 text-xs sm:text-sm h-7 sm:h-8" 
                       asChild
                     >
                       <Link href="/book">Book Now</Link>
@@ -356,24 +356,24 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Desktop: Column Layout */}
-          <div className="hidden md:grid grid-cols-2 gap-8 max-w-4xl mx-auto">
+          {/* Tablet & Desktop: Column Layout */}
+          <div className="hidden md:grid md:grid-cols-2 gap-6 lg:gap-8 max-w-4xl mx-auto">
             {/* Phone Repair Card - Desktop Column */}
-            <div className="bg-white rounded-xl p-8 shadow-sm hover:shadow-md transition-shadow duration-300">
-              <div className="flex items-center justify-center h-48 w-full bg-slate-50 rounded-lg mb-6">
+            <div className="bg-white rounded-xl p-6 lg:p-8 shadow-sm hover:shadow-md transition-shadow duration-300 group">
+              <div className="flex items-center justify-center h-36 lg:h-48 w-full bg-slate-50 rounded-lg lg:rounded-xl mb-4 lg:mb-6 group-hover:bg-slate-100 transition-colors">
                 <img
                   src="/assets/phone.png"
                   alt="Phone Repair"
-                  className="object-contain h-32 w-auto"
+                  className="object-contain h-24 lg:h-32 w-auto"
                 />
               </div>
-              <h3 className="text-xl font-semibold text-slate-900 mb-3">Phone Repair</h3>
-              <p className="text-base text-slate-600 leading-relaxed mb-6">
+              <h3 className="text-lg lg:text-xl font-semibold text-slate-900 mb-2 lg:mb-3">Phone Repair</h3>
+              <p className="text-sm lg:text-base text-slate-600 leading-relaxed mb-4 lg:mb-6">
                 Screen replacement, battery fixes, water damage repair, and more professional services for all major phone brands.
               </p>
               <Button 
                 variant="outline" 
-                className="w-full border-slate-300 hover:border-slate-400 hover:bg-slate-50" 
+                className="w-full border-slate-300 hover:border-slate-400 hover:bg-slate-50 text-sm lg:text-base" 
                 asChild
               >
                 <Link href="/book">Book Phone Repair</Link>
@@ -381,21 +381,21 @@ export default function HomePage() {
             </div>
 
             {/* Laptop Repair Card - Desktop Column */}
-            <div className="bg-white rounded-xl p-8 shadow-sm hover:shadow-md transition-shadow duration-300">
-              <div className="flex items-center justify-center h-48 w-full bg-slate-50 rounded-lg mb-6">
+            <div className="bg-white rounded-xl p-6 lg:p-8 shadow-sm hover:shadow-md transition-shadow duration-300 group">
+              <div className="flex items-center justify-center h-36 lg:h-48 w-full bg-slate-50 rounded-lg lg:rounded-xl mb-4 lg:mb-6 group-hover:bg-slate-100 transition-colors">
                 <img
                   src="/assets/laptop.png"
                   alt="Laptop Repair"
-                  className="object-contain h-32 w-auto"
+                  className="object-contain h-24 lg:h-32 w-auto"
                 />
               </div>
-              <h3 className="text-xl font-semibold text-slate-900 mb-3">Laptop Repair</h3>
-              <p className="text-base text-slate-600 leading-relaxed mb-6">
+              <h3 className="text-lg lg:text-xl font-semibold text-slate-900 mb-2 lg:mb-3">Laptop Repair</h3>
+              <p className="text-sm lg:text-base text-slate-600 leading-relaxed mb-4 lg:mb-6">
                 Hardware fixes, software issues, performance optimization, and comprehensive laptop maintenance services.
               </p>
               <Button 
                 variant="outline" 
-                className="w-full border-slate-300 hover:border-slate-400 hover:bg-slate-50" 
+                className="w-full border-slate-300 hover:border-slate-400 hover:bg-slate-50 text-sm lg:text-base" 
                 asChild
               >
                 <Link href="/book">Book Laptop Repair</Link>
@@ -446,27 +446,27 @@ export default function HomePage() {
       </section>  */}
 
       {/* Features Section */}
-      <section className="py-12 md:py-20 bg-white">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-8 md:mb-16">
-            <h2 className="text-2xl md:text-4xl font-bold mb-3 md:mb-4 text-slate-900">Why Choose Sniket?</h2>
-            <p className="text-base md:text-lg text-slate-600 max-w-2xl mx-auto leading-relaxed px-4">
+      <section className="py-8 sm:py-12 lg:py-20 bg-white">
+        <div className="container mx-auto px-4 lg:px-6">
+          <div className="text-center mb-6 sm:mb-8 lg:mb-16">
+            <h2 className="text-xl sm:text-2xl lg:text-3xl xl:text-4xl font-bold mb-2 sm:mb-3 lg:mb-4 text-slate-900">Why Choose Sniket?</h2>
+            <p className="text-sm sm:text-base lg:text-lg text-slate-600 max-w-2xl mx-auto leading-relaxed px-2 sm:px-4">
               We're committed to providing the best device repair experience with quality, convenience, and trust.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8 max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8 max-w-6xl mx-auto">
             {features.map((feature, index) => (
-              <div key={index} className="text-center">
-                <div className="flex justify-center mb-4 md:mb-6">
-                  <div className="p-3 md:p-4 rounded-full bg-slate-100 text-slate-600 hover:bg-slate-900 hover:text-white transition-colors duration-300">
-                    <feature.icon className="h-6 w-6 md:h-8 md:w-8" />
+              <div key={index} className="text-center group">
+                <div className="flex justify-center mb-3 sm:mb-4 lg:mb-6">
+                  <div className="p-3 sm:p-4 lg:p-5 rounded-full bg-slate-100 text-slate-600 group-hover:bg-slate-900 group-hover:text-white transition-all duration-300 shadow-sm group-hover:shadow-lg">
+                    <feature.icon className="h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8" />
                   </div>
                 </div>
-                <h3 className="text-lg md:text-xl font-semibold mb-2 md:mb-3 text-slate-900">
+                <h3 className="text-sm sm:text-base lg:text-lg xl:text-xl font-semibold mb-1 sm:mb-2 lg:mb-3 text-slate-900 group-hover:text-slate-700 transition-colors">
                   {feature.title}
                 </h3>
-                <p className="text-sm md:text-base text-slate-600 leading-relaxed">
+                <p className="text-xs sm:text-sm lg:text-base text-slate-600 leading-relaxed px-2 sm:px-0">
                   {feature.description}
                 </p>
               </div>
@@ -476,16 +476,16 @@ export default function HomePage() {
       </section>
 
       {/* Upcoming Services Section */}
-      <section className="py-12 md:py-20 bg-white">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between mb-8 md:mb-12">
-            <h2 className="text-2xl md:text-4xl font-bold text-slate-900">Upcoming Services</h2>
-            <Link href="/services" className="text-slate-600 text-sm md:text-base font-medium hover:text-slate-900 transition-colors">
+      <section className="py-8 sm:py-12 lg:py-20 bg-white">
+        <div className="container mx-auto px-4 lg:px-6">
+          <div className="flex items-center justify-between mb-6 sm:mb-8 lg:mb-12">
+            <h2 className="text-xl sm:text-2xl lg:text-3xl xl:text-4xl font-bold text-slate-900">Upcoming Services</h2>
+            <Link href="/services" className="text-slate-600 text-xs sm:text-sm lg:text-base font-medium hover:text-slate-900 transition-colors">
               see all →
             </Link>
           </div>
           
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 max-w-5xl mx-auto">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 max-w-5xl mx-auto">
             {[
               { title: "Plumbing Assistance", icon: "🔧", image: "/assets/Gemini_Generated_Image_d6m6bkd6m6bkd6m6.png" },
               { title: "Appliance Repair", icon: "⚡", image: "/assets/appliance repair.png" },
@@ -494,21 +494,23 @@ export default function HomePage() {
             ].map((service, idx) => (
               <div
                 key={idx}
-                className="bg-slate-50 rounded-lg md:rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 p-4 md:p-6 text-center border-0"
+                className="bg-slate-50 rounded-lg lg:rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 p-3 sm:p-4 lg:p-6 text-center border-0 group"
               >
-                <div className="w-full h-16 md:h-24 mb-3 md:mb-4 rounded-lg bg-slate-100 flex items-center justify-center">
+                <div className="w-full h-12 sm:h-16 lg:h-24 mb-2 sm:mb-3 lg:mb-4 rounded-lg bg-slate-100 flex items-center justify-center group-hover:bg-slate-200 transition-colors">
                   {service.image ? (
                     <img
                       src={service.image}
                       alt={service.title}
-                      className="object-contain h-full w-full rounded-lg"
+                      className="object-contain h-full w-full rounded-lg p-1 sm:p-2"
                     />
                   ) : (
-                    <span className="text-2xl md:text-3xl">{service.icon}</span>
+                    <span className="text-lg sm:text-xl lg:text-3xl">{service.icon}</span>
                   )}
                 </div>
-                <h3 className="text-sm md:text-lg font-semibold text-slate-900 mb-2">{service.title}</h3>
-                <Badge variant="secondary" className="text-xs bg-slate-200 text-slate-600 border-0">
+                <h3 className="text-xs sm:text-sm lg:text-lg font-semibold text-slate-900 mb-1 sm:mb-2 leading-tight">
+                  {service.title}
+                </h3>
+                <Badge variant="secondary" className="text-xs bg-slate-200 text-slate-600 border-0 px-2 py-1">
                   Coming Soon
                 </Badge>
               </div>
@@ -518,14 +520,14 @@ export default function HomePage() {
       </section>
 
       {/* How It Works Section */}
-      <section id="how-it-works" className="py-12 md:py-20 bg-slate-50">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-8 md:mb-16">
-            <h2 className="text-2xl md:text-4xl font-bold mb-3 md:mb-4 text-slate-900">How It Works</h2>
-            <p className="text-base md:text-lg text-slate-600 px-4">Simple steps to get your device fixed</p>
+      <section id="how-it-works" className="py-8 sm:py-12 lg:py-20 bg-slate-50">
+        <div className="container mx-auto px-4 lg:px-6">
+          <div className="text-center mb-6 sm:mb-8 lg:mb-16">
+            <h2 className="text-xl sm:text-2xl lg:text-3xl xl:text-4xl font-bold mb-2 sm:mb-3 lg:mb-4 text-slate-900">How It Works</h2>
+            <p className="text-sm sm:text-base lg:text-lg text-slate-600 px-2 sm:px-4">Simple steps to get your device fixed</p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12 max-w-5xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 lg:gap-12 max-w-5xl mx-auto">
             {[
               {
                 step: 1,
@@ -543,27 +545,27 @@ export default function HomePage() {
                 description: "Get your repaired device back with warranty and quality guarantee."
               }
             ].map((item, index) => (
-              <div key={index} className="text-center">
-                <div className="w-16 h-16 md:w-20 md:h-20 bg-slate-900 rounded-full flex items-center justify-center text-white text-xl md:text-2xl font-bold mx-auto mb-4 md:mb-6 shadow-lg">
+              <div key={index} className="text-center group">
+                <div className="w-14 h-14 sm:w-16 sm:h-16 lg:w-20 lg:h-20 bg-slate-900 rounded-full flex items-center justify-center text-white text-lg sm:text-xl lg:text-2xl font-bold mx-auto mb-3 sm:mb-4 lg:mb-6 shadow-lg group-hover:bg-slate-800 transition-colors">
                   {item.step}
                 </div>
-                <h3 className="text-lg md:text-xl font-semibold mb-2 md:mb-3 text-slate-900">{item.title}</h3>
-                <p className="text-sm md:text-base text-slate-600 leading-relaxed">
+                <h3 className="text-base sm:text-lg lg:text-xl font-semibold mb-2 lg:mb-3 text-slate-900">{item.title}</h3>
+                <p className="text-xs sm:text-sm lg:text-base text-slate-600 leading-relaxed px-2 sm:px-4 lg:px-0">
                   {item.description}
                 </p>
               </div>
             ))}
           </div>
 
-          <div className="text-center mt-12 md:mt-16">
+          <div className="text-center mt-8 sm:mt-12 lg:mt-16">
             <Button 
               size="default"
               asChild
-              className="bg-slate-900 hover:bg-slate-800 text-white px-6 md:px-8 py-3 text-base md:text-lg shadow-lg hover:shadow-xl transition-all duration-300"
+              className="bg-slate-900 hover:bg-slate-800 text-white px-4 sm:px-6 lg:px-8 py-2 sm:py-3 text-sm sm:text-base lg:text-lg shadow-lg hover:shadow-xl transition-all duration-300 w-full sm:w-auto max-w-xs sm:max-w-none"
             >
               <Link href="/book">
                 Start Your Repair Journey
-                <ArrowRight className="ml-2 h-4 md:h-5 w-4 md:w-5" />
+                <ArrowRight className="ml-2 h-3 w-3 sm:h-4 sm:w-4 lg:h-5 lg:w-5" />
               </Link>
             </Button>
           </div>
