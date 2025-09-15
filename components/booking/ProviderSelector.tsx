@@ -322,54 +322,22 @@ export function ProviderSelector({ device, services, partQuality, onProviderSele
           // Extract business details from parsed onboarding data
           const businessNameFromOnboarding = parsedOnboardingData?.businessInfo?.businessName;
           const experienceFromOnboarding = parsedOnboardingData?.businessInfo?.yearsOfExperience;
-          const locationFromOnboarding = parsedOnboardingData?.businessInfo?.address || 
+          
+          // Enhanced location extraction from onboarding_data - check multiple possible paths
+          const locationFromOnboarding = parsedOnboardingData?.serviceSetup?.location?.city ||
+                                       parsedOnboardingData?.serviceSetup?.location?.address ||
+                                       parsedOnboardingData?.businessInfo?.address || 
                                        parsedOnboardingData?.businessInfo?.city || 
-                                       parsedOnboardingData?.businessInfo?.state;
-
-          // Debug: Log the data we have for this provider
-          console.log('🔍 Provider data for', pid, {
-            user: user,
-            businessInfo: businessInfo,
-            serviceSetup: serviceSetup,
-            prov: prov,
-            totalBookings,
-            avgRating
-          });
-
-          // Debug: Log specific business name paths
-          console.log('🔍 Business name debug for', pid, {
-            'businessInfo?.businessInfo?.businessName': businessInfo?.businessInfo?.businessName,
-            'businessInfo?.businessName': businessInfo?.businessName,
-            'businessInfo?.personalDetails?.businessName': businessInfo?.personalDetails?.businessName,
-            'user?.name': (user as any)?.name,
-            'businessNameFromOnboarding': businessNameFromOnboarding,
-            'experienceFromOnboarding': experienceFromOnboarding,
-            'locationFromOnboarding': locationFromOnboarding,
-            'businessInfo structure': businessInfo ? Object.keys(businessInfo) : 'null'
-          });
-
-          // Debug: Log location and experience data sources
-          console.log('🔍 Location/Experience debug for', pid, {
-            'serviceSetup?.location': serviceSetup?.location,
-            'parsedOnboardingData?.businessInfo?.yearsOfExperience': parsedOnboardingData?.businessInfo?.yearsOfExperience,
-            'experienceFromOnboarding': experienceFromOnboarding,
-            'final_experience': parseInt(experienceFromOnboarding) || 0,
-            'serviceSetup?.location?.address': serviceSetup?.location?.address,
-            'serviceSetup?.location?.city': serviceSetup?.location?.city,
-            'serviceSetup?.location?.state': serviceSetup?.location?.state
-          });
-
-          // Debug: Log all possible name sources
-          console.log('🔍 Name extraction debug for', pid, {
-            'user?.name': (user as any)?.name,
-            'user?.username': (user as any)?.username,
-            'user?.email': (user as any)?.email,
-            'businessInfo?.personalDetails?.name': businessInfo?.personalDetails?.name,
-            'businessInfo?.personalDetails?.businessName': businessInfo?.personalDetails?.businessName,
-            'businessNameFromOnboarding': businessNameFromOnboarding,
-            'prov?.name': prov?.name,
-            'businessInfo?.businessName': businessInfo?.businessName
-          });
+                                       parsedOnboardingData?.businessInfo?.state ||
+                                       parsedOnboardingData?.personalDetails?.address ||
+                                       parsedOnboardingData?.personalDetails?.city ||
+                                       parsedOnboardingData?.personalDetails?.state ||
+                                       parsedOnboardingData?.address ||
+                                       parsedOnboardingData?.city ||
+                                       parsedOnboardingData?.state ||
+                                       parsedOnboardingData?.location?.address ||
+                                       parsedOnboardingData?.location?.city ||
+                                       parsedOnboardingData?.location?.state;
 
           return {
             id: pid,

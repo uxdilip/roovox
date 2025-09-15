@@ -182,7 +182,7 @@ export const ProviderCard: React.FC<ProviderCardProps> = ({
 
             {/* Provider Info */}
             <div className="flex-1 min-w-0">
-              <h3 className="text-base sm:text-lg font-bold text-gray-900 truncate mb-1">
+              <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-1 leading-tight">
                 {provider.businessName || provider.name}
               </h3>
               
@@ -315,7 +315,7 @@ export const ProviderCard: React.FC<ProviderCardProps> = ({
           {/* Provider Info */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-3 mb-2">
-              <h3 className="text-xl font-bold text-gray-900 truncate">
+              <h3 className="text-xl font-bold text-gray-900 leading-tight">
                 {provider.businessName || provider.name}
               </h3>
             </div>
