@@ -561,7 +561,7 @@ export function ProviderSelector({ device, services, partQuality, onProviderSele
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Mobile-First Header */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
+      <div className="bg-white border-b border-gray-200">
         <div className="container mx-auto px-4 lg:px-6">
           <div className="py-4 lg:py-6">
             {/* Back Button & Title */}
