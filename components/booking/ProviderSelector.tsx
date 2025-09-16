@@ -92,12 +92,9 @@ export function ProviderSelector({ device, services, partQuality, onProviderSele
       setLoading(true);
       setError(null);
       try {
-        console.log('🔍 Starting tier pricing provider search for device:', device);
-        console.log('🔍 Services:', services);
         
         // Get issue names from issue IDs
         const issueIds = services.map((s: any) => s.id);
-        console.log('🔍 Issue IDs:', issueIds);
         
         // Get issue names from the issues collection
         const issuesRes = await databases.listDocuments(
@@ -107,15 +104,12 @@ export function ProviderSelector({ device, services, partQuality, onProviderSele
         );
         
         const issueNames = issuesRes.documents.map((doc: any) => doc.name);
-        console.log('🔍 Looking for providers with issues:', issueNames);
 
         // Import tier pricing services
         const { getTierPricingForProviders, getDeviceComplexityTier } = await import('@/lib/tier-pricing-services');
         const deviceType = device.category === 'phone' ? 'phones' : 'laptops';
         const deviceTier = await getDeviceComplexityTier(device.id, device.category);
         
-        console.log('🔍 Device complexity tier:', deviceTier);
-
         // Step 1: Find ALL providers who have tier pricing for this device type and brand
         const allTierPricingRes = await databases.listDocuments(
           DATABASE_ID,
@@ -127,17 +121,12 @@ export function ProviderSelector({ device, services, partQuality, onProviderSele
           ]
         );
 
-        console.log('🔍 Found tier pricing documents:', allTierPricingRes.documents.length);
-
         // Get unique provider IDs from tier pricing
         const providerIdsWithTierPricing = Array.from(
           new Set(allTierPricingRes.documents.map((doc: any) => doc.provider_id))
         );
 
-        console.log('🔍 Providers with tier pricing:', providerIdsWithTierPricing);
-
         if (providerIdsWithTierPricing.length === 0) {
-          console.log('❌ No providers found with tier pricing for this device');
           setProviders([]);
           setLoading(false);
           return;
@@ -155,10 +144,7 @@ export function ProviderSelector({ device, services, partQuality, onProviderSele
           ]
         );
 
-        console.log('🔍 Found approved providers:', providersRes.documents.length);
-
         if (providersRes.documents.length === 0) {
-          console.log('❌ No approved providers found');
           setProviders([]);
           setLoading(false);
           return;
@@ -175,7 +161,6 @@ export function ProviderSelector({ device, services, partQuality, onProviderSele
               "business_setup", // Using exact collection name from dashboard
               [Query.equal('user_id', pid), Query.limit(1)]
             );
-            console.log('🔍 Business setup for', pid, ':', res.documents[0]);
             return res.documents[0];
           })),
           // Bookings
@@ -191,11 +176,6 @@ export function ProviderSelector({ device, services, partQuality, onProviderSele
             [Query.contains('user_id', validProviderIds)]
           )
         ]);
-
-        console.log('🔍 Users collection result:', usersRes.documents.length, 'documents');
-        console.log('🔍 Sample user data structure:', usersRes.documents[0]);
-        console.log('🔍 Business setups result:', businessSetups.filter(b => b).length, 'documents');
-        console.log('🔍 Sample business setup structure:', businessSetups.find(b => b));
 
         // Step 4: Build provider cards with tier pricing
         const providerCards = validProviderIds.map((pid) => {
@@ -238,15 +218,7 @@ export function ProviderSelector({ device, services, partQuality, onProviderSele
             });
           });
 
-          console.log('🔍 Provider tier services:', {
-            providerId: pid,
-            totalTierServices: providerTierPricing.length,
-            matchingServices: matchingTierServices.length,
-            issues: matchingTierServices.map(s => s.issue)
-          });
-
           if (matchingTierServices.length === 0) {
-            console.log('❌ Provider filtered out - no matching tier services:', pid);
             return null;
           }
 
@@ -307,14 +279,11 @@ export function ProviderSelector({ device, services, partQuality, onProviderSele
               parsedOnboardingData = typeof businessInfo.onboarding_data === 'string' 
                 ? JSON.parse(businessInfo.onboarding_data)
                 : businessInfo.onboarding_data;
-              console.log('🔍 Successfully parsed onboarding data for', pid, ':', parsedOnboardingData);
             } catch (e) {
               console.error('❌ Error parsing onboarding_data for provider', pid, ':', e);
-              console.log('❌ Raw onboarding_data:', businessInfo.onboarding_data);
               // Try alternative parsing or use raw data structure
               if (typeof businessInfo.onboarding_data === 'object') {
                 parsedOnboardingData = businessInfo.onboarding_data;
-                console.log('✅ Using raw object instead of JSON parsing');
               }
             }
           }
@@ -376,7 +345,6 @@ export function ProviderSelector({ device, services, partQuality, onProviderSele
           };
         }).filter((p): p is any => !!p);
 
-        console.log('🔍 Final provider cards:', providerCards.length);
         setProviders(providerCards);
 
       } catch (err) {
@@ -400,11 +368,9 @@ export function ProviderSelector({ device, services, partQuality, onProviderSele
 
   const handleSelectProvider = (provider: SimpleProvider) => {
     // TODO: Open provider profile modal/page
-    console.log('🔍 View profile for provider:', provider.id);
   };
 
   const handleGetQuote = (provider: SimpleProvider) => {
-    console.log('🔍 Get quote from provider:', provider.id);
     setSelectedProviderForQuote(provider);
     setIsQuoteModalOpen(true);
   };
@@ -432,14 +398,12 @@ export function ProviderSelector({ device, services, partQuality, onProviderSele
       }
       
       setProviderConversations(conversations);
-      console.log('✅ Provider conversations checked:', conversations);
     } catch (error) {
       console.error('❌ Error checking provider conversations:', error);
     }
   };
 
   const handleDirectChat = async (provider: SimpleProvider) => {
-    console.log('🔍 Direct chat with provider:', provider.id);
     
     if (!user) {
       alert('Please log in to start a chat.');
@@ -458,22 +422,16 @@ export function ProviderSelector({ device, services, partQuality, onProviderSele
       
       const currentServices = services.map(service => service.name || service.id);
       
-      console.log('🔍 Checking for existing conversation with:', { deviceInfo, currentServices });
-      
       // Look for existing conversation
       const existingResult = await findExistingConversation(user.id, provider.id, deviceInfo);
       
       if (existingResult.success && existingResult.conversation) {
-        console.log('✅ Found existing conversation:', existingResult.conversation.id);
         
         // Check if services have changed
         const existingServices = existingResult.conversation.services;
         const servicesChanged = JSON.stringify(existingServices.sort()) !== JSON.stringify(currentServices.sort());
         
         if (servicesChanged) {
-          console.log('🔄 Services changed, updating existing conversation');
-          console.log('Old services:', existingServices);
-          console.log('New services:', currentServices);
           
           // Update the existing conversation with new services
           const updateResult = await updateConversationServices(
@@ -481,9 +439,7 @@ export function ProviderSelector({ device, services, partQuality, onProviderSele
             currentServices
           );
           
-          if (updateResult.success) {
-            console.log('✅ Updated existing conversation with new services');
-          } else {
+          if (!updateResult.success) {
             console.warn('⚠️ Failed to update conversation services:', updateResult.error);
           }
         }
@@ -496,7 +452,6 @@ export function ProviderSelector({ device, services, partQuality, onProviderSele
       }
       
       // No existing conversation found, create new one
-      console.log('🔍 No existing conversation found, creating new one');
       
       const conversationResult = await createConversation(
         user.id,
@@ -510,7 +465,6 @@ export function ProviderSelector({ device, services, partQuality, onProviderSele
       }
       
       const conversationId = conversationResult.conversationId!;
-      console.log('✅ Created new conversation:', conversationId);
 
       // Navigate to chat page in same tab
       if (typeof window !== 'undefined') {
@@ -696,7 +650,6 @@ export function ProviderSelector({ device, services, partQuality, onProviderSele
             partType: service.partType
           }))}
           onSubmit={async (requestData) => {
-            console.log('🔍 Submitting quote request:', requestData);
             
             if (!user) {
               alert('Please log in to submit a quote request.');
@@ -731,7 +684,6 @@ export function ProviderSelector({ device, services, partQuality, onProviderSele
               const result = await response.json();
               
               if (result.success) {
-                console.log('✅ Quote request created:', result.requestId);
                 alert('Quote request submitted successfully! Provider will contact you soon.');
                 
                 // Close modal

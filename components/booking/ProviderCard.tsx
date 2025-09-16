@@ -81,9 +81,6 @@ export const ProviderCard: React.FC<ProviderCardProps> = ({
   let startingPrice = Infinity;
   const matchedServices: any[] = [];
 
-  // Debug logging
-  console.log('🔍 ProviderCard for provider:', provider.id, 'with', servicesOffered.length, 'services offered');
-
   // Build UI for each selected issue
   const issueRows = selectedIssues.map((issueObj) => {
     // Try to match by issue name (not ID) with case-insensitive matching
@@ -97,19 +94,6 @@ export const ProviderCard: React.FC<ProviderCardProps> = ({
       const matchesPartType = isScreenReplacement 
         ? (!s.partType || normalizePartType(s.partType) === normalizePartType(issueObj.partType))
         : true; // For non-screen issues, always match part type
-      
-      console.log('🔍 ProviderCard matching:', {
-        serviceIssue: s.issue,
-        selectedIssue: issueObj.name || issueObj.id,
-        servicePartType: s.partType,
-        selectedPartType: issueObj.partType,
-        normalizedServicePartType: normalizePartType(s.partType),
-        normalizedSelectedPartType: normalizePartType(issueObj.partType),
-        isScreenReplacement,
-        matchesIssue,
-        matchesPartType,
-        result: matchesIssue && matchesPartType
-      });
       
       return matchesIssue && matchesPartType;
     });
@@ -255,7 +239,9 @@ export const ProviderCard: React.FC<ProviderCardProps> = ({
               {showContactOptions && (
                 <div className="absolute bottom-full mb-2 w-full bg-white border border-gray-200 rounded-lg shadow-lg z-10">
                   <button
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
                       setShowContactOptions(false);
                       onGetQuote?.();
                     }}
@@ -269,7 +255,9 @@ export const ProviderCard: React.FC<ProviderCardProps> = ({
                   </button>
                   
                   <button
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
                       setShowContactOptions(false);
                       onDirectChat?.();
                     }}
