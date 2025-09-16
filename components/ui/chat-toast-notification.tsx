@@ -28,22 +28,69 @@ export function ChatToastNotification({
   const { chatNotifications } = useNotifications();
   const { user } = useAuth();
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
+  
   // Track last processed time per notification id (for initial create spam control)
   const recentlyProcessedRef = useRef<Map<string, number>>(new Map()); // ID -> timestamp
   // Track last shown version (lastMessageAt or messagePreview hash) per notification id to allow toasts on updates
   const processedVersionRef = useRef<Map<string, string>>(new Map()); // ID -> versionKey
   const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  // 🔔 DEBUG: Log component mount and props
+  
+  // 🆕 NEW: Session tracking to prevent showing old notifications on page reload
+  const sessionStartTime = useRef<number>(Date.now());
+  
+  // 🆕 NEW: Persistent storage keys
+  const STORAGE_KEY_SHOWN_TOASTS = 'sniket_shown_toasts';
+  const STORAGE_KEY_SESSION_START = 'sniket_session_start';
+  
+  // 🆕 NEW: Load persistent state on mount
   useEffect(() => {
-    console.log('🔔 [TOAST COMPONENT] Mounted with props:', { position, duration, soundEnabled });
-    console.log('🔔 [TOAST COMPONENT] User:', user?.id);
+    try {
+      // Check if this is a fresh session or continuing session
+      const storedSessionStart = localStorage.getItem(STORAGE_KEY_SESSION_START);
+      const now = Date.now();
+      
+      if (storedSessionStart) {
+        const lastSessionStart = parseInt(storedSessionStart);
+        const timeSinceLastSession = now - lastSessionStart;
+        
+        // If less than 10 minutes since last session, continue the session
+        if (timeSinceLastSession < 10 * 60 * 1000) {
+          sessionStartTime.current = lastSessionStart;
+          
+          // Load previously shown toasts
+          const storedShownToasts = localStorage.getItem(STORAGE_KEY_SHOWN_TOASTS);
+          if (storedShownToasts) {
+            const shownToasts = JSON.parse(storedShownToasts);
+            // Only keep toasts from the last hour
+            const oneHourAgo = now - (60 * 60 * 1000);
+            
+            Object.entries(shownToasts).forEach(([id, data]: [string, any]) => {
+              if (data.timestamp > oneHourAgo) {
+                processedVersionRef.current.set(id, data.versionKey);
+                recentlyProcessedRef.current.set(id, data.timestamp);
+              }
+            });
+          }
+        } else {
+          // Fresh session - clear old data
+          sessionStartTime.current = now;
+          localStorage.removeItem(STORAGE_KEY_SHOWN_TOASTS);
+        }
+      } else {
+        // First session
+        sessionStartTime.current = now;
+      }
+      
+      // Update session start time
+      localStorage.setItem(STORAGE_KEY_SESSION_START, sessionStartTime.current.toString());
+      
+    } catch (error) {
+      // Error loading persistent state - continue with fresh session
+      sessionStartTime.current = Date.now();
+    }
   }, []);
 
-  // 🔔 DEBUG: Log when chatNotifications change
-  useEffect(() => {
-    console.log('🔔 [TOAST COMPONENT] Chat notifications changed:', chatNotifications.length);
-  }, [chatNotifications]);
+
 
   // 🔔 FIXED: Clean up old processed entries periodically (keep only last 5 minutes)
   useEffect(() => {
@@ -51,11 +98,35 @@ export function ChatToastNotification({
       const now = Date.now();
       const fiveMinutesAgo = now - (5 * 60 * 1000);
       
+      // Clean up in-memory refs
       recentlyProcessedRef.current.forEach((timestamp, id) => {
         if (timestamp < fiveMinutesAgo) {
           recentlyProcessedRef.current.delete(id);
         }
       });
+      
+      // 🆕 NEW: Clean up localStorage as well
+      try {
+        const storedShownToasts = localStorage.getItem(STORAGE_KEY_SHOWN_TOASTS);
+        if (storedShownToasts) {
+          const shownToasts = JSON.parse(storedShownToasts);
+          const oneHourAgo = now - (60 * 60 * 1000); // Keep toasts for 1 hour
+          
+          let hasChanges = false;
+          Object.keys(shownToasts).forEach(id => {
+            if (shownToasts[id].timestamp < oneHourAgo) {
+              delete shownToasts[id];
+              hasChanges = true;
+            }
+          });
+          
+          if (hasChanges) {
+            localStorage.setItem(STORAGE_KEY_SHOWN_TOASTS, JSON.stringify(shownToasts));
+          }
+        }
+      } catch (error) {
+        // Error cleaning localStorage - continue silently
+      }
     }, 60000); // Clean up every minute
 
     return () => clearInterval(cleanupInterval);
@@ -64,6 +135,41 @@ export function ChatToastNotification({
   // 🔔 FIXED: Mark notification as recently processed (with timestamp)
   const markAsRecentlyProcessed = (notificationId: string) => {
     recentlyProcessedRef.current.set(notificationId, Date.now());
+  };
+  
+  // 🆕 NEW: Save shown toast to persistent storage
+  const saveShownToast = (notificationId: string, versionKey: string) => {
+    try {
+      const storedShownToasts = localStorage.getItem(STORAGE_KEY_SHOWN_TOASTS);
+      const shownToasts = storedShownToasts ? JSON.parse(storedShownToasts) : {};
+      
+      shownToasts[notificationId] = {
+        versionKey,
+        timestamp: Date.now()
+      };
+      
+      localStorage.setItem(STORAGE_KEY_SHOWN_TOASTS, JSON.stringify(shownToasts));
+    } catch (error) {
+      // Error saving shown toast - continue silently
+    }
+  };
+  
+  // 🆕 NEW: Check if notification is recent enough to show as toast
+  const isRecentEnoughForToast = (notification: any): boolean => {
+    const now = Date.now();
+    
+    // Use lastMessageAt (for grouped chat notifications) or createdAt as fallback
+    const notificationTime = new Date(notification.lastMessageAt || notification.createdAt).getTime();
+    
+    // Only show toasts for notifications that are:
+    // 1. Newer than session start time, OR
+    // 2. Within the last 10 minutes (for real-time notifications)
+    const tenMinutesAgo = now - (10 * 60 * 1000);
+    const isAfterSessionStart = notificationTime >= sessionStartTime.current;
+    const isWithinTenMinutes = notificationTime >= tenMinutesAgo;
+    
+    // Show if it's after session start OR within last 10 minutes
+    return isAfterSessionStart || isWithinTenMinutes;
   };
 
   // Build a version key for a notification to detect meaningful content change
@@ -110,7 +216,7 @@ export function ChatToastNotification({
         // Store the beep function instead of Audio object
         (audioRef.current as any) = { play: createBeepSound };
       } catch (error) {
-        console.warn('🔔 [AUDIO] Could not create audio context:', error);
+        // Could not create audio context - continue without sound
         audioRef.current = null;
       }
     }
@@ -124,7 +230,7 @@ export function ChatToastNotification({
           (audioRef.current as any).play();
         }
       } catch (error) {
-        console.warn('🔔 [AUDIO] Could not play sound:', error);
+        // Could not play sound - continue silently
       }
     }
   };
@@ -132,47 +238,35 @@ export function ChatToastNotification({
   // Process new chat notifications
   useEffect(() => {
     if (!user?.id || chatNotifications.length === 0) {
-      console.log('🔔 [TOAST DEBUG] Early return:', { userId: user?.id, notificationCount: chatNotifications.length });
       return;
     }
 
-    console.log('🔔 [TOAST DEBUG] Processing notifications:', {
-      userId: user?.id,
-      totalNotifications: chatNotifications.length,
-      notifications: chatNotifications.map(n => ({
-        id: n.id,
-        senderName: n.senderName,
-        skipToast: (n as any).skipToast,
-        createdAt: n.createdAt,
-        lastMessageAt: n.lastMessageAt,
-        read: n.read
-      }))
+    // 🆕 FIXED: Filter notifications by time before processing
+    const candidateNotifications = chatNotifications.filter(notification => {
+      const isRecent = isRecentEnoughForToast(notification);
+      
+      return isRecent;
     });
 
-  // 🔔 UPDATED: Show toast for ALL chat notifications (even if already marked read)
-  const candidateNotifications = chatNotifications; // removed read filter per product requirement "always show"
+    if (candidateNotifications.length === 0) {
+      return;
+    }
 
-  if (candidateNotifications.length === 0) return;
-
-  candidateNotifications.forEach(notification => {
+    candidateNotifications.forEach(notification => {
       const versionKey = buildVersionKey(notification);
       const previousVersion = processedVersionRef.current.get(notification.id);
       const isNewVersion = previousVersion !== versionKey;
 
-      console.log('🔔 [TOAST DEBUG] Eval notification:', {
-        id: notification.id,
-        versionKey,
-        previousVersion,
-        isNewVersion,
-        lastMessageAt: notification.lastMessageAt,
-        messagePreview: notification.messagePreview,
-        skipToast: (notification as any).skipToast,
-        wasRecentlyProcessed: wasRecentlyProcessed(notification.id)
-      });
-
       // Show toast if: first time (no previousVersion) OR content changed (new version)
       if (!previousVersion || isNewVersion) {
-        // skipToast flag ignored – always show
+        // Still check skipToast flag for explicit suppression
+        if ((notification as any).skipToast) {
+          // Still track as processed to avoid showing later
+          processedVersionRef.current.set(notification.id, versionKey);
+          markAsRecentlyProcessed(notification.id);
+          saveShownToast(notification.id, versionKey);
+          return;
+        }
 
         const senderName = notification.senderName || 'Someone';
         const messagePreview = notification.messagePreview || notification.message;
@@ -188,12 +282,15 @@ export function ChatToastNotification({
         setToasts(prev => [...prev, newToast]);
         processedVersionRef.current.set(notification.id, versionKey);
         markAsRecentlyProcessed(notification.id); // base id for spam control
+        saveShownToast(notification.id, versionKey); // 🆕 NEW: Save to persistent storage
         playDingSound();
 
         const toastId = newToast.id;
         setTimeout(() => {
           setToasts(prev => prev.filter(t => t.id !== toastId));
         }, duration);
+      } else {
+        // Notification already processed or no content change
       }
     });
   }, [chatNotifications, user?.id, duration]);
