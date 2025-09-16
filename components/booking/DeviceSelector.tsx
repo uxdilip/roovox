@@ -290,52 +290,45 @@ export default function DeviceSelector({ onDeviceSelect }: DeviceSelectorProps) 
               </p>
             </div>
 
-            {/* Mobile: Horizontal Scroll Layout */}
+            {/* Mobile: 2-Column Grid Layout */}
             <div className="block sm:hidden">
-              <div className="flex gap-4 overflow-x-auto pb-4 px-1 scrollbar-hide">
+              <div className="grid grid-cols-2 gap-3">
                 {loading ? (
                   // Loading skeleton for mobile brands
                   [...Array(6)].map((_, i) => (
-                    <div key={i} className="flex-shrink-0 w-32">
-                      <Card className="h-28 animate-pulse">
-                        <CardContent className="p-4 flex flex-col items-center justify-center h-full">
-                          <div className="w-16 h-10 bg-gray-200 rounded mb-2"></div>
-                          <div className="w-20 h-3 bg-gray-200 rounded"></div>
-                        </CardContent>
-                      </Card>
-                    </div>
+                    <Card key={i} className="h-32 animate-pulse">
+                      <CardContent className="p-4 flex flex-col items-center justify-center h-full">
+                        <div className="w-16 h-10 bg-gray-200 rounded mb-3"></div>
+                        <div className="w-20 h-3 bg-gray-200 rounded"></div>
+                      </CardContent>
+                    </Card>
                   ))
                 ) : (
                   brands.map((brand) => (
-                    <div 
+                    <Card 
                       key={brand} 
-                      className="flex-shrink-0 w-32 cursor-pointer"
+                      className="transition-all duration-200 border-2 cursor-pointer hover:shadow-lg hover:border-primary/70 h-32"
                       onClick={() => setSelectedBrand(brand)}
                     >
-                      <Card className="transition-all duration-200 border-2 hover:shadow-lg hover:border-primary/70 h-28">
-                        <CardContent className="p-4 flex flex-col items-center justify-center h-full">
-                          <div className="relative w-16 h-10 flex items-center justify-center mb-2">
-                            <Image
-                              src={getBrandLogo(brand)}
-                              alt={brand}
-                              width={64}
-                              height={40}
-                              className="object-contain max-h-10 max-w-16"
-                              onError={(e) => {
-                                e.currentTarget.onerror = null;
-                                e.currentTarget.src = '/assets/brand-placeholder.svg';
-                              }}
-                            />
-                          </div>
-                          <h3 className="font-semibold text-xs text-center leading-tight">{brand}</h3>
-                        </CardContent>
-                      </Card>
-                    </div>
+                      <CardContent className="p-4 flex flex-col items-center justify-center h-full">
+                        <div className="relative w-16 h-10 flex items-center justify-center mb-3">
+                          <Image
+                            src={getBrandLogo(brand)}
+                            alt={brand}
+                            width={64}
+                            height={40}
+                            className="object-contain max-h-10 max-w-16"
+                            onError={(e) => {
+                              e.currentTarget.onerror = null;
+                              e.currentTarget.src = '/assets/brand-placeholder.svg';
+                            }}
+                          />
+                        </div>
+                        <h3 className="font-semibold text-xs text-center leading-tight">{brand}</h3>
+                      </CardContent>
+                    </Card>
                   ))
                 )}
-              </div>
-              <div className="text-xs text-gray-500 text-center mt-2">
-                Swipe to see more brands →
               </div>
             </div>
 
