@@ -2,9 +2,10 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useAdminAuth } from "@/contexts/AdminAuthContext";
 import {
   Tooltip,
   TooltipContent,
@@ -27,14 +28,20 @@ import {
   ChevronLeft,
   ChevronRight,
   UserCheck,
-  Download
+  Download,
+  Bell,
+  Mail
 } from "lucide-react";
+import { MessageNotificationEnvelope } from "@/components/ui/message-notification-envelope";
+import { Badge } from "@/components/ui/badge";
+import { useNotifications } from "@/hooks/use-notifications";
 
 interface NavItem {
   title: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   description?: string;
+  showBadge?: boolean;
 }
 
 const navItems: NavItem[] = [
@@ -43,6 +50,13 @@ const navItems: NavItem[] = [
     href: "/admin",
     icon: LayoutDashboard,
     description: "Overview and analytics"
+  },
+  {
+    title: "Message Alerts",
+    href: "/admin/message-alerts",
+    icon: Mail,
+    description: "Customer messages & alerts",
+    showBadge: true
   },
   {
     title: "Bookings",
@@ -124,7 +138,17 @@ interface AdminNavigationProps {
 
 export default function AdminNavigation({ className }: AdminNavigationProps) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { logout } = useAdminAuth();
   const [isCollapsed, setIsCollapsed] = useState(false);
+  
+  // Get notification count for message alerts
+  const { chatUnreadCount } = useNotifications();
+
+  const handleLogout = () => {
+    logout();
+    router.push('/admin/login');
+  };
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -167,6 +191,8 @@ export default function AdminNavigation({ className }: AdminNavigationProps) {
         <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
           {navItems.map((item) => {
             const isActive = pathname === item.href;
+            const showNotificationBadge = item.showBadge && item.href === '/admin/message-alerts' && chatUnreadCount > 0;
+            
             return (
               <Tooltip key={item.href}>
                 <TooltipTrigger asChild>
@@ -174,18 +200,31 @@ export default function AdminNavigation({ className }: AdminNavigationProps) {
                     <Button
                       variant={isActive ? "default" : "ghost"}
                       className={cn(
-                        "w-full justify-start h-auto p-3 transition-all duration-200",
+                        "w-full justify-start h-auto p-3 transition-all duration-200 relative",
                         isCollapsed ? "justify-center px-2" : "justify-start",
                         isActive && "bg-primary text-primary-foreground hover:bg-primary/90"
                       )}
                     >
-                      <item.icon className={cn(
-                        "h-4 w-4 transition-all duration-200",
-                        isCollapsed ? "mr-0" : "mr-3"
-                      )} />
+                      <div className="relative">
+                        <item.icon className={cn(
+                          "h-4 w-4 transition-all duration-200",
+                          isCollapsed ? "mr-0" : "mr-3"
+                        )} />
+                        {/* Show notification dot for message alerts */}
+                        {showNotificationBadge && (
+                          <div className="absolute -top-1 -right-1 h-2 w-2 bg-red-500 rounded-full animate-pulse"></div>
+                        )}
+                      </div>
                       {!isCollapsed && (
                         <div className="flex-1 text-left">
-                          <div className="font-medium">{item.title}</div>
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium">{item.title}</span>
+                            {showNotificationBadge && (
+                              <Badge variant="destructive" className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs">
+                                {chatUnreadCount > 99 ? '99+' : chatUnreadCount}
+                              </Badge>
+                            )}
+                          </div>
                           {item.description && (
                             <div className="text-xs text-muted-foreground truncate">
                               {item.description}
@@ -199,7 +238,14 @@ export default function AdminNavigation({ className }: AdminNavigationProps) {
                 {isCollapsed && (
                   <TooltipContent side="right" className="max-w-xs">
                     <div>
-                      <div className="font-medium">{item.title}</div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{item.title}</span>
+                        {showNotificationBadge && (
+                          <Badge variant="destructive" className="h-4 w-4 rounded-full p-0 flex items-center justify-center text-xs">
+                            {chatUnreadCount > 99 ? '99' : chatUnreadCount}
+                          </Badge>
+                        )}
+                      </div>
                       {item.description && (
                         <div className="text-xs text-muted-foreground mt-1">
                           {item.description}
@@ -219,6 +265,7 @@ export default function AdminNavigation({ className }: AdminNavigationProps) {
             <TooltipTrigger asChild>
               <Button 
                 variant="ghost" 
+                onClick={handleLogout}
                 className={cn(
                   "w-full justify-start h-auto p-3 transition-all duration-200",
                   isCollapsed ? "justify-center px-2" : "justify-start"
