@@ -4,22 +4,31 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Smartphone, Laptop, ChevronRight } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Smartphone, Laptop, ChevronRight, Search, X } from 'lucide-react';
 import { Device } from '@/types';
 import Image from 'next/image';
 import { getDevices, getPhones, getLaptops } from '@/lib/appwrite-services';
-import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
+import { FAQAccordion } from '@/components/ui/faq-accordion';
 import Link from 'next/link';
 
 interface DeviceSelectorProps {
-  onDeviceSelect: (device: Device) => void;
+  onDeviceSelect: (device: any) => void;
 }
 
-export function DeviceSelector({ onDeviceSelect }: DeviceSelectorProps) {
+export default function DeviceSelector({ onDeviceSelect }: DeviceSelectorProps) {
+  // Simple state management
   const [devices, setDevices] = useState<Device[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<'phone' | 'laptop' | null>(null);
   const [selectedBrand, setSelectedBrand] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [loading, setLoading] = useState(false);
+  
+  // Simple session cache
+  const [deviceCache, setDeviceCache] = useState<{
+    phone?: Device[];
+    laptop?: Device[];
+  }>({});
 
   // Brand logo mapping function
   const getBrandLogo = (brand: string): string => {
@@ -109,27 +118,53 @@ export function DeviceSelector({ onDeviceSelect }: DeviceSelectorProps) {
     return 'https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/mbp14-spacegray-select-202310?wid=904&hei=840&fmt=jpeg&qlt=90&.v=1697311054290';
   };
 
-  // Remove mock data for demonstration
+  // Industry-standard caching useEffect - Urban Company pattern
   useEffect(() => {
-    setLoading(true);
     const fetchDevices = async () => {
-      let fetchedDevices: Device[] = [];
-      if (selectedCategory === 'phone') {
-        fetchedDevices = await getPhones();
-      } else if (selectedCategory === 'laptop') {
-        fetchedDevices = await getLaptops();
-      }
-        setDevices(fetchedDevices);
-      setLoading(false);
-      // Brands fetched successfully
-    };
-    if (selectedCategory) {
-      fetchDevices();
-    } else {
+      if (!selectedCategory) {
+        // Don't clear cache when going back to category selection
         setDevices([]);
-      setLoading(false);
-    }
-  }, [selectedCategory]);
+        setLoading(false);
+        return;
+      }
+
+      // Check if data is already cached - instant load
+      if (deviceCache[selectedCategory]) {
+        setDevices(deviceCache[selectedCategory]!);
+        setLoading(false);
+        return;
+      }
+
+      // Only show loading for first-time fetch of this category
+      setLoading(true);
+      let fetchedDevices: Device[] = [];
+      
+      try {
+        if (selectedCategory === 'phone') {
+          fetchedDevices = await getPhones();
+        } else if (selectedCategory === 'laptop') {
+          fetchedDevices = await getLaptops();
+        }
+        
+        // Update state and cache simultaneously
+        setDevices(fetchedDevices);
+        
+        // Cache the data for entire session (Urban Company pattern)
+        setDeviceCache(prev => ({
+          ...prev,
+          [selectedCategory]: fetchedDevices
+        }));
+        
+      } catch (error) {
+        console.error('Error fetching devices:', error);
+        setDevices([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDevices();
+  }, [selectedCategory]); // Only depend on selectedCategory
 
   // Model filtering logic handled in component
 
@@ -138,49 +173,73 @@ export function DeviceSelector({ onDeviceSelect }: DeviceSelectorProps) {
     { id: 'laptop', name: 'Laptops', icon: Laptop }
   ];
 
-  const brands = selectedCategory 
+  const brands = selectedCategory && devices?.length
     ? Array.from(new Set(devices.map(d => d.brand)))
     : [];
 
-  const models = selectedCategory && selectedBrand
+  // Filter models based on selected brand and search query
+  const allModelsForBrand = selectedCategory && selectedBrand && devices?.length
     ? devices.filter(d => d.brand === selectedBrand)
     : [];
 
-  if (loading) {
-    return (
-      <div className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {[1, 2].map((i) => (
-            <Card key={i} className="animate-pulse">
-              <CardContent className="p-6">
-                <div className="h-20 bg-white rounded border"></div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-    );
-  }
+  const models = searchQuery
+    ? allModelsForBrand.filter(model => 
+        model.model.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : allModelsForBrand;
+
+  // Clear search when changing brand
+  useEffect(() => {
+    setSearchQuery('');
+  }, [selectedBrand]);
+
+  // FAQ data for customers
+  const customerFaqItems = [
+    {
+      question: "How do I choose the right brand for my device?",
+      answer: "Select the brand that matches your device exactly. If you're unsure, check your device's logo, boot screen, or go to Settings > About to find the manufacturer information."
+    },
+    {
+      question: "What if my brand is not listed?",
+      answer: "If your brand isn't listed, please contact our support team at support@sniket.com or call us. We're constantly adding new brands and may still be able to help with your repair."
+    },
+    {
+      question: "Can you repair devices from any brand?",
+      answer: "We support most major smartphone and laptop brands. For rare or less common brands, reach out to us for confirmation. We work with certified technicians who have experience with various devices."
+    },
+    {
+      question: "Is my data safe during the repair?",
+      answer: "Absolutely. We take data privacy very seriously. Our certified technicians follow strict protocols, and we recommend backing up your data before any repair. We never access personal files unless specifically required for diagnostics."
+    },
+    {
+      question: "How long do repairs usually take?",
+      answer: "Most repairs are completed within 24-48 hours. Screen replacements and battery changes typically take 2-4 hours, while more complex issues may take 1-3 days depending on parts availability."
+    },
+  ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 lg:space-y-6">
       <div>
-        <h2 className="text-2xl font-bold mb-2">Select Your Device</h2>
-        <p className="text-muted-foreground">Choose the device you need help with</p>
+        <h2 className="text-xl lg:text-2xl xl:text-3xl font-bold mb-2 text-gray-900">
+          Select Your Device
+        </h2>
+        <p className="text-sm lg:text-base text-gray-600">
+          Choose the device you need help with
+        </p>
       </div>
 
       {!selectedCategory && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6 max-w-4xl mx-auto">
           {categories.map((category) => {
             const Icon = category.icon;
             return (
               <Card 
                 key={category.id} 
-                className="cursor-pointer hover:shadow-md transition-shadow"
+                className="cursor-pointer hover:shadow-lg transition-all duration-200 border-2 hover:border-primary/70 group"
                 onClick={() => setSelectedCategory(category.id as 'phone' | 'laptop')}
               >
-                <CardContent className="p-6 text-center">
-                  <div className="relative w-full h-32 bg-white rounded-lg overflow-hidden mb-4 border">
+                <CardContent className="p-6 lg:p-8 text-center">
+                  <div className="relative w-full h-32 lg:h-40 bg-gray-50 rounded-lg lg:rounded-xl overflow-hidden mb-4 lg:mb-6 border group-hover:bg-gray-100 transition-colors">
                     <Image
                       src={category.id === 'phone' 
                         ? 'https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-15-finish-select-202309-6-1inch-blue?wid=5120&hei=2880&fmt=p-jpg&qlt=80&.v=1693009283804'
@@ -188,11 +247,16 @@ export function DeviceSelector({ onDeviceSelect }: DeviceSelectorProps) {
                       }
                       alt={category.name}
                       fill
-                      className="object-contain"
+                      className="object-contain p-4"
                       sizes="(max-width: 768px) 100vw, 50vw"
                     />
                   </div>
-                  <h3 className="text-xl font-semibold">{category.name}</h3>
+                  <h3 className="text-lg lg:text-xl xl:text-2xl font-semibold text-gray-900 group-hover:text-primary transition-colors">
+                    {category.name}
+                  </h3>
+                  <p className="text-sm lg:text-base text-gray-500 mt-2">
+                    {category.id === 'phone' ? 'Screen repair, battery replacement, and more' : 'Hardware fixes, software issues, performance optimization'}
+                  </p>
                 </CardContent>
               </Card>
             );
@@ -201,119 +265,245 @@ export function DeviceSelector({ onDeviceSelect }: DeviceSelectorProps) {
       )}
 
       {selectedCategory && !selectedBrand && (
-        <div className="space-y-8">
-          {/* Modern Breadcrumbs (no highlight) */}
-          <nav className="mb-6 bg-white/80 rounded-xl px-6 py-3 shadow-sm flex items-center border" aria-label="Breadcrumb">
-            <ol className="flex items-center text-base font-medium text-gray-500 gap-2 md:gap-3">
-              <li>
-                <Link href="/" className="hover:text-primary transition-colors">Home</Link>
-                <span className="mx-2 text-lg font-bold text-gray-300">&gt;&gt;</span>
-              </li>
-              <li>
-                <Link href="/book" className="hover:text-primary transition-colors">Book</Link>
-                <span className="mx-2 text-lg font-bold text-gray-300">&gt;&gt;</span>
-              </li>
-              <li>
-                {selectedCategory === 'phone' ? 'Mobile Phones' : 'Laptops'}
-                <span className="mx-2 text-lg font-bold text-gray-300">&gt;</span>
-              </li>
-              <li>Brand</li>
-            </ol>
-          </nav>
-          {/* Brand cards and FAQ */}
-        <div>
-            <div className="flex items-center mb-6">
-              <Button variant="ghost" onClick={() => setSelectedCategory(null)} className="text-base">
+        <div className="space-y-6 lg:space-y-8">
+         
+          
+          {/* Back Button */}
+          <div className="flex items-center mb-4 lg:mb-6">
+            <Button 
+              variant="ghost" 
+              onClick={() => setSelectedCategory(null)} 
+              className="text-sm lg:text-base p-2 lg:p-3 hover:bg-gray-100"
+            >
               ← Back
             </Button>
           </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-10">
-            {brands.map((brand) => (
-              <Card 
-                key={brand} 
-                  className={"transition-all duration-200 border-2 cursor-pointer hover:shadow-xl hover:border-primary/70"}
-                onClick={() => setSelectedBrand(brand)}
-                  style={{ minHeight: 120 }}
-              >
-                  <CardContent className="p-6 flex flex-col items-center justify-center">
-                    <div className="relative w-20 h-12 rounded-lg overflow-hidden mb-3 flex items-center justify-center">
-                    <Image
-                        src={getBrandLogo(brand)}
-                      alt={brand}
-                        width={80}
-                        height={48}
-                        className="object-contain h-12 mx-auto"
+
+          {/* Brand Selection Section */}
+          <div>
+            <div className="mb-4 lg:mb-6">
+              <h3 className="text-lg lg:text-xl font-bold text-gray-900 mb-2">
+                Choose Your Brand
+              </h3>
+              <p className="text-sm lg:text-base text-gray-600">
+                Select the brand of your {selectedCategory === 'phone' ? 'phone' : 'laptop'}
+              </p>
+            </div>
+
+            {/* Mobile: 2-Column Grid Layout */}
+            <div className="block sm:hidden">
+              <div className="grid grid-cols-2 gap-3">
+                {loading ? (
+                  // Loading skeleton for mobile brands
+                  [...Array(6)].map((_, i) => (
+                    <Card key={i} className="h-32 animate-pulse">
+                      <CardContent className="p-4 flex flex-col items-center justify-center h-full">
+                        <div className="w-16 h-10 bg-gray-200 rounded mb-3"></div>
+                        <div className="w-20 h-3 bg-gray-200 rounded"></div>
+                      </CardContent>
+                    </Card>
+                  ))
+                ) : (
+                  brands.map((brand) => (
+                    <Card 
+                      key={brand} 
+                      className="transition-all duration-200 border-2 cursor-pointer hover:shadow-lg hover:border-primary/70 h-32"
+                      onClick={() => setSelectedBrand(brand)}
+                    >
+                      <CardContent className="p-4 flex flex-col items-center justify-center h-full">
+                        <div className="relative w-16 h-10 flex items-center justify-center mb-3">
+                          <Image
+                            src={getBrandLogo(brand)}
+                            alt={brand}
+                            width={64}
+                            height={40}
+                            className="object-contain max-h-10 max-w-16"
+                            onError={(e) => {
+                              e.currentTarget.onerror = null;
+                              e.currentTarget.src = '/assets/brand-placeholder.svg';
+                            }}
+                          />
+                        </div>
+                        <h3 className="font-semibold text-xs text-center leading-tight">{brand}</h3>
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Tablet: 3-Column Grid */}
+            <div className="hidden sm:grid md:hidden grid-cols-3 gap-4 lg:gap-6">
+              {loading ? (
+                // Loading skeleton for tablet brands
+                [...Array(6)].map((_, i) => (
+                  <Card key={i} className="h-32 animate-pulse">
+                    <CardContent className="p-4 flex flex-col items-center justify-center h-full">
+                      <div className="w-18 h-11 bg-gray-200 rounded mb-3"></div>
+                      <div className="w-16 h-4 bg-gray-200 rounded"></div>
+                    </CardContent>
+                  </Card>
+                ))
+              ) : (
+                brands.map((brand) => (
+                  <Card 
+                    key={brand} 
+                    className="transition-all duration-200 border-2 cursor-pointer hover:shadow-xl hover:border-primary/70 h-32"
+                    onClick={() => setSelectedBrand(brand)}
+                  >
+                    <CardContent className="p-4 lg:p-6 flex flex-col items-center justify-center h-full">
+                      <div className="relative w-18 lg:w-20 h-11 lg:h-12 flex items-center justify-center mb-3">
+                        <Image
+                          src={getBrandLogo(brand)}
+                          alt={brand}
+                        width={72}
+                        height={44}
+                        className="object-contain max-h-11 lg:max-h-12"
                         onError={(e) => {
                           e.currentTarget.onerror = null;
                           e.currentTarget.src = '/assets/brand-placeholder.svg';
                         }}
-                    />
-                  </div>
-                    <h3 className="font-semibold text-base tracking-tight text-center mt-1">{brand}</h3>
-                </CardContent>
-              </Card>
-            ))}
+                      />
+                    </div>
+                    <h3 className="font-semibold text-sm lg:text-base text-center leading-tight">{brand}</h3>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+            </div>
+
+            {/* Desktop: 4-Column Grid */}
+            <div className="hidden md:grid md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-4 lg:gap-6">
+              {loading ? (
+                // Loading skeleton for desktop brands
+                [...Array(8)].map((_, i) => (
+                  <Card key={i} className="h-32 lg:h-36 animate-pulse">
+                    <CardContent className="p-4 lg:p-6 flex flex-col items-center justify-center h-full">
+                      <div className="w-18 lg:w-20 h-11 lg:h-12 bg-gray-200 rounded mb-3"></div>
+                      <div className="w-20 h-4 bg-gray-200 rounded"></div>
+                    </CardContent>
+                  </Card>
+                ))
+              ) : (
+                brands.map((brand) => (
+                  <Card 
+                    key={brand} 
+                    className="transition-all duration-200 border-2 cursor-pointer hover:shadow-xl hover:border-primary/70 h-32 lg:h-36"
+                    onClick={() => setSelectedBrand(brand)}
+                  >
+                    <CardContent className="p-4 lg:p-6 flex flex-col items-center justify-center h-full">
+                      <div className="relative w-18 lg:w-20 h-11 lg:h-12 flex items-center justify-center mb-3">
+                        <Image
+                          src={getBrandLogo(brand)}
+                          alt={brand}
+                          width={80}
+                          height={48}
+                        className="object-contain max-h-11 lg:max-h-12"
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = '/assets/brand-placeholder.svg';
+                        }}
+                      />
+                    </div>
+                    <h3 className="font-semibold text-sm lg:text-base text-center leading-tight">{brand}</h3>
+                  </CardContent>
+                </Card>
+              ))
+            )}
             </div>
           </div>
-          {/* FAQ Section */}
-          <div>
-            <h3 className="text-xl font-bold mb-4">Frequently Asked Questions</h3>
-            <Accordion type="single" collapsible className="w-full bg-white rounded-lg shadow-md">
-              <AccordionItem value="q1">
-                <AccordionTrigger>How do I choose the right brand for my device?</AccordionTrigger>
-                <AccordionContent>
-                  Select the brand that matches your device. If you are unsure, check your device's logo or settings for brand information.
-                </AccordionContent>
-              </AccordionItem>
-              <AccordionItem value="q2">
-                <AccordionTrigger>What if my brand is not listed?</AccordionTrigger>
-                <AccordionContent>
-                  If your brand is not listed, please contact our support team. We may still be able to help with your repair.
-                </AccordionContent>
-              </AccordionItem>
-              <AccordionItem value="q3">
-                <AccordionTrigger>Can I repair devices from any brand?</AccordionTrigger>
-                <AccordionContent>
-                  We support most major brands. If you have a rare or less common brand, reach out to us for confirmation.
-                </AccordionContent>
-              </AccordionItem>
-              <AccordionItem value="q4">
-                <AccordionTrigger>Is my data safe during repair?</AccordionTrigger>
-                <AccordionContent>
-                  Yes, we take data privacy seriously. Our technicians follow strict protocols to ensure your data is safe and secure.
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
+          {/* FAQ Section - Using providers page component */}
+          <div className="mt-8 lg:mt-12">
+            <div className="mb-8 lg:mb-12 text-center">
+              <h3 className="text-2xl lg:text-3xl xl:text-4xl font-bold text-gray-900 mb-4">
+                Frequently Asked Questions
+              </h3>
+              <p className="text-base lg:text-lg text-gray-600 max-w-2xl mx-auto leading-relaxed">
+                Common questions about device selection and repairs
+              </p>
+            </div>
+            
+            <FAQAccordion items={customerFaqItems} />
           </div>
         </div>
       )}
 
       {selectedCategory && selectedBrand && (
-        <div>
-          <div className="flex items-center mb-4">
-            <Button variant="ghost" onClick={() => setSelectedBrand(null)}>
+        <div className="space-y-4 lg:space-y-6">
+          <div className="flex items-center mb-4 lg:mb-6">
+            <Button 
+              variant="ghost" 
+              onClick={() => setSelectedBrand(null)}
+              className="text-sm lg:text-base p-2 lg:p-3 hover:bg-gray-100"
+            >
               ← Back
             </Button>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          
+          <div className="mb-4 lg:mb-6">
+            <h3 className="text-lg lg:text-xl font-bold text-gray-900 mb-2">
+              Select Your {selectedBrand} Model
+            </h3>
+            <p className="text-sm lg:text-base text-gray-600">
+              Choose the specific model of your {selectedCategory === 'phone' ? 'phone' : 'laptop'}
+            </p>
+          </div>
+
+          {/* Search Bar */}
+          <div className="mb-6">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                type="text"
+                placeholder={`Search ${selectedBrand} models...`}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 pr-10"
+              />
+              {searchQuery && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
+                  onClick={() => setSearchQuery('')}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              )}
+            </div>
+            {searchQuery && models.length === 0 && (
+              <p className="text-sm text-gray-500 mt-2">
+                No models found matching "{searchQuery}". Try a different search term.
+              </p>
+            )}
+            {searchQuery && models.length > 0 && (
+              <p className="text-sm text-gray-600 mt-2">
+                Found {models.length} model{models.length === 1 ? '' : 's'} matching "{searchQuery}"
+              </p>
+            )}
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-6">
             {/* Deduplicate models by model name */}
             {models.map((model) => (
               <Card 
                 key={model.model}
-                className="cursor-pointer hover:shadow-md transition-shadow"
+                className="cursor-pointer hover:shadow-lg transition-all duration-200 border-2 hover:border-primary/70 h-48 lg:h-56"
                 onClick={() => onDeviceSelect(model)}
               >
-                <CardContent className="p-6 text-center">
-                  <div className="relative w-full h-32 bg-white rounded-lg overflow-hidden mb-4 border">
-                      <Image
+                <CardContent className="p-4 lg:p-6 text-center flex flex-col h-full">
+                  <div className="relative w-full h-24 lg:h-32 bg-gray-50 rounded-lg overflow-hidden mb-3 lg:mb-4 border flex-grow">
+                    <Image
                       src={getDeviceImage(model.brand, model.model, model.category)}
                       alt={model.model}
-                        fill
-                        className="object-contain"
-                      sizes="(max-width: 768px) 100vw, 50vw"
-                      />
+                      fill
+                      className="object-contain p-2"
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                    />
                   </div>
-                  <h3 className="text-lg font-semibold">{model.model}</h3>
+                  <h3 className="text-sm lg:text-lg font-semibold text-gray-900 leading-tight">
+                    {model.model}
+                  </h3>
                 </CardContent>
               </Card>
             ))}

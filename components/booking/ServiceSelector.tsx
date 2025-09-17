@@ -1,14 +1,15 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ChevronRight } from 'lucide-react';
+import { ChevronLeft, CheckCircle2, Circle, ArrowRight } from 'lucide-react';
 import { Device, Service, PartQuality } from '@/types';
 import { getIssuesByCategory } from '@/lib/appwrite-services';
 import { databases, DATABASE_ID, COLLECTIONS } from '@/lib/appwrite';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
 
 interface ServiceSelectorProps {
   device: Device;
@@ -128,54 +129,109 @@ export function ServiceSelector({ device, onServiceSelect, onBack }: ServiceSele
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold">Select Service</h2>
-          <p className="text-muted-foreground">
-            {device.brand} {device.model}
-          </p>
-        </div>
-        <Button variant="ghost" onClick={onBack}>
-          ← Back
-        </Button>
-      </div>
-
-      {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Loading issues...</p>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-4xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">Select Service</h2>
+              <p className="text-sm text-gray-600">
+                {device.brand} {device.model}
+              </p>
+            </div>
+            <Button variant="ghost" size="sm" onClick={onBack}>
+              <ChevronLeft className="h-4 w-4 mr-1" />
+              Back
+            </Button>
           </div>
         </div>
-      ) : issues.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">No issues found for this device category.</p>
-        </div>
-      ) : (
-      <div className="grid grid-cols-1 gap-4">
-          {services.map((service, idx) => (
-          <Card 
-            key={service.id}
-            className={`cursor-pointer transition-all ${
-              selectedIssues.includes(service.id) ? 'ring-2 ring-primary' : 'hover:shadow-md'
-            }`}
-            onClick={() => handleIssueToggle(service.id)}
-          >
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>{service.name}</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-                <Checkbox checked={selectedIssues.includes(service.id)} onCheckedChange={() => handleIssueToggle(service.id)} />
-                <span>{service.description}</span>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
       </div>
+
+      {/* Content */}
+      <div className="max-w-4xl mx-auto px-4 py-6 pb-24">
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-gray-500">Loading services...</p>
+            </div>
+          </div>
+        ) : issues.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-gray-500">No services found for this device category.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {services.map((service, idx) => {
+              const isSelected = selectedIssues.includes(service.id);
+              
+              return (
+                <Card 
+                  key={service.id}
+                  className={`cursor-pointer transition-all border-l-4 hover:shadow-sm ${
+                    isSelected 
+                      ? 'border-l-primary bg-primary/5 shadow-sm' 
+                      : 'border-l-transparent hover:border-l-gray-300'
+                  }`}
+                  onClick={() => handleIssueToggle(service.id)}
+                >
+                  <CardContent className="py-4 px-4">
+                    <div className="flex items-center space-x-3">
+                      {/* Selection Icon */}
+                      {isSelected ? (
+                        <CheckCircle2 className="h-5 w-5 text-primary flex-shrink-0" />
+                      ) : (
+                        <Circle className="h-5 w-5 text-gray-400 flex-shrink-0" />
+                      )}
+                      
+                      {/* Service Info */}
+                      <div className="min-w-0 flex-1">
+                        <h3 className="font-semibold text-gray-900 text-sm lg:text-base">
+                          {service.name}
+                        </h3>
+                        <p className="text-xs lg:text-sm text-gray-600 break-words">
+                          {service.description}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    {/* Selected indicator */}
+                    {isSelected && (
+                      <div className="mt-2 pt-2 border-t border-primary/20">
+                        <Badge variant="outline" className="text-xs text-primary bg-primary/10 border-primary/30">
+                          Selected
+                        </Badge>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Sticky Bottom Summary Bar */}
+      {selectedIssues.length > 0 && !loading && (
+        <div className="fixed bottom-0 left-0 right-0 bg-white shadow-lg border-t z-20">
+          <div className="max-w-4xl mx-auto px-4 py-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="font-semibold text-gray-900">
+                  {selectedIssues.length} service{selectedIssues.length === 1 ? '' : 's'} selected
+                </div>
+                <div className="text-sm text-gray-600">
+                  Get quotes from verified providers
+                </div>
+              </div>
+              <Button onClick={handleContinue} size="lg" className="px-6">
+                Continue to Providers
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Part Quality Dialog for Screen Replacement */}
@@ -190,12 +246,6 @@ export function ServiceSelector({ device, onServiceSelect, onBack }: ServiceSele
           </div>
         </DialogContent>
       </Dialog>
-
-      {selectedIssues.length > 0 && !loading && (
-        <Button onClick={handleContinue} className="w-full mt-4" disabled={selectedIssues.length === 0}>
-          Continue to Providers <ChevronRight className="ml-2 h-4 w-4" />
-            </Button>
-      )}
     </div>
   );
 }
