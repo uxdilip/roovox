@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { LogOut, Shield } from 'lucide-react';
 import AdminNavigation from '@/components/admin/AdminNavigation';
 import AdminBreadcrumbs from '@/components/admin/AdminBreadcrumbs';
+import { messageAlertService } from '@/lib/message-alert-service';
 
 function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading, adminUser, logout } = useAdminAuth();
@@ -22,6 +23,29 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
       router.push('/admin/login');
     }
   }, [isAuthenticated, isLoading, isLoginPage, router]);
+
+  // Start message alert monitoring when admin is authenticated
+  useEffect(() => {
+    if (isAuthenticated && !isLoginPage) {
+      console.log('🚨 Starting message alert monitoring for admin...');
+      messageAlertService.startMonitoring();
+      
+      // Enable desktop notifications
+      if (typeof window !== 'undefined' && 'Notification' in window) {
+        if (Notification.permission === 'default') {
+          Notification.requestPermission().then(permission => {
+            console.log('🚨 Notification permission:', permission);
+          });
+        }
+      }
+
+      // Cleanup when component unmounts or auth changes
+      return () => {
+        console.log('🚨 Stopping message alert monitoring...');
+        messageAlertService.stopMonitoring();
+      };
+    }
+  }, [isAuthenticated, isLoginPage]);
 
   // Show loading while checking authentication
   if (!isLoginPage && isLoading) {

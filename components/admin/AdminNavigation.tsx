@@ -34,7 +34,7 @@ import {
 } from "lucide-react";
 import { MessageNotificationEnvelope } from "@/components/ui/message-notification-envelope";
 import { Badge } from "@/components/ui/badge";
-import { useNotifications } from "@/hooks/use-notifications";
+import { useAdminNotifications } from "@/hooks/use-admin-notifications";
 
 interface NavItem {
   title: string;
@@ -143,7 +143,7 @@ export default function AdminNavigation({ className }: AdminNavigationProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   
   // Get notification count for message alerts
-  const { chatUnreadCount } = useNotifications();
+  const { chatUnreadCount } = useAdminNotifications();
 
   const handleLogout = () => {
     logout();

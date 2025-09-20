@@ -1,7 +1,7 @@
 // 🚨 Message Alert Service - Admin Notification System
 // Tracks unresponded customer messages and alerts admin after 2 minutes
 
-import { databases, DATABASE_ID } from './appwrite';
+import { databases, DATABASE_ID, COLLECTIONS } from './appwrite';
 import { ID, Query } from 'appwrite';
 import { notificationService } from './notifications';
 
@@ -115,14 +115,18 @@ class MessageAlertService {
       const now = Date.now();
       const minutesAgo = (now - messageTime) / (1000 * 60);
 
+      console.log(`🚨 Processing message ${message.$id} - ${minutesAgo.toFixed(1)} minutes old`);
+
       // Skip if message is too new (less than threshold)
       if (minutesAgo < this.ALERT_THRESHOLD_MINUTES) {
+        console.log(`🚨 ⏰ Message ${message.$id} is too new (${minutesAgo.toFixed(1)} min < ${this.ALERT_THRESHOLD_MINUTES} min threshold)`);
         return;
       }
 
       // Check if we already created an alert for this message
       const existingAlert = await this.getExistingAlert(message.$id);
       if (existingAlert) {
+        console.log(`🚨 ✅ Alert already exists for message ${message.$id} - skipping`);
         return; // Already alerted
       }
 
@@ -133,8 +137,11 @@ class MessageAlertService {
       );
 
       if (hasResponse) {
+        console.log(`🚨 ✅ Provider already responded to message ${message.$id} - skipping`);
         return; // Provider already responded
       }
+
+      console.log(`🚨 🚨 Creating NEW alert for message ${message.$id}`);
 
       // Get conversation details for context
       const conversationDetails = await this.getConversationDetails(message.conversation_id);
@@ -166,16 +173,47 @@ class MessageAlertService {
    */
   private async getExistingAlert(messageId: string): Promise<boolean> {
     try {
+      console.log(`🚨 🔍 Checking for existing alert for message: ${messageId}`);
+      
+      // Check in notifications collection for existing alert
       const alerts = await databases.listDocuments(
         DATABASE_ID,
-        'message_alerts',
+        'notifications',
         [
-          Query.equal('message_id', messageId),
-          Query.limit(1)
+          Query.equal('user_id', 'admin_alerts'), // Special admin alerts user ID
+          Query.equal('user_type', 'admin'),
+          Query.equal('type', 'message'),
+          Query.equal('category', 'chat'),
+          Query.limit(100) // Get more alerts to check properly
         ]
       );
 
-      return alerts.documents.length > 0;
+      console.log(`🚨 🔍 Found ${alerts.documents.length} total admin alerts to check`);
+
+      // Check if any alert has this messageId in metadata
+      const existingAlert = alerts.documents.find(doc => {
+        try {
+          const metadata = JSON.parse(doc.metadata || '{}');
+          const hasMatchingMessage = metadata.messageId === messageId && metadata.alertType === 'unresponded_message';
+          
+          if (hasMatchingMessage) {
+            console.log(`🚨 ✅ Found existing alert for message ${messageId}:`, doc.$id);
+          }
+          
+          return hasMatchingMessage;
+        } catch (parseError) {
+          console.log(`🚨 ⚠️ Could not parse metadata for alert ${doc.$id}:`, parseError);
+          return false;
+        }
+      });
+
+      if (existingAlert) {
+        console.log(`🚨 ✅ Alert already exists for message ${messageId} - found alert ID: ${existingAlert.$id}`);
+        return true;
+      } else {
+        console.log(`🚨 ❌ No existing alert found for message ${messageId}`);
+        return false;
+      }
     } catch (error) {
       console.error('🚨 Error checking existing alert:', error);
       return false; // Assume no existing alert to be safe
@@ -222,25 +260,81 @@ class MessageAlertService {
         conversationId
       );
 
-      // Get customer details
-      const customer = await databases.getDocument(
-        DATABASE_ID,
-        'users',
-        conversation.customer_id
-      );
+      // Get customer details - try customers collection first, then User collection
+      let customerName = 'Unknown Customer';
+      try {
+        // Try customers collection first
+        const customerResponse = await databases.listDocuments(
+          DATABASE_ID,
+          COLLECTIONS.CUSTOMERS,
+          [Query.equal('user_id', conversation.customer_id), Query.limit(1)]
+        );
+        
+        if (customerResponse.documents.length > 0) {
+          const customer = customerResponse.documents[0];
+          customerName = customer.full_name || customer.name || 'Customer';
+        } else {
+          // Fallback to User collection
+          const userResponse = await databases.listDocuments(
+            DATABASE_ID,
+            'User', // Note: Using 'User' (capital U) as seen in your codebase
+            [Query.equal('user_id', conversation.customer_id), Query.limit(1)]
+          );
+          
+          if (userResponse.documents.length > 0) {
+            const user = userResponse.documents[0];
+            customerName = user.name || user.email || 'Customer';
+          }
+        }
+      } catch (error) {
+        console.error('🚨 Error fetching customer details:', error);
+      }
 
-      // Get provider details
-      const provider = await databases.getDocument(
-        DATABASE_ID,
-        'users',
-        conversation.provider_id
-      );
+      // Get provider details - simple phone lookup
+      let providerName = 'Unknown Provider';
+      let providerPhone = '';
+      
+      try {
+        // Get business setup for business name and phone
+        const businessResponse = await databases.listDocuments(
+          DATABASE_ID,
+          COLLECTIONS.BUSINESS_SETUP,
+          [Query.equal('user_id', conversation.provider_id), Query.limit(1)]
+        );
+        
+        if (businessResponse.documents.length > 0) {
+          const businessSetup = businessResponse.documents[0];
+          const onboardingData = JSON.parse(businessSetup.onboarding_data || '{}');
+          providerName = onboardingData.businessInfo?.businessName || 'Provider';
+          providerPhone = onboardingData.personalDetails?.mobile || '';
+        }
+        
+        // Fallback to User collection if no phone found
+        if (!providerPhone) {
+          const userResponse = await databases.listDocuments(
+            DATABASE_ID,
+            'User',
+            [Query.equal('user_id', conversation.provider_id), Query.limit(1)]
+          );
+          
+          if (userResponse.documents.length > 0) {
+            const user = userResponse.documents[0];
+            providerPhone = user.phone || '';
+            if (!providerName || providerName === 'Provider') {
+              providerName = user.name || 'Provider';
+            }
+          }
+        }
+        
+      } catch (error) {
+        console.error('🚨 Error fetching provider details:', error);
+      }
 
       return {
-        customerName: customer.name || customer.email || 'Customer',
-        providerId: provider.$id,
-        providerName: provider.name || provider.email || 'Provider',
-        providerPhone: provider.phone || provider.mobile
+        customerName,
+        providerId: conversation.provider_id,
+        providerName,
+        providerPhone
       };
 
     } catch (error) {
@@ -266,37 +360,46 @@ class MessageAlertService {
     try {
       const now = new Date().toISOString();
 
-      const alert = await databases.createDocument(
-        DATABASE_ID,
-        'message_alerts',
-        ID.unique(),
-        {
-          conversation_id: data.conversationId,
-          message_id: data.messageId,
-          customer_id: data.customerId,
-          customer_name: data.customerName,
-          provider_id: data.providerId,
-          provider_name: data.providerName,
-          provider_phone: data.providerPhone || '',
-          message: data.message,
-          message_at: data.messageAt,
-          alerted_at: now,
-          status: 'active',
-          created_at: now,
-          updated_at: now
+      // Create notification using existing notifications system instead of separate message_alerts collection
+      const result = await notificationService.createNotification({
+        type: 'message',
+        category: 'chat',
+        priority: 'urgent',
+        title: `Unresponded Customer Message`,
+        message: `${data.customerName} → ${data.providerName}: "${data.message.substring(0, 100)}${data.message.length > 100 ? '...' : ''}"`,
+        userId: 'admin_alerts', // Special user ID for admin alerts - will be visible to all admins
+        userType: 'admin',
+        relatedId: data.conversationId,
+        relatedType: 'conversation',
+        senderId: data.customerId,
+        senderName: data.customerName,
+        messagePreview: data.message,
+        metadata: {
+          messageId: data.messageId,
+          customerId: data.customerId,
+          providerId: data.providerId,
+          providerName: data.providerName,
+          providerPhone: data.providerPhone || 'No Phone',
+          messageAt: data.messageAt,
+          alertType: 'unresponded_message',
+          alertedAt: now
         }
-      );
-
-      console.log(`🚨 ✅ Created alert: Customer ${data.customerName} → Provider ${data.providerName}`);
-
-      // Notify admin with desktop notification
-      this.notifyAdmin({
-        title: 'Unresponded Customer Message!',
-        body: `${data.customerName} → ${data.providerName}: "${data.message.substring(0, 50)}..."`
       });
 
-      // Notify subscribers (real-time dashboard updates)
-      this.notifySubscribers();
+      if (result.success) {
+        console.log(`🚨 ✅ Created alert notification: Customer ${data.customerName} → Provider ${data.providerName}`);
+
+        // Notify admin with desktop notification
+        this.notifyAdmin({
+          title: 'Unresponded Customer Message!',
+          body: `${data.customerName} → ${data.providerName}: "${data.message.substring(0, 50)}..."`
+        });
+
+        // Notify subscribers (real-time dashboard updates)
+        this.notifySubscribers();
+      } else {
+        console.error('🚨 Failed to create alert notification:', result.error);
+      }
 
     } catch (error) {
       console.error('🚨 Error creating alert:', error);
@@ -308,34 +411,51 @@ class MessageAlertService {
    */
   async getActiveAlerts(): Promise<{ success: boolean; alerts?: MessageAlert[]; error?: string }> {
     try {
+      // Fetch admin notifications that are message alerts
       const alerts = await databases.listDocuments(
         DATABASE_ID,
-        'message_alerts',
+        'notifications',
         [
-          Query.equal('status', 'active'),
-          Query.orderDesc('alerted_at'),
+          Query.equal('user_id', 'admin_alerts'), // Special admin alerts user ID
+          Query.equal('user_type', 'admin'),
+          Query.equal('type', 'message'),
+          Query.equal('category', 'chat'),
+          Query.orderDesc('created_at'),
           Query.limit(50)
         ]
       );
 
-      const messageAlerts: MessageAlert[] = alerts.documents.map(doc => ({
-        id: doc.$id,
-        conversationId: doc.conversation_id,
-        messageId: doc.message_id,
-        customerId: doc.customer_id,
-        customerName: doc.customer_name,
-        providerId: doc.provider_id,
-        providerName: doc.provider_name,
-        providerPhone: doc.provider_phone,
-        message: doc.message,
-        messageAt: doc.message_at,
-        alertedAt: doc.alerted_at,
-        resolvedAt: doc.resolved_at,
-        resolvedBy: doc.resolved_by,
-        status: doc.status,
-        createdAt: doc.created_at,
-        updatedAt: doc.updated_at
-      }));
+      // Filter and convert notifications to MessageAlert format
+      const messageAlerts: MessageAlert[] = alerts.documents
+        .filter(doc => {
+          try {
+            const metadata = JSON.parse(doc.metadata || '{}');
+            return metadata.alertType === 'unresponded_message';
+          } catch {
+            return false;
+          }
+        })
+        .map(doc => {
+          const metadata = JSON.parse(doc.metadata || '{}');
+          return {
+            id: doc.$id,
+            conversationId: doc.related_id || '',
+            messageId: metadata.messageId || '',
+            customerId: metadata.customerId || '',
+            customerName: doc.sender_name || 'Unknown Customer',
+            providerId: metadata.providerId || '',
+            providerName: metadata.providerName || 'Unknown Provider',
+            providerPhone: metadata.providerPhone || '',
+            message: doc.message_preview || doc.message || '',
+            messageAt: metadata.messageAt || doc.created_at,
+            alertedAt: metadata.alertedAt || doc.created_at,
+            resolvedAt: undefined, // Not implemented yet
+            resolvedBy: undefined, // Not implemented yet
+            status: doc.read ? 'resolved' : 'active',
+            createdAt: doc.created_at,
+            updatedAt: doc.updated_at || doc.created_at
+          };
+        });
 
       return { success: true, alerts: messageAlerts };
 
@@ -350,14 +470,13 @@ class MessageAlertService {
    */
   async resolveAlert(alertId: string, adminId: string): Promise<{ success: boolean; error?: string }> {
     try {
+      // Mark notification as read to resolve the alert
       await databases.updateDocument(
         DATABASE_ID,
-        'message_alerts',
+        'notifications',
         alertId,
         {
-          status: 'resolved',
-          resolved_at: new Date().toISOString(),
-          resolved_by: adminId,
+          read: true,
           updated_at: new Date().toISOString()
         }
       );
