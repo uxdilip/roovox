@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { MessageNotificationEnvelope } from '@/components/ui/message-notification-envelope';
 import { useAdminNotifications } from '@/hooks/use-admin-notifications';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,9 +8,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Mail, Search, Filter, MessageSquare, Clock, User, Phone, CheckCircle, Eye } from 'lucide-react';
+import { Mail, Search, Filter, MessageSquare, Clock, User, TestTube } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ChatModal } from '@/components/admin/ChatModal';
+import { simpleMessageAlertService } from '@/lib/message-alert-service';
 
 export default function MessageAlertsPage() {
   const { chatNotifications, chatUnreadCount, businessNotifications, businessUnreadCount, markAsRead, markAllAsRead, loading } = useAdminNotifications();
@@ -31,14 +32,7 @@ export default function MessageAlertsPage() {
     providerName: ''
   });
 
-  // Debug: Log all notifications data
-  React.useEffect(() => {
-    console.log('🔍 [DEBUG] All notifications:', {
-      chat: chatNotifications,
-      business: businessNotifications,
-      total: [...chatNotifications, ...businessNotifications]
-    });
-  }, [chatNotifications, businessNotifications]);
+  // Note: Simple message alert monitoring is handled in admin layout
 
   // Combine and filter notifications
   const allNotifications = [...chatNotifications, ...businessNotifications];
@@ -89,6 +83,17 @@ export default function MessageAlertsPage() {
 
   const totalUnread = chatUnreadCount + businessUnreadCount;
 
+  // Test function for admin notifications (keep for debugging)
+  const handleTestNotification = async () => {
+    try {
+      console.log('🧪 Testing admin push notification...');
+      await simpleMessageAlertService.sendTestAdminNotification();
+      console.log('🧪 Test notification sent! Check your browser/device for push notification.');
+    } catch (error) {
+      console.error('🧪 Error sending test notification:', error);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -100,13 +105,24 @@ export default function MessageAlertsPage() {
           </p>
         </div>
         
-        <div className="flex items-center gap-4">
+                <div className="flex items-center gap-4">
           <MessageNotificationEnvelope />
           {totalUnread > 0 && (
             <Button onClick={() => markAllAsRead()} variant="outline" size="sm">
               Mark all as read ({totalUnread})
             </Button>
           )}
+          {/* Keep test button for debugging - can be removed later */}
+          <Button 
+            onClick={handleTestNotification} 
+            variant="secondary" 
+            size="sm" 
+            className="bg-purple-100 hover:bg-purple-200 text-purple-700"
+            title="Test if push notifications are working (for debugging)"
+          >
+            <TestTube className="w-4 h-4 mr-2" />
+            Test Notification
+          </Button>
         </div>
       </div>
 

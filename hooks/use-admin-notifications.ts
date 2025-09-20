@@ -46,7 +46,7 @@ export function useAdminNotifications() {
       'admin_alerts',
       'admin',
       (newNotification) => {
-        console.log('🚨 [ADMIN NOTIFICATIONS] Received real-time notification:', newNotification.id);
+        console.log('Admin notification received:', newNotification.id);
         
         setNotifications(prev => {
           // Check if this is an update to existing notification or new one

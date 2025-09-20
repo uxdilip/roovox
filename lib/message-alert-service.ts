@@ -1,32 +1,11 @@
-// 🚨 Message Alert Service - Admin Notification System
-// Tracks unresponded customer messages and alerts admin after 2 minutes
 
-import { databases, DATABASE_ID, COLLECTIONS } from './appwrite';
-import { ID, Query } from 'appwrite';
-import { notificationService } from './notifications';
 
-export interface MessageAlert {
-  id: string;
-  conversationId: string;
+import { databases, DATABASE_ID } from './appwrite';
+import { Query } from 'appwrite';
+
+interface SimpleMessageData {
   messageId: string;
-  customerId: string;
-  customerName: string;
-  providerId: string;
-  providerName: string;
-  providerPhone?: string;
-  message: string;
-  messageAt: string;
-  alertedAt: string;
-  resolvedAt?: string;
-  resolvedBy?: string;
-  status: 'active' | 'resolved';
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface UnrespondedMessage {
   conversationId: string;
-  messageId: string;
   customerId: string;
   customerName: string;
   providerId: string;
@@ -34,33 +13,30 @@ export interface UnrespondedMessage {
   providerPhone?: string;
   message: string;
   sentAt: string;
-  minutesAgo: number;
 }
 
-class MessageAlertService {
-  private readonly ALERT_THRESHOLD_MINUTES = 2;
+class SimpleMessageAlertService {
+  private readonly ALERT_THRESHOLD_MINUTES = 10;
+  private readonly CHECK_INTERVAL_MINUTES = 5;
   private alertCheckInterval: NodeJS.Timeout | null = null;
-  private subscribers = new Map<string, (alerts: MessageAlert[]) => void>();
+  private processedMessages = new Set<string>(); // In-memory tracking for already notified messages
 
   /**
    * Start monitoring for unresponded messages
-   * Should be called once when admin dashboard loads
+   * Simple approach: check every 5 minutes, send push notification once per message
    */
   startMonitoring(): void {
     if (this.alertCheckInterval) {
-      console.log('🚨 Alert monitoring already running');
       return;
     }
 
-    console.log('🚨 Starting message alert monitoring...');
-    
     // Check immediately
     this.checkUnrespondedMessages();
     
-    // Then check every 30 seconds
+    // Then check every 5 minutes
     this.alertCheckInterval = setInterval(() => {
       this.checkUnrespondedMessages();
-    }, 30 * 1000);
+    }, this.CHECK_INTERVAL_MINUTES * 60 * 1000);
   }
 
   /**
@@ -70,64 +46,48 @@ class MessageAlertService {
     if (this.alertCheckInterval) {
       clearInterval(this.alertCheckInterval);
       this.alertCheckInterval = null;
-      console.log('🚨 Stopped message alert monitoring');
     }
   }
 
   /**
-   * Main function: Check for unresponded messages and create alerts
+   * Simple check for unresponded messages - send push notification once per message
    */
   private async checkUnrespondedMessages(): Promise<void> {
     try {
-      console.log('🚨 Checking for unresponded messages...');
-
-      // Get messages from last 10 minutes (generous window)
-      const cutoffTime = new Date(Date.now() - (10 * 60 * 1000)).toISOString();
+      // Get customer messages from 10-15 minutes ago (time window approach)
+      const now = new Date();
+      const startTime = new Date(now.getTime() - (15 * 60 * 1000)).toISOString();
+      const endTime = new Date(now.getTime() - (this.ALERT_THRESHOLD_MINUTES * 60 * 1000)).toISOString();
       
       const messages = await databases.listDocuments(
         DATABASE_ID,
         'messages',
         [
           Query.equal('sender_type', 'customer'), // Only customer messages
-          Query.greaterThan('created_at', cutoffTime),
+          Query.greaterThan('created_at', startTime),
+          Query.lessThan('created_at', endTime),
           Query.orderDesc('created_at'),
-          Query.limit(100)
+          Query.limit(50)
         ]
       );
 
-      console.log(`🚨 Found ${messages.documents.length} recent customer messages`);
-
       for (const message of messages.documents) {
-        await this.processMessage(message);
+        await this.processMessageForAlert(message);
       }
 
     } catch (error) {
-      console.error('🚨 Error checking unresponded messages:', error);
+      console.error('Error in checkUnrespondedMessages:', error);
     }
   }
 
   /**
-   * Process individual message to check if it needs alerting
+   * Process individual message for alert - simple approach
    */
-  private async processMessage(message: any): Promise<void> {
+  private async processMessageForAlert(message: any): Promise<void> {
     try {
-      const messageTime = new Date(message.created_at).getTime();
-      const now = Date.now();
-      const minutesAgo = (now - messageTime) / (1000 * 60);
-
-      console.log(`🚨 Processing message ${message.$id} - ${minutesAgo.toFixed(1)} minutes old`);
-
-      // Skip if message is too new (less than threshold)
-      if (minutesAgo < this.ALERT_THRESHOLD_MINUTES) {
-        console.log(`🚨 ⏰ Message ${message.$id} is too new (${minutesAgo.toFixed(1)} min < ${this.ALERT_THRESHOLD_MINUTES} min threshold)`);
+      // Skip if we already sent notification for this message
+      if (this.processedMessages.has(message.$id)) {
         return;
-      }
-
-      // Check if we already created an alert for this message
-      const existingAlert = await this.getExistingAlert(message.$id);
-      if (existingAlert) {
-        console.log(`🚨 ✅ Alert already exists for message ${message.$id} - skipping`);
-        return; // Already alerted
       }
 
       // Check if provider has responded to this conversation since the message
@@ -137,86 +97,33 @@ class MessageAlertService {
       );
 
       if (hasResponse) {
-        console.log(`🚨 ✅ Provider already responded to message ${message.$id} - skipping`);
-        return; // Provider already responded
-      }
-
-      console.log(`🚨 🚨 Creating NEW alert for message ${message.$id}`);
-
-      // Get conversation details for context
-      const conversationDetails = await this.getConversationDetails(message.conversation_id);
-      if (!conversationDetails) {
-        console.warn(`🚨 Could not get conversation details for ${message.conversation_id}`);
         return;
       }
 
-      // Create alert!
-      await this.createAlert({
-        conversationId: message.conversation_id,
+      // Get conversation details for notification
+      const conversationDetails = await this.getConversationDetails(message.conversation_id);
+      if (!conversationDetails) {
+        return;
+      }
+
+      // Send push notification to admin
+      await this.sendAdminPushNotification({
         messageId: message.$id,
+        conversationId: message.conversation_id,
         customerId: message.sender_id,
         customerName: conversationDetails.customerName,
         providerId: conversationDetails.providerId,
         providerName: conversationDetails.providerName,
         providerPhone: conversationDetails.providerPhone,
         message: message.content,
-        messageAt: message.created_at
+        sentAt: message.created_at
       });
 
+      // Mark as processed to prevent duplicate notifications
+      this.processedMessages.add(message.$id);
+
     } catch (error) {
-      console.error('🚨 Error processing message:', error);
-    }
-  }
-
-  /**
-   * Check if an alert already exists for this message
-   */
-  private async getExistingAlert(messageId: string): Promise<boolean> {
-    try {
-      console.log(`🚨 🔍 Checking for existing alert for message: ${messageId}`);
-      
-      // Check in notifications collection for existing alert
-      const alerts = await databases.listDocuments(
-        DATABASE_ID,
-        'notifications',
-        [
-          Query.equal('user_id', 'admin_alerts'), // Special admin alerts user ID
-          Query.equal('user_type', 'admin'),
-          Query.equal('type', 'message'),
-          Query.equal('category', 'chat'),
-          Query.limit(100) // Get more alerts to check properly
-        ]
-      );
-
-      console.log(`🚨 🔍 Found ${alerts.documents.length} total admin alerts to check`);
-
-      // Check if any alert has this messageId in metadata
-      const existingAlert = alerts.documents.find(doc => {
-        try {
-          const metadata = JSON.parse(doc.metadata || '{}');
-          const hasMatchingMessage = metadata.messageId === messageId && metadata.alertType === 'unresponded_message';
-          
-          if (hasMatchingMessage) {
-            console.log(`🚨 ✅ Found existing alert for message ${messageId}:`, doc.$id);
-          }
-          
-          return hasMatchingMessage;
-        } catch (parseError) {
-          console.log(`🚨 ⚠️ Could not parse metadata for alert ${doc.$id}:`, parseError);
-          return false;
-        }
-      });
-
-      if (existingAlert) {
-        console.log(`🚨 ✅ Alert already exists for message ${messageId} - found alert ID: ${existingAlert.$id}`);
-        return true;
-      } else {
-        console.log(`🚨 ❌ No existing alert found for message ${messageId}`);
-        return false;
-      }
-    } catch (error) {
-      console.error('🚨 Error checking existing alert:', error);
-      return false; // Assume no existing alert to be safe
+      console.error('Error processing message for alert:', error);
     }
   }
 
@@ -238,7 +145,7 @@ class MessageAlertService {
 
       return responses.documents.length > 0;
     } catch (error) {
-      console.error('🚨 Error checking provider response:', error);
+      console.error('Error checking provider response:', error);
       return false; // Assume no response to be safe
     }
   }
@@ -260,45 +167,31 @@ class MessageAlertService {
         conversationId
       );
 
-      // Get customer details - try customers collection first, then User collection
+      // Get customer name
       let customerName = 'Unknown Customer';
       try {
-        // Try customers collection first
         const customerResponse = await databases.listDocuments(
           DATABASE_ID,
-          COLLECTIONS.CUSTOMERS,
+          'customers',
           [Query.equal('user_id', conversation.customer_id), Query.limit(1)]
         );
         
         if (customerResponse.documents.length > 0) {
           const customer = customerResponse.documents[0];
           customerName = customer.full_name || customer.name || 'Customer';
-        } else {
-          // Fallback to User collection
-          const userResponse = await databases.listDocuments(
-            DATABASE_ID,
-            'User', // Note: Using 'User' (capital U) as seen in your codebase
-            [Query.equal('user_id', conversation.customer_id), Query.limit(1)]
-          );
-          
-          if (userResponse.documents.length > 0) {
-            const user = userResponse.documents[0];
-            customerName = user.name || user.email || 'Customer';
-          }
         }
       } catch (error) {
-        console.error('🚨 Error fetching customer details:', error);
+        console.error('Error fetching customer details:', error);
       }
 
-      // Get provider details - simple phone lookup
+      // Get provider details
       let providerName = 'Unknown Provider';
       let providerPhone = '';
       
       try {
-        // Get business setup for business name and phone
         const businessResponse = await databases.listDocuments(
           DATABASE_ID,
-          COLLECTIONS.BUSINESS_SETUP,
+          'business_setup',
           [Query.equal('user_id', conversation.provider_id), Query.limit(1)]
         );
         
@@ -308,26 +201,8 @@ class MessageAlertService {
           providerName = onboardingData.businessInfo?.businessName || 'Provider';
           providerPhone = onboardingData.personalDetails?.mobile || '';
         }
-        
-        // Fallback to User collection if no phone found
-        if (!providerPhone) {
-          const userResponse = await databases.listDocuments(
-            DATABASE_ID,
-            'User',
-            [Query.equal('user_id', conversation.provider_id), Query.limit(1)]
-          );
-          
-          if (userResponse.documents.length > 0) {
-            const user = userResponse.documents[0];
-            providerPhone = user.phone || '';
-            if (!providerName || providerName === 'Provider') {
-              providerName = user.name || 'Provider';
-            }
-          }
-        }
-        
       } catch (error) {
-        console.error('🚨 Error fetching provider details:', error);
+        console.error('Error fetching provider details:', error);
       }
 
       return {
@@ -338,248 +213,116 @@ class MessageAlertService {
       };
 
     } catch (error) {
-      console.error('🚨 Error getting conversation details:', error);
+      console.error('Error getting conversation details:', error);
       return null;
     }
   }
 
   /**
-   * Create a new message alert
+   * Send push notification to admin - simple direct approach
    */
-  private async createAlert(data: {
-    conversationId: string;
-    messageId: string;
-    customerId: string;
-    customerName: string;
-    providerId: string;
-    providerName: string;
-    providerPhone?: string;
-    message: string;
-    messageAt: string;
-  }): Promise<void> {
+  private async sendAdminPushNotification(data: SimpleMessageData): Promise<void> {
     try {
       const now = new Date().toISOString();
 
-      // Create notification using existing notifications system instead of separate message_alerts collection
-      const result = await notificationService.createNotification({
-        type: 'message',
-        category: 'chat',
-        priority: 'urgent',
-        title: `Unresponded Customer Message`,
-        message: `${data.customerName} → ${data.providerName}: "${data.message.substring(0, 100)}${data.message.length > 100 ? '...' : ''}"`,
-        userId: 'admin_alerts', // Special user ID for admin alerts - will be visible to all admins
-        userType: 'admin',
-        relatedId: data.conversationId,
-        relatedType: 'conversation',
-        senderId: data.customerId,
-        senderName: data.customerName,
-        messagePreview: data.message,
-        metadata: {
-          messageId: data.messageId,
-          customerId: data.customerId,
-          providerId: data.providerId,
-          providerName: data.providerName,
-          providerPhone: data.providerPhone || 'No Phone',
-          messageAt: data.messageAt,
-          alertType: 'unresponded_message',
-          alertedAt: now
-        }
+      // Send push notification directly to admin
+      const response = await fetch('/api/fcm/send-notification', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: 'admin_alerts', // Special admin user ID
+          userType: 'admin',
+          title: 'Unresponded Customer Message',
+          body: `${data.customerName} → ${data.providerName}: "${data.message.substring(0, 80)}${data.message.length > 80 ? '...' : ''}"`,
+          data: {
+            type: 'message',
+            category: 'chat',
+            messageId: data.messageId,
+            conversationId: data.conversationId,
+            customerId: data.customerId,
+            providerId: data.providerId,
+            timestamp: now
+          },
+          action: {
+            type: 'message',
+            id: data.conversationId
+          },
+          priority: 'high'
+        }),
       });
 
-      if (result.success) {
-        console.log(`🚨 ✅ Created alert notification: Customer ${data.customerName} → Provider ${data.providerName}`);
-
-        // Notify admin with desktop notification
-        this.notifyAdmin({
-          title: 'Unresponded Customer Message!',
-          body: `${data.customerName} → ${data.providerName}: "${data.message.substring(0, 50)}..."`
-        });
-
-        // Notify subscribers (real-time dashboard updates)
-        this.notifySubscribers();
+      if (response.ok) {
+        const result = await response.json();
+        console.log(`Push notification sent to admin: ${result.successCount || 0} delivered`);
       } else {
-        console.error('🚨 Failed to create alert notification:', result.error);
+        const error = await response.json();
+        console.error(`Push notification failed:`, error);
       }
 
     } catch (error) {
-      console.error('🚨 Error creating alert:', error);
+      console.error('Error sending admin push notification:', error);
     }
   }
 
   /**
-   * Get all active alerts for admin dashboard
+   * Get count of messages that need admin attention (for dashboard stats)
    */
-  async getActiveAlerts(): Promise<{ success: boolean; alerts?: MessageAlert[]; error?: string }> {
+  async getUnrespondedMessagesCount(): Promise<number> {
     try {
-      // Fetch admin notifications that are message alerts
-      const alerts = await databases.listDocuments(
+      const cutoffTime = new Date(Date.now() - (this.ALERT_THRESHOLD_MINUTES * 60 * 1000)).toISOString();
+      
+      const messages = await databases.listDocuments(
         DATABASE_ID,
-        'notifications',
+        'messages',
         [
-          Query.equal('user_id', 'admin_alerts'), // Special admin alerts user ID
-          Query.equal('user_type', 'admin'),
-          Query.equal('type', 'message'),
-          Query.equal('category', 'chat'),
-          Query.orderDesc('created_at'),
-          Query.limit(50)
+          Query.equal('sender_type', 'customer'),
+          Query.lessThan('created_at', cutoffTime),
+          Query.limit(100)
         ]
       );
 
-      // Filter and convert notifications to MessageAlert format
-      const messageAlerts: MessageAlert[] = alerts.documents
-        .filter(doc => {
-          try {
-            const metadata = JSON.parse(doc.metadata || '{}');
-            return metadata.alertType === 'unresponded_message';
-          } catch {
-            return false;
-          }
-        })
-        .map(doc => {
-          const metadata = JSON.parse(doc.metadata || '{}');
-          return {
-            id: doc.$id,
-            conversationId: doc.related_id || '',
-            messageId: metadata.messageId || '',
-            customerId: metadata.customerId || '',
-            customerName: doc.sender_name || 'Unknown Customer',
-            providerId: metadata.providerId || '',
-            providerName: metadata.providerName || 'Unknown Provider',
-            providerPhone: metadata.providerPhone || '',
-            message: doc.message_preview || doc.message || '',
-            messageAt: metadata.messageAt || doc.created_at,
-            alertedAt: metadata.alertedAt || doc.created_at,
-            resolvedAt: undefined, // Not implemented yet
-            resolvedBy: undefined, // Not implemented yet
-            status: doc.read ? 'resolved' : 'active',
-            createdAt: doc.created_at,
-            updatedAt: doc.updated_at || doc.created_at
-          };
-        });
-
-      return { success: true, alerts: messageAlerts };
-
-    } catch (error) {
-      console.error('🚨 Error getting active alerts:', error);
-      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
-    }
-  }
-
-  /**
-   * Mark alert as resolved by admin
-   */
-  async resolveAlert(alertId: string, adminId: string): Promise<{ success: boolean; error?: string }> {
-    try {
-      // Mark notification as read to resolve the alert
-      await databases.updateDocument(
-        DATABASE_ID,
-        'notifications',
-        alertId,
-        {
-          read: true,
-          updated_at: new Date().toISOString()
+      let unrespondedCount = 0;
+      
+      for (const message of messages.documents) {
+        const hasResponse = await this.checkProviderResponse(
+          message.conversation_id, 
+          message.created_at
+        );
+        
+        if (!hasResponse) {
+          unrespondedCount++;
         }
-      );
+      }
 
-      console.log(`🚨 ✅ Alert resolved by admin: ${alertId}`);
-
-      // Notify subscribers of the update
-      this.notifySubscribers();
-
-      return { success: true };
-
+      return unrespondedCount;
     } catch (error) {
-      console.error('🚨 Error resolving alert:', error);
-      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+      console.error('Error getting unresponded messages count:', error);
+      return 0;
     }
   }
 
   /**
-   * Subscribe to real-time alert updates
+   * 🧪 TEST FUNCTION: Send test admin notification immediately
+   * Use this to test if admin push notifications are working
    */
-  subscribeToAlerts(callback: (alerts: MessageAlert[]) => void): () => void {
-    const subscriptionId = `alerts_${Date.now()}_${Math.random()}`;
-    this.subscribers.set(subscriptionId, callback);
-
-    // Send current alerts immediately
-    this.getActiveAlerts().then(result => {
-      if (result.success && result.alerts) {
-        callback(result.alerts);
-      }
+  async sendTestAdminNotification(): Promise<void> {
+    console.log('🧪 Sending TEST admin notification...');
+    
+    await this.sendAdminPushNotification({
+      messageId: 'test_message_' + Date.now(),
+      conversationId: 'test_conversation',
+      customerId: 'test_customer',
+      customerName: 'Test Customer',
+      providerId: 'test_provider',
+      providerName: 'Test Provider',
+      providerPhone: '+1234567890',
+      message: 'This is a test message to check if admin push notifications are working!',
+      sentAt: new Date().toISOString()
     });
-
-    // Return unsubscribe function
-    return () => {
-      this.subscribers.delete(subscriptionId);
-    };
-  }
-
-  /**
-   * Notify all subscribers of alert changes
-   */
-  private async notifySubscribers(): Promise<void> {
-    if (this.subscribers.size === 0) return;
-
-    const result = await this.getActiveAlerts();
-    if (result.success && result.alerts) {
-      this.subscribers.forEach(callback => {
-        try {
-          callback(result.alerts!);
-        } catch (error) {
-          console.error('🚨 Error notifying subscriber:', error);
-        }
-      });
-    }
-  }
-
-  /**
-   * Send desktop notification to admin
-   */
-  private notifyAdmin(notification: { title: string; body: string }): void {
-    // Desktop notification (if permission granted)
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      if (Notification.permission === 'granted') {
-        new Notification(notification.title, {
-          body: notification.body,
-          icon: '/favicon.ico',
-          tag: 'message-alert' // Prevent duplicate notifications
-        });
-      } else if (Notification.permission === 'default') {
-        // Request permission for future notifications
-        Notification.requestPermission();
-      }
-    }
-
-    // Audio alert (optional)
-    this.playAlertSound();
-  }
-
-  /**
-   * Play alert sound
-   */
-  private playAlertSound(): void {
-    if (typeof window !== 'undefined') {
-      try {
-        // Create a simple beep sound
-        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-        
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        
-        oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
-        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-        
-        oscillator.start(audioContext.currentTime);
-        oscillator.stop(audioContext.currentTime + 0.5);
-      } catch (error) {
-        console.log('🚨 Could not play alert sound:', error);
-      }
-    }
   }
 }
 
 // Export singleton instance
-export const messageAlertService = new MessageAlertService();
+export const simpleMessageAlertService = new SimpleMessageAlertService();
