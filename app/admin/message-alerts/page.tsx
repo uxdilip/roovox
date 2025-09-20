@@ -44,6 +44,12 @@ export default function MessageAlertsPage() {
   const allNotifications = [...chatNotifications, ...businessNotifications];
   
   const filteredNotifications = allNotifications.filter(notification => {
+    // Filter out test notifications
+    const isTestNotification = 
+      notification.senderName?.toLowerCase().includes('test') ||
+      notification.messagePreview?.toLowerCase().includes('test message to check if the alert system works') ||
+      notification.message?.toLowerCase().includes('test message to check if the alert system works');
+    
     const matchesSearch = notification.senderName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          notification.messagePreview?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          notification.message?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -55,7 +61,7 @@ export default function MessageAlertsPage() {
     const matchesCategory = selectedCategory === 'all' || 
                            notification.category === selectedCategory;
     
-    return matchesSearch && matchesFilter && matchesCategory;
+    return !isTestNotification && matchesSearch && matchesFilter && matchesCategory;
   });
 
   const handleNotificationClick = async (notificationId: string) => {
