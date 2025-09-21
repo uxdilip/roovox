@@ -2,6 +2,32 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Performance optimizations */
+@media (max-width: 768px) {
+  * {
+    /* Reduce GPU usage on mobile */
+    will-change: auto !important;
+  }
+  
+  /* Disable expensive animations on mobile */
+  .animate-aurora {
+    animation: none !important;
+  }
+}
+
+/* Respect user's motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  
+  .animate-aurora {
+    animation: none !important;
+  }
+}
+
 /* Custom Font Declarations */
 @font-face {
   font-family: 'Chillax';
