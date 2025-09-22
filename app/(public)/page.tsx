@@ -183,8 +183,8 @@ export default function HomePage() {
           initial={{ opacity: 0.0, y: 40 }}
           whileInView={{ opacity: 1, y: 0 }}
           transition={{
-            delay: 0.3,
-            duration: 0.8,
+            delay: 0,
+            duration: 0.6,
             ease: "easeInOut",
           }}
           className="relative flex flex-col gap-4 lg:gap-6 items-center justify-center px-4 lg:px-6 text-center max-w-6xl mx-auto"
@@ -194,8 +194,8 @@ export default function HomePage() {
             initial={{ opacity: 0, scale: 0.5 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{
-              delay: 0.5,
-              duration: 0.6,
+              delay: 0,
+              duration: 0.4,
               ease: "easeOut",
             }}
           >
@@ -209,8 +209,8 @@ export default function HomePage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{
-              delay: 0.8,
-              duration: 0.8,
+              delay: 0.1,
+              duration: 0.6,
               ease: "easeOut",
             }}
             className="space-y-2 lg:space-y-4"
@@ -228,8 +228,8 @@ export default function HomePage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{
-              delay: 1.1,
-              duration: 0.8,
+              delay: 0.15,
+              duration: 0.6,
               ease: "easeOut",
             }}
             className="text-sm sm:text-base md:text-lg lg:text-xl xl:text-2xl text-slate-600 max-w-4xl mx-auto leading-relaxed font-light px-2 sm:px-4"
@@ -242,8 +242,8 @@ export default function HomePage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{
-              delay: 1.4,
-              duration: 0.8,
+              delay: 0.2,
+              duration: 0.5,
               ease: "easeOut",
             }}
             className="flex flex-col sm:flex-row gap-3 lg:gap-4 justify-center items-center mt-6 lg:mt-8 w-full max-w-md sm:max-w-none"
@@ -251,12 +251,13 @@ export default function HomePage() {
             <Button 
               size="lg" 
               asChild 
-              className="group relative text-sm sm:text-base lg:text-lg px-6 sm:px-8 py-3 sm:py-4 bg-slate-900 hover:bg-slate-800 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 border-0 w-full sm:w-auto"
+              className="group relative text-sm sm:text-base lg:text-lg px-6 sm:px-8 py-3 sm:py-4 bg-slate-900 hover:bg-slate-800 text-white shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 border-0 w-full sm:w-auto pointer-events-auto"
+              style={{ animationFillMode: 'forwards' }}
             >
               <Link href="/book">
                 <span className="flex items-center justify-center">
                   Book Repair Now 
-                  <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5 group-hover:translate-x-1 transition-transform duration-300" />
+                  <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5 group-hover:translate-x-1 transition-transform duration-200" />
                 </span>
               </Link>
             </Button>
@@ -265,7 +266,8 @@ export default function HomePage() {
               size="lg" 
               variant="outline" 
               asChild 
-              className="group text-sm sm:text-base lg:text-lg px-6 sm:px-8 py-3 sm:py-4 border-2 border-slate-300 hover:border-slate-400 bg-white/80 backdrop-blur-sm hover:bg-white text-slate-700 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl w-full sm:w-auto"
+              className="group text-sm sm:text-base lg:text-lg px-6 sm:px-8 py-3 sm:py-4 border-2 border-slate-300 hover:border-slate-400 bg-white/80 backdrop-blur-sm hover:bg-white text-slate-700 transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl w-full sm:w-auto pointer-events-auto"
+              style={{ animationFillMode: 'forwards' }}
             >
               <a href="#how-it-works" className="scroll-smooth flex items-center justify-center">
                 How It Works
