@@ -2,25 +2,48 @@
 
 import React, { useState } from 'react';
 import { MessageNotificationEnvelope } from '@/components/ui/message-notification-envelope';
-import { useNotifications } from '@/hooks/use-notifications';
+import { useAdminNotifications } from '@/hooks/use-admin-notifications';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Mail, Search, Filter, MessageSquare, Clock, User } from 'lucide-react';
+import { Mail, Search, Filter, MessageSquare, Clock, User, TestTube } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { ChatModal } from '@/components/admin/ChatModal';
+import { simpleMessageAlertService } from '@/lib/message-alert-service';
 
 export default function MessageAlertsPage() {
-  const { chatNotifications, chatUnreadCount, businessNotifications, businessUnreadCount, markAsRead, markAllAsRead, loading } = useNotifications();
+  const { chatNotifications, chatUnreadCount, businessNotifications, businessUnreadCount, markAsRead, markAllAsRead, loading } = useAdminNotifications();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  
+  // Chat modal state
+  const [chatModal, setChatModal] = useState<{
+    isOpen: boolean;
+    conversationId: string;
+    customerName: string;
+    providerName: string;
+  }>({
+    isOpen: false,
+    conversationId: '',
+    customerName: '',
+    providerName: ''
+  });
+
+  // Note: Simple message alert monitoring is handled in admin layout
 
   // Combine and filter notifications
   const allNotifications = [...chatNotifications, ...businessNotifications];
   
   const filteredNotifications = allNotifications.filter(notification => {
+    // Filter out test notifications
+    const isTestNotification = 
+      notification.senderName?.toLowerCase().includes('test') ||
+      notification.messagePreview?.toLowerCase().includes('test message to check if the alert system works') ||
+      notification.message?.toLowerCase().includes('test message to check if the alert system works');
+    
     const matchesSearch = notification.senderName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          notification.messagePreview?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          notification.message?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -32,7 +55,7 @@ export default function MessageAlertsPage() {
     const matchesCategory = selectedCategory === 'all' || 
                            notification.category === selectedCategory;
     
-    return matchesSearch && matchesFilter && matchesCategory;
+    return !isTestNotification && matchesSearch && matchesFilter && matchesCategory;
   });
 
   const handleNotificationClick = async (notificationId: string) => {
@@ -40,7 +63,36 @@ export default function MessageAlertsPage() {
     // Here you could also navigate to the specific chat or booking
   };
 
+  const handleViewChat = (conversationId: string, customerName: string, providerName: string) => {
+    setChatModal({
+      isOpen: true,
+      conversationId,
+      customerName,
+      providerName
+    });
+  };
+
+  const closeChatModal = () => {
+    setChatModal({
+      isOpen: false,
+      conversationId: '',
+      customerName: '',
+      providerName: ''
+    });
+  };
+
   const totalUnread = chatUnreadCount + businessUnreadCount;
+
+  // Test function for admin notifications (keep for debugging)
+  const handleTestNotification = async () => {
+    try {
+      console.log('🧪 Testing admin push notification...');
+      await simpleMessageAlertService.sendTestAdminNotification();
+      console.log('🧪 Test notification sent! Check your browser/device for push notification.');
+    } catch (error) {
+      console.error('🧪 Error sending test notification:', error);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -53,13 +105,24 @@ export default function MessageAlertsPage() {
           </p>
         </div>
         
-        <div className="flex items-center gap-4">
+                <div className="flex items-center gap-4">
           <MessageNotificationEnvelope />
           {totalUnread > 0 && (
             <Button onClick={() => markAllAsRead()} variant="outline" size="sm">
               Mark all as read ({totalUnread})
             </Button>
           )}
+          {/* Keep test button for debugging - can be removed later */}
+          <Button 
+            onClick={handleTestNotification} 
+            variant="secondary" 
+            size="sm" 
+            className="bg-purple-100 hover:bg-purple-200 text-purple-700"
+            title="Test if push notifications are working (for debugging)"
+          >
+            <TestTube className="w-4 h-4 mr-2" />
+            Test Notification
+          </Button>
         </div>
       </div>
 
@@ -189,61 +252,123 @@ export default function MessageAlertsPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {filteredNotifications.map((notification) => (
-                <div
-                  key={notification.id}
-                  className={`p-4 border rounded-lg cursor-pointer transition-colors hover:bg-muted/50 ${
-                    !notification.read ? 'bg-green-50 border-green-200' : 'bg-background'
-                  }`}
-                  onClick={() => handleNotificationClick(notification.id)}
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-3">
-                      <div className={`p-2 rounded-full ${
-                        notification.category === 'chat' ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600'
-                      }`}>
-                        {notification.category === 'chat' ? (
-                          <MessageSquare className="h-4 w-4" />
-                        ) : (
-                          <User className="h-4 w-4" />
-                        )}
-                      </div>
-                      
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-medium">
-                            {notification.senderName || 'Unknown Sender'}
-                          </h3>
-                          <Badge variant={notification.category === 'chat' ? 'default' : 'secondary'}>
-                            {notification.category}
-                          </Badge>
-                          {!notification.read && (
-                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              {filteredNotifications.map((notification) => {
+                // Parse metadata to get additional details like provider info
+                let metadata: any = {};
+                try {
+                  // Handle both string and object metadata
+                  if (typeof notification.metadata === 'string') {
+                    metadata = JSON.parse(notification.metadata);
+                  } else if (typeof notification.metadata === 'object' && notification.metadata !== null) {
+                    metadata = notification.metadata;
+                  } else {
+                    metadata = {};
+                  }
+                } catch (e) {
+                  console.error('🔍 [DEBUG] Failed to parse metadata:', notification.metadata);
+                  metadata = {};
+                }
+
+                // Debug: Log notification data to console
+                console.log('🔍 [DEBUG] Notification data:', {
+                  id: notification.id,
+                  senderName: notification.senderName,
+                  metadata: metadata,
+                  metadataRaw: notification.metadata,
+                  metadataType: typeof notification.metadata,
+                  category: notification.category,
+                  providerName: metadata.providerName,
+                  providerPhone: metadata.providerPhone
+                });
+
+                return (
+                  <div
+                    key={notification.id}
+                    className={`p-4 border rounded-lg transition-colors ${
+                      !notification.read ? 'bg-green-50 border-green-200' : 'bg-background'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-start gap-3 flex-1">
+                        <div className={`p-2 rounded-full ${
+                          notification.category === 'chat' ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600'
+                        }`}>
+                          {notification.category === 'chat' ? (
+                            <MessageSquare className="h-4 w-4" />
+                          ) : (
+                            <User className="h-4 w-4" />
                           )}
                         </div>
                         
-                        <p className="text-sm text-muted-foreground mb-2">
-                          {notification.messagePreview || notification.message || 'No message preview'}
-                        </p>
-                        
-                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                          <div className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            {formatDistanceToNow(new Date(notification.lastMessageAt || notification.createdAt), { addSuffix: true })}
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="font-medium">
+                              {notification.senderName || 'Unknown Sender'}
+                              {metadata.providerName && (
+                                <span className="text-muted-foreground"> → {metadata.providerName}</span>
+                              )}
+                            </h3>
+                            <Badge variant={notification.category === 'chat' ? 'default' : 'secondary'}>
+                              {notification.category}
+                            </Badge>
+                            {!notification.read && (
+                              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                            )}
                           </div>
-                          {notification.type && (
-                            <span className="capitalize">{notification.type}</span>
-                          )}
+                          
+                          <p className="text-sm text-muted-foreground mb-2">
+                            {notification.messagePreview || notification.message || 'No message preview'}
+                          </p>
+                          
+                          <div className="flex items-center gap-4 text-xs text-muted-foreground mb-3">
+                            <div className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {formatDistanceToNow(new Date(notification.lastMessageAt || notification.createdAt), { addSuffix: true })}
+                            </div>
+                            {notification.type && (
+                              <span className="capitalize">{notification.type}</span>
+                            )}
+                          </div>
+
+                          {/* View Chat Button */}
+                          <div className="flex gap-2 mt-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-purple-600 border-purple-200 hover:bg-purple-50"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleViewChat(
+                                  notification.relatedId, 
+                                  notification.senderName || 'Customer',
+                                  metadata.providerName || 'Provider'
+                                );
+                              }}
+                              title={`View conversation ${notification.relatedId}`}
+                            >
+                              💬 View Chat
+                            </Button>
+                          </div>
+
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Chat Modal */}
+      <ChatModal
+        isOpen={chatModal.isOpen}
+        onClose={closeChatModal}
+        conversationId={chatModal.conversationId}
+        customerName={chatModal.customerName}
+        providerName={chatModal.providerName}
+      />
     </div>
   );
 }

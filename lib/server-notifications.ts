@@ -27,7 +27,7 @@ class ServerNotificationService {
     options?: { skipIfActiveChat?: boolean }
   ): Promise<{ success: boolean; notification?: any; error?: string; fcmSent?: boolean }> {
     try {
-      console.log(`🔔 [SERVER] Creating ${data.type} notification for ${data.userType} ${data.userId}`);
+      console.log(`Creating ${data.type} notification for ${data.userType} ${data.userId}`);
 
       const notificationData = {
         type: data.type,
@@ -57,7 +57,7 @@ class ServerNotificationService {
         notificationData
       );
 
-      console.log(`✅ [SERVER] Notification created: ${result.$id}`);
+      console.log(`Notification created: ${result.$id}`);
 
       // Send FCM push notification asynchronously
       const fcmPromise = this.sendPushNotificationAsync(data);
@@ -89,7 +89,7 @@ class ServerNotificationService {
       // Don't await this - run it asynchronously
       setTimeout(async () => {
         try {
-          console.log(`🔔 [SERVER] Sending push notification for ${data.type} to ${data.userType} ${data.userId}`);
+          console.log(`Sending push notification for ${data.type} to ${data.userType} ${data.userId}`);
           
           const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/fcm/send-notification`, {
             method: 'POST',
@@ -118,7 +118,7 @@ class ServerNotificationService {
 
           if (response.ok) {
             const result = await response.json();
-            console.log(`✅ [SERVER] Push notification sent: ${result.successCount} delivered`);
+            console.log(`Push notification sent: ${result.successCount} delivered`);
           } else {
             const error = await response.json();
             console.error(`❌ [SERVER] Push notification failed:`, error);
