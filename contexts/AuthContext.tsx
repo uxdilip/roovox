@@ -4,7 +4,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { account, databases, DATABASE_ID, COLLECTIONS } from '@/lib/appwrite';
 import { ID } from 'appwrite';
 import { User } from '@/types';
-import { createUserDocument, getUserByUserId, getCustomerByUserId, getProviderByUserId } from '@/lib/appwrite-services';
+import { createUserDocument, getUserByUserId, getCustomerByUserId, getProviderByUserId, updateUserActiveRole, addProviderRoleToUser } from '@/lib/appwrite-services';
 import { PHONE_AUTH_ENABLED } from '@/lib/auth-config';
 import { detectUserRoles, getRedirectPath, getCrossRoleMessage } from '@/lib/role-detection';
 import { useRouter } from 'next/navigation';
