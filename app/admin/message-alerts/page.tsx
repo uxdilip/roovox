@@ -338,11 +338,13 @@ export default function MessageAlertsPage() {
                               className="text-purple-600 border-purple-200 hover:bg-purple-50"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleViewChat(
-                                  notification.relatedId, 
-                                  notification.senderName || 'Customer',
-                                  metadata.providerName || 'Provider'
-                                );
+                                if (notification.relatedId) {
+                                  handleViewChat(
+                                    notification.relatedId, 
+                                    notification.senderName || 'Customer',
+                                    metadata.providerName || 'Provider'
+                                  );
+                                }
                               }}
                               title={`View conversation ${notification.relatedId}`}
                             >
