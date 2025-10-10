@@ -15,6 +15,7 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp
 import { Clock, RefreshCw } from 'lucide-react';
 import { account, databases, DATABASE_ID, COLLECTIONS } from '@/lib/appwrite';
 import { createGoogleOAuthSession, GOOGLE_OAUTH_ENABLED, getOAuthUrls } from '@/lib/appwrite';
+import { PHONE_AUTH_ENABLED, getAuthStatusMessage } from '@/lib/auth-config';
 
 interface LoginModalProps {
   open: boolean;
@@ -35,6 +36,16 @@ export default function LoginModal({ open, onOpenChange, returnUrl }: LoginModal
 
   const { user, loginWithPhoneOtp, canRequestOtp } = useAuth();
   const router = useRouter();
+
+  // Check if phone auth is disabled and show message
+  useEffect(() => {
+    if (open && !PHONE_AUTH_ENABLED) {
+      const authMessage = getAuthStatusMessage();
+      if (authMessage) {
+        setError(authMessage);
+      }
+    }
+  }, [open]);
 
   // OTP Timer effect
   useEffect(() => {
@@ -86,6 +97,12 @@ export default function LoginModal({ open, onOpenChange, returnUrl }: LoginModal
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    
+    // Check if phone auth is disabled
+    if (!PHONE_AUTH_ENABLED) {
+      setError('Phone authentication is temporarily disabled. Please use Google sign-in.');
+      return;
+    }
     
     const phonePattern = /^[6-9]\d{9}$/;
     if (!phonePattern.test(phone)) {
@@ -232,10 +249,12 @@ export default function LoginModal({ open, onOpenChange, returnUrl }: LoginModal
             <div className="w-full md:w-1/2 p-8 flex flex-col justify-center">
               <Card className="shadow-none border-0 bg-transparent">
                 <CardHeader className="mb-4 p-0">
-                  <CardTitle className="text-2xl font-bold mb-2">Login/Signup</CardTitle>
+                  <CardTitle className="text-2xl font-bold mb-2">
+                    {PHONE_AUTH_ENABLED ? 'Login/Signup' : 'Sign in with Google'}
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
-                  {step === 'phone' ? (
+                  {PHONE_AUTH_ENABLED && step === 'phone' ? (
                     <form onSubmit={handleSendOtp} className="space-y-6">
                       {error && (
                         <Alert variant="destructive">
@@ -282,7 +301,7 @@ export default function LoginModal({ open, onOpenChange, returnUrl }: LoginModal
                         {loading ? 'Sending OTP...' : 'Continue'}
                       </Button>
                     </form>
-                  ) : (
+                  ) : PHONE_AUTH_ENABLED && step === 'otp' ? (
                     <form onSubmit={handleVerifyOtp} className="space-y-6">
                       {error && (
                         <Alert variant="destructive">
@@ -330,15 +349,36 @@ export default function LoginModal({ open, onOpenChange, returnUrl }: LoginModal
                         Back to Phone Number
                       </Button>
                     </form>
+                  ) : !PHONE_AUTH_ENABLED ? (
+                    // Show message when phone auth is disabled
+                    <Alert>
+                      <AlertDescription>
+                        {getAuthStatusMessage() || 'Phone authentication is temporarily unavailable.'}
+                      </AlertDescription>
+                    </Alert>
+                  ) : null}
+                  
+                  {PHONE_AUTH_ENABLED && (
+                    <div className="mt-6">
+                      <div className="relative">
+                        <div className="absolute inset-0 flex items-center">
+                          <span className="w-full border-t" />
+                        </div>
+                        <div className="relative flex justify-center text-xs uppercase">
+                          <span className="bg-background px-2 text-muted-foreground">or</span>
+                        </div>
+                      </div>
+                    </div>
                   )}
+                  
                   {GOOGLE_OAUTH_ENABLED && (
                     <Button
-                      variant="outline"
-                      className="w-full flex items-center justify-center gap-2 mt-4"
+                      variant={PHONE_AUTH_ENABLED ? "outline" : "default"}
+                      className={`w-full flex items-center justify-center gap-2 ${PHONE_AUTH_ENABLED ? 'mt-4' : ''}`}
                       onClick={handleGoogleSignIn}
                     >
                       <img src="/assets/brand-logos/google.png" alt="Google" className="w-5 h-5" />
-                      Continue with Google
+                      {PHONE_AUTH_ENABLED ? 'Continue with Google' : 'Sign in with Google'}
                     </Button>
                   )}
                 </CardContent>

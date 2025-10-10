@@ -11,6 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { detectUserRoles, getRedirectPath, getCrossRoleMessage } from '@/lib/role-detection';
 import { account } from '@/lib/appwrite';
 import { createGoogleOAuthSession, GOOGLE_OAUTH_ENABLED, getOAuthUrls } from '@/lib/appwrite';
+import { PHONE_AUTH_ENABLED, EMAIL_AUTH_ENABLED, getAuthStatusMessage } from '@/lib/auth-config';
 
 export default function ProviderLoginPage() {
   const [emailOrPhone, setEmailOrPhone] = useState('');
@@ -33,6 +34,12 @@ export default function ProviderLoginPage() {
       if (oauthError === 'oauth') {
         setError('Google sign-in failed. Please try using phone number or email instead.');
       }
+      
+      // Show message if phone auth is disabled
+      const authMessage = getAuthStatusMessage();
+      if (authMessage && !PHONE_AUTH_ENABLED) {
+        setError(authMessage);
+      }
     }
   }, []);
 
@@ -52,15 +59,32 @@ export default function ProviderLoginPage() {
     e.preventDefault();
     setError('');
     
+    // Check if phone/email auth is disabled
+    if (!PHONE_AUTH_ENABLED && !EMAIL_AUTH_ENABLED) {
+      setError('Phone and email authentication are temporarily disabled. Please use Google sign-in.');
+      return;
+    }
+    
     if (!emailOrPhone.trim()) {
       setError('Please enter your email or phone number');
       return;
     }
 
     if (isEmail) {
+      // Email flow - check if enabled
+      if (!EMAIL_AUTH_ENABLED) {
+        setError('Email authentication is temporarily disabled. Please use Google sign-in.');
+        return;
+      }
       // Email flow - go to password step
       setStep('password');
     } else {
+      // Phone flow - check if enabled
+      if (!PHONE_AUTH_ENABLED) {
+        setError('Phone authentication is temporarily disabled. Please use Google sign-in.');
+        return;
+      }
+      
       // Phone flow - validate and send OTP
       const phonePattern = /^[6-9]\d{9}$/;
       if (!phonePattern.test(emailOrPhone)) {
@@ -212,7 +236,12 @@ export default function ProviderLoginPage() {
                 <Wrench className="h-4 w-4 text-green-600" />
               </div>
               <p className="text-sm text-gray-500 mb-2">Welcome to Sniket</p>
-              <h2 className="text-lg font-bold text-gray-900 mb-4">Sign in to your provider account</h2>
+              <h2 className="text-lg font-bold text-gray-900 mb-4">
+                {PHONE_AUTH_ENABLED || EMAIL_AUTH_ENABLED 
+                  ? 'Sign in to your provider account'
+                  : 'Sign in with Google to continue'
+                }
+              </h2>
             </div>
 
             {error && (
@@ -221,7 +250,7 @@ export default function ProviderLoginPage() {
               </Alert>
             )}
 
-            {step === 'input' && (
+            {(PHONE_AUTH_ENABLED || EMAIL_AUTH_ENABLED) && step === 'input' && (
               <form onSubmit={handleContinue} className="space-y-6">
                 <div>
                   <div className="relative">
@@ -255,7 +284,7 @@ export default function ProviderLoginPage() {
               </form>
             )}
 
-            {step === 'otp' && (
+            {(PHONE_AUTH_ENABLED || EMAIL_AUTH_ENABLED) && step === 'otp' && (
               <form onSubmit={handleVerifyOtp} className="space-y-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -292,7 +321,7 @@ export default function ProviderLoginPage() {
               </form>
             )}
 
-            {step === 'password' && (
+            {(PHONE_AUTH_ENABLED || EMAIL_AUTH_ENABLED) && step === 'password' && (
               <form onSubmit={handleEmailLogin} className="space-y-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -328,27 +357,36 @@ export default function ProviderLoginPage() {
               </form>
             )}
 
-            <div className="mt-8">
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-white px-2 text-gray-500">or</span>
+            {(PHONE_AUTH_ENABLED || EMAIL_AUTH_ENABLED) && (
+              <div className="mt-8">
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-white px-2 text-gray-500">or</span>
+                  </div>
                 </div>
               </div>
+            )}
 
+            <div className={PHONE_AUTH_ENABLED || EMAIL_AUTH_ENABLED ? "mt-4" : ""}>
               {GOOGLE_OAUTH_ENABLED ? (
                 <Button
-                  variant="outline"
-                  className="w-full h-10 mt-4 flex items-center justify-center gap-3 text-sm"
+                  variant={PHONE_AUTH_ENABLED || EMAIL_AUTH_ENABLED ? "outline" : "default"}
+                  className={`w-full flex items-center justify-center gap-3 ${
+                    PHONE_AUTH_ENABLED || EMAIL_AUTH_ENABLED ? "h-10 text-sm" : "h-12 text-base"
+                  }`}
                   onClick={handleGoogleSignIn}
                 >
-                  <img src="/assets/brand-logos/google.png" alt="Google" className="w-4 h-4" />
-                  Continue with Google
+                  <img src="/assets/brand-logos/google.png" alt="Google" className="w-5 h-5" />
+                  {PHONE_AUTH_ENABLED || EMAIL_AUTH_ENABLED 
+                    ? "Continue with Google" 
+                    : "Sign in with Google"
+                  }
                 </Button>
               ) : (
-                <div className="mt-4 text-center">
+                <div className="text-center">
                   <p className="text-sm text-gray-500">
                     Google sign-in is currently unavailable
                   </p>
